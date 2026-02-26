@@ -1,0 +1,43 @@
+# Build stage
+FROM node:20-alpine AS builder
+
+# Enable corepack for pnpm support
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Copy package files & lockfile
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Copy source files and configuration
+COPY . .
+
+# Build the application (Vite automatically uses production mode)
+RUN pnpm run build
+
+# Production stage
+FROM nginx:1.25-alpine
+
+# Remove default nginx config
+RUN rm -rf /etc/nginx/conf.d/*
+
+WORKDIR /usr/share/nginx/html
+
+# Copy built assets from builder stage
+COPY --from=builder /app/dist .
+
+# Copy nginx configuration for production
+COPY nginx/nginx.prod.conf /etc/nginx/nginx.conf
+
+# Create nginx cache directory
+RUN mkdir -p /var/cache/nginx
+
+EXPOSE 3333
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:3333/ || exit 1
+
+# Start Nginx
+CMD ["nginx", "-g", "daemon off;"]

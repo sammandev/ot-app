@@ -1,0 +1,126 @@
+-- Connect to database (remote)
+psql -h 172.18.220.56 -p 5432 -U ptb -d ptb_ot
+
+-- Connect to database (local)
+psql -U postgres -d mydatabase
+
+
+-- Create table
+DROP TABLE IF EXISTS projects;
+CREATE TABLE projects (
+    id INT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    is_enabled BOOLEAN DEFAULT true
+);
+
+-- Insert data row by row
+INSERT INTO projects (id, name, is_enabled) VALUES (1, '11AX', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (2, 'ATTILA', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (3, 'BARCA', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (4, 'F3896', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (5, 'Callix', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (6, 'F5290v2', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (7, 'F5295', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (8, 'F5297', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (9, 'F5380', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (10, 'F5681', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (11, 'F5685 MV3', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (12, 'F5688', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (13, 'F5688 EOLE v2', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (14, 'F5688 TMO', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (15, 'HH4K6E', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (16, 'HH5K', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (17, 'SUPERPOD', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (18, 'CGA4131', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (19, 'CGA4332', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (20, 'DGA4135', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (21, 'DGM4137', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (22, 'DGM4980', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (23, 'DNA0332', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (24, 'DWA4135', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (25, 'FGA2130', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (26, 'MGA5331', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (27, 'OWA813', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (28, 'XB8', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (29, 'PD160', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (30, 'M6', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (31, 'M7', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (32, 'RAX30', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (33, 'RAXE300', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (34, 'M3', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (35, 'F3897T', true);
+INSERT INTO projects (id, name, is_enabled) VALUES (36, 'Others', true);
+
+-- Verify data
+SELECT * FROM projects 
+
+
+
+-- Connect to PostgreSQL
+psql -U postgres -d your_database_name
+
+-- Create employee table
+DROP TABLE IF EXISTS employees;
+CREATE TABLE employees (
+    id INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    emp_id VARCHAR(20) NOT NULL,
+    is_enabled BOOLEAN DEFAULT true
+);
+
+-- Insert data
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (1, 'Apria Wati', 'MW2300234', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (2, 'Chris Easterjordan', 'MW2300225', false);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (3, 'Dennis Harnandi', 'MW2300285', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (4, 'Jeffry Jaman', 'MW2100721', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (5, 'Jeremy Christoputra', 'MW2202304', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (6, 'Laurence Hasan', 'MW2101784', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (7, 'Martin Vermilli', 'MW2201208', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (8, 'Michael Julianpete', 'MW2300226', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (9, 'Otniel Dwimarti', 'MW2202033', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (10, 'Tommy Pratama', 'MW2200166', false);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (11, 'Ivan Wijaya', 'MW2301584', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (12, 'Vincent Utama', 'MW2301652', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (13, 'Winnie1 Chuang', 'MW2301723', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (14, 'Jonathan Miharja', 'MW2400027', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (15, 'Muchammad Farel', 'MW2400310', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (16, 'Samuel Halomoan', 'MW2400549', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (17, 'Muhammad Arieb', 'MW2400895', true);
+INSERT INTO employees (id, name, emp_id, is_enabled) VALUES (18, 'Reynard Bastian', 'MW2401437', true);
+
+-- Verify data
+SELECT * FROM employees ORDER BY id::integer;
+
+
+
+#  OT REQUEST
+
+-- Drop existing table if it exists
+DROP TABLE IF EXISTS overtime_requests;
+
+CREATE TABLE overtime_requests (
+    id SERIAL PRIMARY KEY,
+    employee_id INT REFERENCES employees(id),
+    project_id INT REFERENCES projects(id),
+    request_date DATE NOT NULL,
+    time_start TIME NOT NULL,
+    time_end TIME NOT NULL,
+    total_hours NUMERIC(4,2) NOT NULL,
+    has_break BOOLEAN DEFAULT false,
+    break_start_time TIME,
+    break_end_time TIME, 
+    break_hours NUMERIC(4,2),
+    reason TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes
+CREATE INDEX idx_overtime_employee ON overtime_requests(employee_id);
+CREATE INDEX idx_overtime_project ON overtime_requests(project_id);
+CREATE INDEX idx_overtime_date ON overtime_requests(request_date);
+
+
+ALTER TABLE overtime_requests 
+ADD CONSTRAINT unique_employee_date 
+UNIQUE (employee_id, request_date);

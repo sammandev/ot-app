@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <style>
+    /* Default Light Mode Colors */
+    .primary { stroke: #465FFF; }
+    .secondary { fill: #465FFF; stroke: none; }
+    
+    /* Dark Mode Color Override */
+    @media (prefers-color-scheme: dark) {
+      .primary { stroke: #A3B4FF; }
+      .secondary { fill: #A3B4FF; }
+    }
+  </style>
+  
+  <rect x="5" y="5" width="10" height="10" rx="2.5" class="primary" />
+  <rect x="19" y="5" width="8" height="22" rx="2.5" class="primary" />
+  <rect x="5" y="19" width="10" height="8" rx="2.5" class="secondary" />
+</svg>

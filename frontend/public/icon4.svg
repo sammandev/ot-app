@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <style>
+    /* Two-tone color scheme for depth */
+    .block-primary { fill: #465FFF; }
+    .block-secondary { fill: #829BFF; }
+    
+    @media (prefers-color-scheme: dark) {
+      .block-primary { fill: #A3B4FF; }
+      .block-secondary { fill: #5A75E6; }
+    }
+  </style>
+
+  <rect x="1.5" y="2" width="13" height="9" rx="2" class="block-secondary" />
+  <rect x="1.5" y="15" width="13" height="15" rx="3" class="block-primary" />
+  
+  <rect x="17.5" y="2" width="13" height="16" rx="3" class="block-primary" />
+  <rect x="17.5" y="22" width="13" height="8" rx="2" class="block-secondary" />
+</svg>

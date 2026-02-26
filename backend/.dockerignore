@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+test_outputs/
+.ruff_cache/
+
+# Environment files (secrets — never bake into image)
+.env
+!.env.example
+
+# Documentation & plans (not needed at runtime)
+docs/
+plans/
+reference/
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Logs & temp data (should be volumes, not baked in)
+logs/
+*.log
+uploads/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CI/CD & tooling
+.github/
+Makefile
+
+# Development scripts (not needed at runtime)
+scripts/create_user.py
+scripts/bootstrap_rbac.py
+scripts/run_real_comparison.py
+
+# Deployment scripts (run on host, not inside container)
+deploy*.sh
+diagnose-bugs.sh
+QUICK_FIX.sh
+scripts.py
+
+# Data & generated files (should be mounted as volumes)
+json/
+generate_data/
+static/
+data/
+db.sqlite3
+test.db
+
+# Docker configs (don't need to copy themselves into the image)
+docker-compose*.yml
+Dockerfile*
+nginx/
+
+# Lock files & config not needed at runtime
+uv.lock
+pyproject.toml
+pytest.ini
+LICENSE

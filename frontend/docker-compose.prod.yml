@@ -1,0 +1,28 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: ptb-ot-frontend:production
+    container_name: ptb-ot-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "3333:3333"
+    networks:
+      - frontend-network
+    logging:
+      driver: "json-file"
+      options:
+        # Log rotation settings for frontend (nginx)
+        max-size: "20m"        # Maximum size of a single log file before rotation (20MB)
+        max-file: "5"         # Maximum number of log files to keep (5 files)
+        labels: "service=frontend-nginx"
+        # Optional: use this to compress old logs
+        # compress: "true"
+    labels:
+      - "com.ptb-ot.service=frontend"
+      - "com.ptb-ot.environment=production"
+
+networks:
+  frontend-network:
+    driver: bridge

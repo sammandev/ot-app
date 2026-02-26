@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-labelledby="title2">
+  <title id="title2">Layered squares</title>
+  <defs>
+    <linearGradient id="g2" x1="0" x2="1">
+      <stop offset="0" stop-color="#0ea5a4"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <rect x="2.5" y="2.5" width="27" height="27" rx="5.5" fill="#ffffff"/>
+  <rect x="4.5" y="4.5" width="23" height="23" rx="3" fill="url(#g2)" opacity="0.98"/>
+  <rect x="9.5" y="9.5" width="13" height="13" rx="3" fill="#ffffff" opacity="0.06"/>
+</svg>
