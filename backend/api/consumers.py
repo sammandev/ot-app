@@ -330,6 +330,9 @@ class NotificationConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketC
             notifications = await self.get_notifications()
             await self.send_json({"type": "notifications_list", "notifications": notifications})
 
+        elif message_type == "ping":
+            await self.send_json({"type": "pong"})
+
     async def notification_message(self, event):
         """Handle notification broadcast from server."""
         # Remove the 'type' key used by channels

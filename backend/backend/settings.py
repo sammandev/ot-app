@@ -523,8 +523,10 @@ SMB_POOL_SIZE = {
 # ============================================================================
 ASGI_APPLICATION = "backend.asgi.application"
 
-# Channel Layers - Use Redis for production, in-memory for development
-if os.environ.get("USE_REDIS_CHANNELS", "false").lower() == "true":
+# Channel Layers - Use Redis when available (required for reliable WebSocket delivery)
+# Auto-detect: USE_REDIS_CHANNELS=true OR CELERY_BROKER_URL contains "redis"
+_use_redis_channels = os.environ.get("USE_REDIS_CHANNELS", "").lower() == "true" or "redis" in CELERY_BROKER_URL
+if _use_redis_channels:
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",

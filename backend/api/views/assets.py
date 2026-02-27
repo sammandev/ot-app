@@ -228,7 +228,23 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
         if new_status not in ["pending", "done", "canceled"]:
             return Response({"detail": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch requests that will actually change status so we can notify
+        requests_to_update = list(PurchaseRequest.objects.filter(id__in=ids).exclude(status=new_status))
         updated_count = PurchaseRequest.objects.filter(id__in=ids).update(status=new_status)
+
+        # Send notifications for status changes to done/canceled
+        if new_status in ["done", "canceled"]:
+            from ..signals import notify_purchase_request_status_change
+
+            for pr in requests_to_update:
+                old_status = pr.status
+                pr.status = new_status  # Update in-memory for the notification
+                try:
+                    notify_purchase_request_status_change(pr, old_status, new_status)
+                except Exception:
+                    logger.warning("Failed to notify PR %s status change", pr.id, exc_info=True)
+
         return Response({"message": f"Successfully updated {updated_count} purchase requests to {new_status}", "updated": updated_count})
 
 

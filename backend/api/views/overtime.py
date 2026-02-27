@@ -415,15 +415,18 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
             # After commit: regenerate Excel files for affected dates
             # This ensures rejected requests are excluded from reports
             if updated_count > 0 and affected_dates:
-                try:
-                    from api.tasks import regenerate_excel_after_delete
+                def _queue_bulk_regen():
+                    try:
+                        from api.tasks import regenerate_excel_after_delete
 
-                    for d in affected_dates:
-                        d_str = d.isoformat() if hasattr(d, "isoformat") else str(d)
-                        regenerate_excel_after_delete.delay(d_str)
-                    logger.info("Queued Excel regeneration for %s affected dates after bulk status update", len(affected_dates))
-                except Exception as regen_err:
-                    logger.warning("Failed to queue Excel regeneration after bulk status update: %s", regen_err)
+                        for d in affected_dates:
+                            d_str = d.isoformat() if hasattr(d, "isoformat") else str(d)
+                            regenerate_excel_after_delete.delay(d_str)
+                        logger.info("Queued Excel regeneration for %s affected dates after bulk status update", len(affected_dates))
+                    except Exception as regen_err:
+                        logger.warning("Failed to queue Excel regeneration after bulk status update: %s", regen_err)
+
+                transaction.on_commit(_queue_bulk_regen)
 
             return Response({"message": f"{updated_count} requests updated successfully", "updated_count": updated_count, "status": new_status})
         except APIException:

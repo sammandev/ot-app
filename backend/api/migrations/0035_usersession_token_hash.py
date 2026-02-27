@@ -34,9 +34,14 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="usersession",
             name="token_hash",
-            field=models.CharField(db_index=True, default="", max_length=64, unique=True),
+            field=models.CharField(max_length=64, null=True),
         ),
         migrations.RunPython(populate_token_hashes, migrations.RunPython.noop),
+        migrations.AlterField(
+            model_name="usersession",
+            name="token_hash",
+            field=models.CharField(db_index=True, max_length=64, unique=True),
+        ),
         migrations.AlterField(
             model_name="overtimelimitconfig",
             name="recommended_monthly_hours",

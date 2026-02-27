@@ -94,8 +94,8 @@ export interface OvertimeLimitConfig {
 	id: number
 	max_weekly_hours: number
 	max_monthly_hours: number
-	recommended_weekly_hours: number
-	recommended_monthly_hours: number
+	advised_weekly_hours: number
+	advised_monthly_hours: number
 	is_active: boolean
 	created_at?: string
 	updated_at?: string

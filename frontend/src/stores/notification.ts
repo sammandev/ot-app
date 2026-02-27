@@ -96,6 +96,7 @@ export const useNotificationStore = defineStore('notification', () => {
 				time_ago: 'Just now',
 				recipient: useAuthStore().user?.id ?? 0,
 				event: notification.event_id ?? null,
+				event_type: notification.event_type,
 				computed_event_type: notification.event_type,
 			}
 			notifications.value.unshift(newNotification)

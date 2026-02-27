@@ -983,10 +983,8 @@ watch(
 	async (newEmployee) => {
 		if (isInitializing.value) return
 		if (newEmployee && form.selectedDate) {
-			await Promise.all([
-				calculateEmployeeOvertime(newEmployee, form.selectedDate),
-				checkExistingRequest(newEmployee, form.selectedDate),
-			])
+			await checkExistingRequest(newEmployee, form.selectedDate)
+			await calculateEmployeeOvertime(newEmployee, form.selectedDate)
 		}
 	},
 )
@@ -1012,10 +1010,8 @@ watch(
 			}
 
 			if (form.selectedEmployee) {
-				await Promise.all([
-					calculateEmployeeOvertime(form.selectedEmployee, newDate),
-					checkExistingRequest(form.selectedEmployee, newDate),
-				])
+				await checkExistingRequest(form.selectedEmployee, newDate)
+				await calculateEmployeeOvertime(form.selectedEmployee, newDate)
 			}
 		}
 	},

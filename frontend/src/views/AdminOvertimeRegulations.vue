@@ -69,26 +69,28 @@
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ t('admin.reg.monthlyHoursDesc') }}</p>
           </div>
           <div class="space-y-1.5">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.reg.tpeWeeklyHours')
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.reg.advisedWeeklyHours')
               }}</label>
-            <input v-model.number="limitForm.recommended_weekly_hours" type="number" step="0.5" min="0" max="168"
+            <input v-model.number="limitForm.advised_weekly_hours" type="number" step="0.5" min="0" max="168"
               class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
               :disabled="!canUpdate" />
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ t('admin.reg.tpeWeeklyDesc') }}</p>
           </div>
           <div class="space-y-1.5">
-            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.reg.tpeMonthlyHours')
+            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('admin.reg.advisedMonthlyHours')
               }}</label>
-            <input v-model.number="limitForm.recommended_monthly_hours" type="number" step="0.5" min="0" max="744"
+            <input v-model.number="limitForm.advised_monthly_hours" type="number" step="0.5" min="0" max="744"
               class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:focus:border-brand-800"
               :disabled="!canUpdate" />
             <p class="text-xs text-gray-400 dark:text-gray-500">{{ t('admin.reg.tpeMonthlyDesc') }}</p>
           </div>
-          <div v-if="canUpdate" class="flex items-end">
+          <div v-if="canUpdate" class="space-y-1.5">
+            <label class="invisible text-sm font-medium">&nbsp;</label>
             <button @click="saveLimits" :disabled="isSavingLimits"
               class="h-11 w-full rounded-lg bg-brand-600 px-6 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 disabled:opacity-50">
               {{ isSavingLimits ? t('common.saving') : t('admin.reg.saveLimits') }}
             </button>
+            <p class="invisible text-xs">&nbsp;</p>
           </div>
         </div>
       </div>
@@ -530,8 +532,8 @@ const pdfDocument = ref<OvertimeRegulationDocument | null>(null)
 const limitForm = reactive({
 	max_weekly_hours: 18,
 	max_monthly_hours: 72,
-	recommended_weekly_hours: 15,
-	recommended_monthly_hours: 60,
+	advised_weekly_hours: 15,
+	advised_monthly_hours: 60,
 })
 const isSavingLimits = ref(false)
 const limitSaveSuccess = ref(false)
@@ -933,10 +935,10 @@ const handlePreviewPdf = (fileUrl: string) => {
 async function loadLimits() {
 	try {
 		const data = await overtimeLimitAPI.getActive()
-		limitForm.max_weekly_hours = Number(data.max_weekly_hours)
-		limitForm.max_monthly_hours = Number(data.max_monthly_hours)
-		limitForm.recommended_weekly_hours = Number(data.recommended_weekly_hours)
-		limitForm.recommended_monthly_hours = Number(data.recommended_monthly_hours)
+		limitForm.max_weekly_hours = Number(data.max_weekly_hours) || 18
+		limitForm.max_monthly_hours = Number(data.max_monthly_hours) || 72
+		limitForm.advised_weekly_hours = Number(data.advised_weekly_hours) || 15
+		limitForm.advised_monthly_hours = Number(data.advised_monthly_hours) || 60
 	} catch (error) {
 		console.warn('Failed to load overtime limits:', error)
 	}
@@ -950,8 +952,8 @@ async function saveLimits() {
 		await overtimeLimitAPI.updateLimits({
 			max_weekly_hours: limitForm.max_weekly_hours,
 			max_monthly_hours: limitForm.max_monthly_hours,
-			recommended_weekly_hours: limitForm.recommended_weekly_hours,
-			recommended_monthly_hours: limitForm.recommended_monthly_hours,
+			advised_weekly_hours: limitForm.advised_weekly_hours,
+			advised_monthly_hours: limitForm.advised_monthly_hours,
 		})
 		limitSaveSuccess.value = true
 		setTimeout(() => {

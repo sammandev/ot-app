@@ -563,18 +563,29 @@ const handleSave = async () => {
 
 // Employee modal functions
 const viewEmployees = async (dept: Department) => {
+	if (!dept?.id) return
 	selectedDepartment.value = dept
 	showEmployeesModal.value = true
+	departmentEmployees.value = []
 	loadingEmployees.value = true
 
 	try {
 		const response = await departmentAPI.getEmployees(dept.id)
-		departmentEmployees.value = response.data
+		// Only update if this department is still the selected one (handles race condition)
+		if (selectedDepartment.value?.id === dept.id) {
+			departmentEmployees.value = (response.data ?? []).filter(
+				(e: DepartmentEmployee | null) => e?.id != null,
+			)
+		}
 	} catch (error) {
 		console.error('Failed to fetch employees:', error)
-		departmentEmployees.value = []
+		if (selectedDepartment.value?.id === dept.id) {
+			departmentEmployees.value = []
+		}
 	} finally {
-		loadingEmployees.value = false
+		if (selectedDepartment.value?.id === dept.id) {
+			loadingEmployees.value = false
+		}
 	}
 }
 
@@ -595,7 +606,7 @@ const cancelRemoveEmployee = () => {
 }
 
 const executeRemoveEmployee = async () => {
-	if (!selectedDepartment.value || !employeeToRemove.value) return
+	if (!selectedDepartment.value?.id || !employeeToRemove.value?.id) return
 
 	isRemoving.value = true
 	try {

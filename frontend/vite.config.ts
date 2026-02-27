@@ -49,6 +49,11 @@ export default defineConfig(({ mode }) => {
 					target: apiBase.replace(/\/?api\/?$/, ''), // strip trailing /api to avoid double path
 					changeOrigin: true,
 				},
+				'/ws': {
+					target: apiBase.replace(/\/?api\/?$/, ''),
+					ws: true,
+					changeOrigin: true,
+				},
 			},
 		},
 	}

@@ -97,11 +97,11 @@ export function useOvertimeStats({
 	const overtimeLimits = ref<OvertimeLimitConfig | null>(null)
 	const WEEKLY_LIMIT = computed(() => Number(overtimeLimits.value?.max_weekly_hours ?? 18))
 	const MONTHLY_LIMIT = computed(() => Number(overtimeLimits.value?.max_monthly_hours ?? 72))
-	const RECOMMENDED_WEEKLY_LIMIT = computed(() =>
-		Number(overtimeLimits.value?.recommended_weekly_hours ?? 15),
+	const ADVISED_WEEKLY_LIMIT = computed(() =>
+		Number(overtimeLimits.value?.advised_weekly_hours ?? 15),
 	)
-	const RECOMMENDED_MONTHLY_LIMIT = computed(() =>
-		Number(overtimeLimits.value?.recommended_monthly_hours ?? 60),
+	const ADVISED_MONTHLY_LIMIT = computed(() =>
+		Number(overtimeLimits.value?.advised_monthly_hours ?? 60),
 	)
 
 	/** Fetch active OT limit config from backend */
@@ -181,7 +181,7 @@ export function useOvertimeStats({
 	const weeklyStatusColor = computed(() => {
 		if (!canViewStats.value) return 'text-gray-400 dark:text-gray-500'
 		if (weeklyAppliedHours.value >= WEEKLY_LIMIT.value) return 'text-error-600 dark:text-error-400'
-		if (weeklyAppliedHours.value >= RECOMMENDED_WEEKLY_LIMIT.value)
+		if (weeklyAppliedHours.value >= ADVISED_WEEKLY_LIMIT.value)
 			return 'text-warning-600 dark:text-warning-400'
 		return 'text-gray-900 dark:text-white'
 	})
@@ -189,7 +189,7 @@ export function useOvertimeStats({
 	const monthlyStatusColor = computed(() => {
 		if (!canViewStats.value) return 'text-gray-400 dark:text-gray-500'
 		if (monthlyAppliedHours.value >= MONTHLY_LIMIT.value) return 'text-error-600 dark:text-error-400'
-		if (monthlyAppliedHours.value >= RECOMMENDED_MONTHLY_LIMIT.value)
+		if (monthlyAppliedHours.value >= ADVISED_MONTHLY_LIMIT.value)
 			return 'text-warning-600 dark:text-warning-400'
 		return 'text-gray-900 dark:text-white'
 	})
@@ -217,7 +217,7 @@ export function useOvertimeStats({
 				hours: (weeklyAppliedHours.value - WEEKLY_LIMIT.value).toFixed(2),
 			})
 		}
-		if (weeklyAppliedHours.value >= RECOMMENDED_WEEKLY_LIMIT.value) {
+		if (weeklyAppliedHours.value >= ADVISED_WEEKLY_LIMIT.value) {
 			return t('otForm.messages.weeklyLimitReached')
 		}
 		return ''
@@ -230,7 +230,7 @@ export function useOvertimeStats({
 				hours: (monthlyAppliedHours.value - MONTHLY_LIMIT.value).toFixed(2),
 			})
 		}
-		if (monthlyAppliedHours.value >= RECOMMENDED_MONTHLY_LIMIT.value) {
+		if (monthlyAppliedHours.value >= ADVISED_MONTHLY_LIMIT.value) {
 			return t('otForm.messages.monthlyLimitReached')
 		}
 		return ''

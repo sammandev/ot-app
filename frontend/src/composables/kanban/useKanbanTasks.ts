@@ -231,16 +231,10 @@ export function useKanbanTasks(
 				all_day: false,
 			}
 
-			let savedTask: CalendarEvent | null = null
-
 			if (isEditing.value && editingId.value) {
-				const response = await calendarAPI.update(editingId.value, payload)
-				savedTask = response as CalendarEvent
-				boardWs.notifyTaskUpdated(savedTask)
+				await calendarAPI.update(editingId.value, payload)
 			} else {
-				const response = await calendarAPI.create(payload)
-				savedTask = response as CalendarEvent
-				boardWs.notifyTaskCreated(savedTask)
+				await calendarAPI.create(payload)
 			}
 
 			await fetchTasks()
@@ -262,7 +256,6 @@ export function useKanbanTasks(
 			const deletedId = taskToDelete.value
 			await calendarAPI.delete(deletedId)
 			events.value = events.value.filter((e) => e.id !== deletedId)
-			boardWs.notifyTaskDeleted(deletedId)
 			cancelDelete()
 		} catch (e) {
 			console.error('Failed to delete task', e)
@@ -283,15 +276,12 @@ export function useKanbanTasks(
 		const task = evt.added.element
 		if (!task || task.status === targetStatus) return
 
-		const fromStatus = task.status || 'todo'
-
 		try {
 			await calendarAPI.update(task.id!, { status: targetStatus })
 			const sourceTask = events.value.find((e) => e.id === task.id)
 			if (sourceTask) {
 				sourceTask.status = targetStatus
 			}
-			boardWs.notifyTaskMoved(task.id!, fromStatus, targetStatus)
 		} catch (e) {
 			console.error('Failed to update task status', e)
 			await fetchTasks()

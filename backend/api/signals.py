@@ -15,6 +15,7 @@ import logging
 # Imported from models where it was originally defined.
 from concurrent.futures import ThreadPoolExecutor
 
+from django.db import transaction
 from django.db.models.signals import m2m_changed, post_delete, post_save
 from django.dispatch import receiver
 
@@ -464,15 +465,22 @@ def invalidate_overtime_cache(sender, instance, created, **kwargs):
 
     # Offload Excel generation to Celery (or bounded thread-pool fallback)
     # so the HTTP response is never blocked.
+    # Use on_commit to ensure the OT record is committed before the task reads it.
     if instance.request_date:
-        try:
-            from api.tasks import generate_excel_files_async
+        ot_id = instance.id
+        ot_date = instance.request_date
 
-            generate_excel_files_async.delay(instance.id)
-            logger.info("Queued async Excel generation for OvertimeRequest %s (date: %s)", instance.id, instance.request_date)
-        except Exception as e:
-            logger.warning("Failed to queue async Excel generation for OT %s: %s. Falling back to background thread pool.", instance.id, e)
-            _trigger_excel_fallback(instance.id, instance.request_date)
+        def _queue_excel():
+            try:
+                from api.tasks import generate_excel_files_async
+
+                generate_excel_files_async.delay(ot_id)
+                logger.info("Queued async Excel generation for OvertimeRequest %s (date: %s)", ot_id, ot_date)
+            except Exception as e:
+                logger.warning("Failed to queue async Excel generation for OT %s: %s. Falling back to background thread pool.", ot_id, e)
+                _trigger_excel_fallback(ot_id, ot_date)
+
+        transaction.on_commit(_queue_excel)
 
 
 @receiver(post_delete, sender=OvertimeRequest)
@@ -497,15 +505,22 @@ def invalidate_overtime_cache_on_delete(sender, instance, **kwargs):
         logger.error("Error invalidating overtime cache on delete: %s", e)
 
     # Offload Excel regeneration to Celery (or bounded thread-pool fallback)
+    # Use on_commit to ensure the deletion is committed before the task runs.
     if instance.request_date:
-        try:
-            from api.tasks import regenerate_excel_after_delete
+        ot_id = instance.id
+        ot_date = instance.request_date
 
-            regenerate_excel_after_delete.delay(instance.request_date.isoformat())
-            logger.info("Queued async Excel regeneration after OT deletion (date: %s)", instance.request_date)
-        except Exception as e:
-            logger.warning("Failed to queue async Excel regeneration after delete for %s: %s. Falling back to background thread pool.", instance.request_date, e)
-            _trigger_excel_fallback(instance.id, instance.request_date)
+        def _queue_regen():
+            try:
+                from api.tasks import regenerate_excel_after_delete
+
+                regenerate_excel_after_delete.delay(ot_date.isoformat())
+                logger.info("Queued async Excel regeneration after OT deletion (date: %s)", ot_date)
+            except Exception as e:
+                logger.warning("Failed to queue async Excel regeneration after delete for %s: %s. Falling back to background thread pool.", ot_date, e)
+                _trigger_excel_fallback(ot_id, ot_date)
+
+        transaction.on_commit(_queue_regen)
 
 
 @receiver(post_save, sender=CalendarEvent)

@@ -195,7 +195,7 @@ class UserSession(models.Model):
     # Token fields — the raw token is stored for refresh operations,
     # while token_hash (SHA-256) is used for efficient indexed lookups.
     access_token = models.TextField()
-    token_hash = models.CharField(max_length=64, unique=True, db_index=True, default="")
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
     refresh_token = models.TextField(blank=True, null=True)
 
     # Token metadata

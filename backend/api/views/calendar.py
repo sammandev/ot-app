@@ -198,7 +198,7 @@ def update_recurring_child_events(parent_event, update_data, assigned_to_ids=Non
 
     # Bulk update all children at once instead of individual saves
     if update_fields:
-        from .models import CalendarEvent
+        from ..models import CalendarEvent
 
         CalendarEvent.objects.bulk_update(child_events, update_fields, batch_size=100)
 
@@ -217,8 +217,8 @@ def create_event_notification(event, notification_type="created"):
     For leave events, also notifies agents and PTB admins.
     For group tasks, also notifies group members who aren't directly assigned.
     """
-    from .models import ExternalUser, Notification
-    from .signals import notify_leave_event_participants, send_websocket_notification
+    from ..models import ExternalUser, Notification
+    from ..signals import notify_leave_event_participants, send_websocket_notification
 
     notifications = []
 

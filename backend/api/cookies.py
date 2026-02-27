@@ -19,13 +19,14 @@ def set_auth_cookies(response, access_token, refresh_token=None):
     """
     Set httpOnly JWT cookies on the response.
 
-    The access token cookie is scoped to /api/ (all API endpoints).
+    The access token cookie is scoped to / (all requests including WebSocket).
     The refresh token cookie is scoped to /api/auth/ (auth endpoints only).
     """
     secure = not settings.DEBUG
     samesite = "Lax"
 
-    # Access token — sent with all API requests
+    # Access token — sent with all API and WebSocket requests
+    # Path must be "/" so the cookie is included in /ws/ WebSocket handshakes
     response.set_cookie(
         ACCESS_COOKIE_NAME,
         access_token,
@@ -33,7 +34,7 @@ def set_auth_cookies(response, access_token, refresh_token=None):
         httponly=True,
         secure=secure,
         samesite=samesite,
-        path="/api/",
+        path="/",
     )
 
     # Refresh token — only sent with auth endpoints (narrower scope)
@@ -55,7 +56,9 @@ def clear_auth_cookies(response):
     """
     Clear JWT cookies from the response.
     Must use the same path= as set_auth_cookies for the delete to work.
+    Also clears the legacy /api/-scoped cookie from older versions.
     """
-    response.delete_cookie(ACCESS_COOKIE_NAME, path="/api/")
+    response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
+    response.delete_cookie(ACCESS_COOKIE_NAME, path="/api/")  # clear legacy path-scoped cookie
     response.delete_cookie(REFRESH_COOKIE_NAME, path="/api/auth/")
     return response

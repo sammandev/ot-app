@@ -323,7 +323,7 @@ class SMBConfigurationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Only Super Admin can create SMB configs.")
         instance = serializer.save()
         # Invalidate cached SMB config in ExcelGenerator
-        from .utils.excel_generator import ExcelGenerator
+        from ..utils.excel_generator import ExcelGenerator
 
         ExcelGenerator.invalidate_smb_cache()
         UserActivityLog.log_activity(
@@ -341,7 +341,7 @@ class SMBConfigurationViewSet(viewsets.ModelViewSet):
 
             raise PermissionDenied("Only Super Admin can update SMB configs.")
         instance = serializer.save()
-        from .utils.excel_generator import ExcelGenerator
+        from ..utils.excel_generator import ExcelGenerator
 
         ExcelGenerator.invalidate_smb_cache()
         UserActivityLog.log_activity(
@@ -358,7 +358,7 @@ class SMBConfigurationViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
 
             raise PermissionDenied("Only Super Admin can delete SMB configs.")
-        from .utils.excel_generator import ExcelGenerator
+        from ..utils.excel_generator import ExcelGenerator
 
         ExcelGenerator.invalidate_smb_cache()
         UserActivityLog.log_activity(
@@ -379,7 +379,7 @@ class SMBConfigurationViewSet(viewsets.ModelViewSet):
         config = self.get_object()
         config.is_active = True
         config.save()  # save() deactivates others
-        from .utils.excel_generator import ExcelGenerator
+        from ..utils.excel_generator import ExcelGenerator
 
         ExcelGenerator.invalidate_smb_cache()
         UserActivityLog.log_activity(

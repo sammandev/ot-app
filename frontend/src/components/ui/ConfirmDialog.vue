@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="visible"
-      class="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-900/50 dark:bg-gray-950/70"
+      class="fixed inset-0 z-[100002] flex items-center justify-center bg-gray-900/50 dark:bg-gray-950/70"
       @click.self="onCancel">
       <div
         role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title"

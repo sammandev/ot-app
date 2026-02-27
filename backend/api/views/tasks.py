@@ -503,7 +503,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
 
     def _notify_group_members(self, group, members):
         """Notify employees that they were added to a task group."""
-        from .signals import send_websocket_notification
+        from ..signals import send_websocket_notification
 
         emp_ids = [e.emp_id for e in members if e.emp_id]
         if not emp_ids:
@@ -622,7 +622,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
         if not (getattr(request.user, "is_ptb_admin", False) or is_superadmin_user(request.user)):
             raise PermissionDenied("Only administrators can sync department groups.")
 
-        from .models import Department
+        from ..models import Department
 
         # Define colors for departments (cycling through a palette)
         colors = [

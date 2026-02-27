@@ -194,7 +194,7 @@ class DynamicPagination(DRFPageNumberPagination):
             view: ViewSet instance
 
         Returns:
-            Paginated results or unpaginated list
+            Paginated results list, or None to skip pagination
         """
         # Get threshold from request or use default, clamped to safe range
         try:
@@ -206,10 +206,11 @@ class DynamicPagination(DRFPageNumberPagination):
         # Count results
         count = queryset.count()
 
-        # If below threshold, return all without pagination
+        # If below threshold, return None so DRF skips pagination
+        # and returns a plain array response
         if count <= threshold:
             logger.debug("Result count %s <= threshold %s, skipping pagination", count, threshold)
-            return list(queryset)
+            return None
 
         # Otherwise, use normal pagination
         logger.debug("Result count %s > threshold %s, applying pagination", count, threshold)
