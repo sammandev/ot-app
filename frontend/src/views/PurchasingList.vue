@@ -611,7 +611,6 @@
 </template>
 
 <script setup lang="ts">
-import * as XLSX from '@e965/xlsx'
 import flatpickr from 'flatpickr'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -1111,6 +1110,7 @@ const exportData = async (format: 'csv' | 'xlsx') => {
 			URL.revokeObjectURL(link.href)
 			showToast(t('purchasing.csvExported'), 'success')
 		} else if (format === 'xlsx') {
+			const XLSX = await import('@e965/xlsx')
 			const ws = XLSX.utils.json_to_sheet(allData)
 			const wb = XLSX.utils.book_new()
 			XLSX.utils.book_append_sheet(wb, ws, translatedTabLabel)

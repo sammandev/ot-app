@@ -67,6 +67,7 @@ const reminderStore = useReminderStore();
 const autoDismissTimers = ref<Map<number, ReturnType<typeof setTimeout>>>(
   new Map(),
 );
+let stopAuthWatch: (() => void) | null = null;
 
 const visibleReminders = computed(() =>
   reminderStore.activeReminders.slice(0, 3),
@@ -104,6 +105,10 @@ watch(
 onUnmounted(() => {
   autoDismissTimers.value.forEach((timer) => clearTimeout(timer));
   autoDismissTimers.value.clear();
+  if (stopAuthWatch) {
+    stopAuthWatch();
+    stopAuthWatch = null;
+  }
   reminderStore.stopPolling();
 });
 
@@ -293,7 +298,7 @@ onMounted(() => {
   }
 
   // Watch for auth changes — start/stop polling accordingly
-  watch(
+  stopAuthWatch = watch(
     () => authStore.isAuthenticated,
     (isAuth) => {
       if (isAuth) {

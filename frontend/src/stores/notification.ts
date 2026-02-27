@@ -55,10 +55,12 @@ export const useNotificationStore = defineStore('notification', () => {
 	const hasMore = ref(false)
 	const loadingMore = ref(false)
 	const currentArchivedMode = ref(false)
+	const serverUnreadCount = ref(0)
 
-	// Computed unread count - calculated from local state (real-time via WebSocket)
+	// Prefer server unread count; local list acts as a fallback.
 	const unreadCount = computed(() => {
-		return notifications.value.filter((n) => !n.is_read).length
+		const localUnread = notifications.value.filter((n) => !n.is_read).length
+		return Math.max(serverUnreadCount.value, localUnread)
 	})
 
 	const sortedNotifications = computed(() =>
@@ -100,6 +102,9 @@ export const useNotificationStore = defineStore('notification', () => {
 				computed_event_type: notification.event_type,
 			}
 			notifications.value.unshift(newNotification)
+			if (!notification.is_read) {
+				serverUnreadCount.value += 1
+			}
 
 			// Increment total count for pagination
 			totalCount.value++
@@ -157,6 +162,7 @@ export const useNotificationStore = defineStore('notification', () => {
 
 		try {
 			const data = await notificationAPI.getUnreadCount({ signal: controller.signal })
+			serverUnreadCount.value = Math.max(0, Number(data.unread_count) || 0)
 			return data.unread_count
 		} catch (e) {
 			if (isAbortError(e)) {
@@ -274,6 +280,7 @@ export const useNotificationStore = defineStore('notification', () => {
 		totalPages.value = 0
 		hasMore.value = false
 		currentArchivedMode.value = false
+		serverUnreadCount.value = 0
 		notifications.value = []
 	}
 
@@ -283,6 +290,7 @@ export const useNotificationStore = defineStore('notification', () => {
 			const n = notifications.value.find((n) => n.id === id)
 			if (n && !n.is_read) {
 				n.is_read = true
+				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
 			}
 		} catch (e) {
 			console.error('Failed to mark as read', e)
@@ -295,6 +303,7 @@ export const useNotificationStore = defineStore('notification', () => {
 			notifications.value.forEach((n) => {
 				n.is_read = true
 			})
+			serverUnreadCount.value = Math.max(0, serverUnreadCount.value - response.count)
 			return response.count
 		} catch (e) {
 			console.error('Failed to mark all as read', e)
@@ -305,6 +314,10 @@ export const useNotificationStore = defineStore('notification', () => {
 	async function archiveNotification(id: number) {
 		try {
 			await notificationAPI.archiveNotification(id)
+			const target = notifications.value.find((n) => n.id === id)
+			if (target && !target.is_read) {
+				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
+			}
 			notifications.value = notifications.value.filter((n) => n.id !== id)
 			totalCount.value = Math.max(0, totalCount.value - 1)
 			return true
@@ -329,6 +342,10 @@ export const useNotificationStore = defineStore('notification', () => {
 	async function deleteNotification(id: number) {
 		try {
 			await notificationAPI.deleteNotification(id)
+			const target = notifications.value.find((n) => n.id === id)
+			if (target && !target.is_read) {
+				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
+			}
 			notifications.value = notifications.value.filter((n) => n.id !== id)
 			totalCount.value = Math.max(0, totalCount.value - 1)
 			return true
@@ -372,6 +389,7 @@ export const useNotificationStore = defineStore('notification', () => {
 	function clearNotifications() {
 		disposeControllers()
 		notifications.value = []
+		serverUnreadCount.value = 0
 		totalCount.value = 0
 		totalPages.value = 0
 		currentPage.value = 1

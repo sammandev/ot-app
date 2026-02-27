@@ -128,6 +128,7 @@ export const useReminderStore = defineStore('reminder', () => {
 				my_events: true,
 				start: todayISO,
 				end: tomorrowISO,
+				page_size: 500,
 			})) as CalendarEvent[]
 			const today = new Date()
 			const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())

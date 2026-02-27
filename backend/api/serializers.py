@@ -100,12 +100,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
-    assigned_to = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, required=False)
-    created_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all, required=False, allow_null=True)
-    applied_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
-    agent = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
-    group = serializers.PrimaryKeyRelatedField(queryset=TaskGroup.objects.all, required=False, allow_null=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), required=False)
+    created_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False, allow_null=True)
+    applied_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
+    agent = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
+    group = serializers.PrimaryKeyRelatedField(queryset=TaskGroup.objects.all(), required=False, allow_null=True)
 
     # Frontend-compatible field aliases
     employee = serializers.IntegerField(source="created_by.id", read_only=True, allow_null=True)
@@ -600,7 +600,7 @@ class TaskCommentSerializer(serializers.ModelSerializer):
 
     author_name = serializers.CharField(source="author.name", read_only=True)
     author_id = serializers.IntegerField(source="author.id", read_only=True)
-    mentions = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, required=False)
+    mentions = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), required=False)
     reply_count = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
     time_ago = serializers.SerializerMethodField()
@@ -781,7 +781,7 @@ class TaskGroupSerializer(serializers.ModelSerializer):
     """Serializer for task groups"""
 
     created_by_username = serializers.CharField(source="created_by.username", read_only=True)
-    member_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, source="members", required=False)
+    member_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), source="members", required=False)
     member_names = serializers.SerializerMethodField()
     task_count = serializers.SerializerMethodField()
     department_name = serializers.CharField(source="department.name", read_only=True, allow_null=True)

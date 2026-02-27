@@ -62,16 +62,40 @@ export const calendarAPI = {
 		project?: number
 		event_type?: 'event' | 'task' | 'meeting' | 'leave' | 'holiday'
 		my_events?: boolean
+		page?: number
 		page_size?: number
 	}): Promise<CalendarEvent[]> {
+		const baseParams = {
+			...params,
+			page_size: params?.page_size ?? 500,
+		}
 		const response = await apiClient.get<CalendarEvent[] | PaginatedResponse<CalendarEvent>>(
 			'/v1/calendar-events/',
-			{ params },
+			{ params: baseParams },
 		)
+
 		// Normalize: backend may return paginated { results: [...] } or plain array
 		const data = response.data
 		if (Array.isArray(data)) return data
-		return data.results ?? []
+
+		const allResults = [...(data.results ?? [])]
+		let next = data.next
+		let page = (baseParams.page ?? 1) + 1
+		const maxPages = 20
+
+		while (next && page <= maxPages) {
+			const pageResponse = await apiClient.get<PaginatedResponse<CalendarEvent>>(
+				'/v1/calendar-events/',
+				{
+					params: { ...baseParams, page },
+				},
+			)
+			allResults.push(...(pageResponse.data.results ?? []))
+			next = pageResponse.data.next
+			page += 1
+		}
+
+		return allResults
 	},
 
 	async get(id: number) {

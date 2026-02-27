@@ -415,6 +415,7 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
             # After commit: regenerate Excel files for affected dates
             # This ensures rejected requests are excluded from reports
             if updated_count > 0 and affected_dates:
+
                 def _queue_bulk_regen():
                     try:
                         from api.tasks import regenerate_excel_after_delete

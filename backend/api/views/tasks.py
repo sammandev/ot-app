@@ -647,7 +647,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
             existing_group = TaskGroup.objects.filter(is_department_group=True, department=dept).first()
 
             # Get all employee IDs for this department
-            employee_ids = list(dept.employees.values_list("id", flat=True))
+            employee_ids = [employee.id for employee in dept.employees.all()]
 
             if existing_group:
                 # Update existing group's members and name (use dept code)

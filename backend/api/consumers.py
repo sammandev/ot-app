@@ -64,8 +64,23 @@ class _TokenAuthMixin:
     @database_sync_to_async
     def _authenticate_token(self, token):
         """Validate an access token and return the authenticated user."""
+        from rest_framework_simplejwt.authentication import JWTAuthentication
+
         from api.models import UserSession
 
+        # 1) Try local JWT tokens first (parity with HTTP/middleware auth).
+        try:
+            jwt_auth = JWTAuthentication()
+            validated_token = jwt_auth.get_validated_token(token)
+            user = jwt_auth.get_user(validated_token)
+            if user and getattr(user, "is_active", True):
+                return user
+        except Exception as e:
+            # Keep this fallback non-fatal, but preserve visibility for unexpected auth failures.
+            consumer_name = type(self).__name__
+            logger.debug("%s local JWT auth fallback failed: %s", consumer_name, e)
+
+        # 2) Fallback to external session token lookup.
         try:
             session = UserSession.objects.select_related("user").get(token_hash=UserSession.hash_token(token), is_active=True)
             if not session.is_token_expired():

@@ -140,7 +140,7 @@ class ExternalAuthService:
         Raises:
             AuthenticationFailed: If verification request fails
         """
-        url = f"{cls.BASE_URL}/user/token/verify"
+        url = f"{cls.BASE_URL}/api/user/token/verify"
 
         try:
             response = requests.post(url, json={"token": access_token}, timeout=cls.TIMEOUT)

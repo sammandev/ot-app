@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 from django.contrib.auth import authenticate, get_user_model
+from django.db import transaction
 from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -288,20 +289,20 @@ class ExternalLoginView(APIView):
                 updated_at=timezone.now(),
             )
 
-            # Deactivate old sessions for this user
-            UserSession.objects.filter(user=user, is_active=True).update(is_active=False)
+            # Rotate active sessions atomically so a failure cannot leave user without a valid session.
+            with transaction.atomic():
+                UserSession.objects.filter(user=user, is_active=True).update(is_active=False)
 
-            # Create new session
-            payload = ExternalAuthService.decode_token_payload(auth_data["access"])
-            UserSession.objects.create(
-                user=user,
-                access_token=auth_data["access"],
-                refresh_token=auth_data.get("refresh", ""),
-                token_issued_at=datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.get_current_timezone()),
-                token_expires_at=datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.get_current_timezone()),
-                ip_address=self._get_client_ip(request),
-                user_agent=request.META.get("HTTP_USER_AGENT", ""),
-            )
+                payload = ExternalAuthService.decode_token_payload(auth_data["access"])
+                UserSession.objects.create(
+                    user=user,
+                    access_token=auth_data["access"],
+                    refresh_token=auth_data.get("refresh", ""),
+                    token_issued_at=datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.get_current_timezone()),
+                    token_expires_at=datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.get_current_timezone()),
+                    ip_address=self._get_client_ip(request),
+                    user_agent=request.META.get("HTTP_USER_AGENT", ""),
+                )
 
             logger.info("External user logged in successfully: %s", username)
 
@@ -488,7 +489,7 @@ class TokenVerifyView(APIView):
             from api.models import UserSession
 
             try:
-                session = UserSession.objects.select_related("user").get(access_token=token, is_active=True)
+                session = UserSession.objects.select_related("user").get(token_hash=UserSession.hash_token(token), is_active=True)
 
                 # Check if token is expired
                 if not session.is_token_expired():
@@ -659,7 +660,14 @@ class TokenRefreshView(APIView):
 
                 # Update session if exists
                 try:
-                    session = UserSession.objects.get(refresh_token=refresh_token, is_active=True)
+                    sessions = list(UserSession.objects.filter(refresh_token=refresh_token, is_active=True).select_related("user").order_by("-created_at")[:2])
+                    if not sessions:
+                        raise UserSession.DoesNotExist
+                    if len(sessions) > 1:
+                        logger.error("Ambiguous active sessions for refresh token; rejecting refresh")
+                        raise AuthenticationFailed("Ambiguous session state")
+
+                    session = sessions[0]
 
                     payload = ExternalAuthService.decode_token_payload(new_access_token)
                     session.access_token = new_access_token
@@ -780,7 +788,7 @@ class ExchangeExternalTokenView(APIView):
 
         # Ensure an active session exists
         try:
-            UserSession.objects.get(access_token=token, is_active=True)
+            UserSession.objects.get(token_hash=UserSession.hash_token(token), is_active=True)
         except UserSession.DoesNotExist:
             payload = ExternalAuthService.decode_token_payload(token)
             UserSession.objects.create(

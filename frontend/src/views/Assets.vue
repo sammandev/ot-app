@@ -663,7 +663,6 @@ defineOptions({
 	name: 'AssetsView',
 })
 
-import * as XLSX from '@e965/xlsx'
 import flatpickr from 'flatpickr'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -1181,6 +1180,7 @@ const exportData = async (format: 'csv' | 'xlsx') => {
 			URL.revokeObjectURL(link.href)
 			showToast(t('assets.csvExported'), 'success')
 		} else if (format === 'xlsx') {
+			const XLSX = await import('@e965/xlsx')
 			const wb = XLSX.utils.book_new()
 
 			// Group data by status for separate sheets

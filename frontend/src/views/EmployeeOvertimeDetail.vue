@@ -350,11 +350,10 @@
 
 <script setup lang="ts">
 import type { ApexOptions } from 'apexcharts'
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import VueApexCharts from 'vue3-apexcharts'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import ChartSkeleton from '@/components/skeletons/ChartSkeleton.vue'
@@ -368,6 +367,12 @@ import { useEmployeeStore } from '@/stores/employee'
 import { useOvertimeStore } from '@/stores/overtime'
 import { useProjectStore } from '@/stores/project'
 import { useUIStore } from '@/stores/ui'
+
+const VueApexCharts = defineAsyncComponent({
+	loader: () => import('vue3-apexcharts'),
+	suspensible: false,
+	timeout: 15000,
+})
 
 const { t } = useI18n()
 

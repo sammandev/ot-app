@@ -53,7 +53,7 @@ export const useCalendarEvents = () => {
 		isLoading.value = true
 		error.value = null
 		try {
-			const data = await calendarAPI.list()
+			const data = await calendarAPI.list({ page_size: 500 })
 			events.value = data.map(formatEventFromAPI)
 		} catch (err) {
 			console.error('Error loading calendar events:', err)

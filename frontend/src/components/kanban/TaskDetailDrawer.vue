@@ -1,7 +1,7 @@
 <template>
   <!-- Task Detail Drawer/Sidebar -->
   <Transition name="slide-right">
-    <div v-if="isOpen" class="fixed inset-0 z-[100001] flex justify-end">
+	<div v-if="isOpen" class="fixed inset-0 z-100001 flex justify-end">
       <!-- Backdrop -->
       <div class="absolute inset-0 bg-black/40" @click="close"></div>
 
@@ -421,7 +421,7 @@
             <div v-for="attachment in attachments" :key="attachment.id"
               class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center gap-3 group">
               <!-- File Icon -->
-              <component :is="getFileIcon(attachment.file_type)" class="w-6 h-6 flex-shrink-0" />
+			  <component :is="getFileIcon(attachment.file_type)" class="w-6 h-6 shrink-0" />
 
               <!-- File Info -->
               <div class="flex-1 min-w-0">
@@ -485,7 +485,7 @@
               class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 flex items-center gap-3 group">
               <!-- Checkbox -->
               <button @click="toggleSubtask(subtask)" :class="[
-                'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition',
+				'w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition',
                 subtask.is_completed
                   ? 'bg-green-500 border-green-500 text-white'
                   : 'border-gray-300 dark:border-gray-600 hover:border-brand-500'
@@ -609,9 +609,9 @@
                     : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800']">
 
               <!-- Icon -->
-              <BellOffIcon v-if="reminder.is_dismissed" class="w-5 h-5 flex-shrink-0" />
-              <SuccessIcon v-else-if="reminder.is_triggered" class="w-5 h-5 flex-shrink-0" />
-              <BellIcon v-else class="w-5 h-5 flex-shrink-0" />
+			  <BellOffIcon v-if="reminder.is_dismissed" class="w-5 h-5 shrink-0" />
+			  <SuccessIcon v-else-if="reminder.is_triggered" class="w-5 h-5 shrink-0" />
+			  <BellIcon v-else class="w-5 h-5 shrink-0" />
 
               <!-- Info -->
               <div class="flex-1 min-w-0">
@@ -1070,6 +1070,9 @@ watch(
 function connectWebSocket() {
 	if (!props.task?.id) return
 
+	// Ensure previous task socket is closed before creating a new one.
+	disconnectWebSocket()
+
 	taskWs = useTaskWebSocket(props.task.id)
 	taskWs.connect()
 
@@ -1103,56 +1106,71 @@ onUnmounted(() => {
 
 // Data loading
 async function loadComments() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskCommentAPI.list(props.task.id)
+		const data = await taskCommentAPI.list(taskId)
+		if (props.task?.id !== taskId) return
 		comments.value = Array.isArray(data) ? data : []
 	} catch (error) {
 		console.error('Failed to load comments:', error)
+		if (props.task?.id !== taskId) return
 		comments.value = []
 	}
 }
 
 async function loadActivities() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskActivityAPI.list(props.task.id)
+		const data = await taskActivityAPI.list(taskId)
+		if (props.task?.id !== taskId) return
 		activities.value = Array.isArray(data) ? data : []
 	} catch (error) {
 		console.error('Failed to load activities:', error)
+		if (props.task?.id !== taskId) return
 		activities.value = []
 	}
 }
 
 async function loadAttachments() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskAttachmentAPI.byTask(props.task.id)
+		const data = await taskAttachmentAPI.byTask(taskId)
+		if (props.task?.id !== taskId) return
 		attachments.value = Array.isArray(data) ? data : []
 	} catch (error) {
 		console.error('Failed to load attachments:', error)
+		if (props.task?.id !== taskId) return
 		attachments.value = []
 	}
 }
 
 async function loadReminders() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskReminderAPI.byTask(props.task.id)
+		const data = await taskReminderAPI.byTask(taskId)
+		if (props.task?.id !== taskId) return
 		reminders.value = Array.isArray(data) ? data : []
 	} catch (error) {
 		console.error('Failed to load reminders:', error)
+		if (props.task?.id !== taskId) return
 		reminders.value = []
 	}
 }
 
 async function loadSubtasks() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskSubtaskAPI.list(props.task.id)
+		const data = await taskSubtaskAPI.list(taskId)
+		if (props.task?.id !== taskId) return
 		subtasks.value = Array.isArray(data) ? data : []
 	} catch (error) {
 		console.error('Failed to load subtasks:', error)
+		if (props.task?.id !== taskId) return
 		subtasks.value = []
 	}
 }
@@ -1161,9 +1179,11 @@ async function loadSubtasks() {
 
 // Time Tracking Functions
 async function loadTimeLogs() {
-	if (!props.task?.id) return
+	const taskId = props.task?.id
+	if (!taskId) return
 	try {
-		const data = await taskTimeLogAPI.list(props.task.id)
+		const data = await taskTimeLogAPI.list(taskId)
+		if (props.task?.id !== taskId) return
 		timeLogs.value = Array.isArray(data) ? data : []
 
 		// Check for active timer
@@ -1177,6 +1197,7 @@ async function loadTimeLogs() {
 		}
 	} catch (error) {
 		console.error('Failed to load time logs:', error)
+		if (props.task?.id !== taskId) return
 		timeLogs.value = []
 	}
 }

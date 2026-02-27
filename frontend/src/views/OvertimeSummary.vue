@@ -347,10 +347,9 @@
 
 <script setup lang="ts">
 import type { ApexOptions } from 'apexcharts'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
-import VueApexCharts from 'vue3-apexcharts'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import ChartSkeleton from '@/components/skeletons/ChartSkeleton.vue'
 import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
@@ -362,6 +361,12 @@ import { useEmployeeStore } from '@/stores/employee'
 import { useOvertimeStore } from '@/stores/overtime'
 import { useUIStore } from '@/stores/ui'
 import { getSortIcon as _getSortIcon } from '@/utils/getSortIcon'
+
+const VueApexCharts = defineAsyncComponent({
+	loader: () => import('vue3-apexcharts'),
+	suspensible: false,
+	timeout: 15000,
+})
 
 const employeeStore = useEmployeeStore()
 const uiStore = useUIStore()

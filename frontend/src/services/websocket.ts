@@ -47,6 +47,7 @@ export class PermissionWebSocket {
 	private maxReconnectAttempts = 5
 	private reconnectDelay = 3000
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null
+	private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
 	// Reactive state
 	public connected = ref(false)
@@ -69,6 +70,11 @@ export class PermissionWebSocket {
 		}
 
 		try {
+			if (this.reconnectTimeout) {
+				clearTimeout(this.reconnectTimeout)
+				this.reconnectTimeout = null
+			}
+
 			// Authentication is handled automatically via httpOnly cookies
 			// sent during WebSocket handshake — no first-message auth needed.
 			const wsUrl = `${WS_BASE}/ws/notifications/`
@@ -100,7 +106,10 @@ export class PermissionWebSocket {
 				if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
 					this.reconnectAttempts++
 					const delay = this.reconnectDelay * 2 ** (this.reconnectAttempts - 1)
-					setTimeout(() => this.connect(), delay)
+					this.reconnectTimeout = setTimeout(() => {
+						this.reconnectTimeout = null
+						this.connect()
+					}, delay)
 				}
 			}
 
@@ -117,6 +126,10 @@ export class PermissionWebSocket {
 
 	disconnect() {
 		this.stopHeartbeat()
+		if (this.reconnectTimeout) {
+			clearTimeout(this.reconnectTimeout)
+			this.reconnectTimeout = null
+		}
 		this.reconnectAttempts = this.maxReconnectAttempts // Prevent auto-reconnect
 		if (this.socket) {
 			this.socket.close(1000, 'User disconnected')
@@ -194,6 +207,7 @@ export class BoardWebSocket {
 	private maxReconnectAttempts = 5
 	private reconnectDelay = 1000
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null
+	private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 	private editingTaskId: number | null = null
 	private visibilityHandler: (() => void) | null = null
 	private wasConnectedBeforeHide = false
@@ -220,6 +234,11 @@ export class BoardWebSocket {
 		}
 
 		try {
+			if (this.reconnectTimeout) {
+				clearTimeout(this.reconnectTimeout)
+				this.reconnectTimeout = null
+			}
+
 			// Authentication is handled automatically via httpOnly cookies
 			// sent during WebSocket handshake — no first-message auth needed.
 			const wsUrl = `${WS_BASE}/ws/board/`
@@ -255,7 +274,10 @@ export class BoardWebSocket {
 				// Try to reconnect if not a normal close
 				if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
 					this.reconnectAttempts++
-					setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts)
+					this.reconnectTimeout = setTimeout(() => {
+						this.reconnectTimeout = null
+						this.connect()
+					}, this.reconnectDelay * this.reconnectAttempts)
 				}
 			}
 
@@ -270,6 +292,10 @@ export class BoardWebSocket {
 	disconnect() {
 		this.stopHeartbeat()
 		this.stopVisibilityTracking()
+		if (this.reconnectTimeout) {
+			clearTimeout(this.reconnectTimeout)
+			this.reconnectTimeout = null
+		}
 		this.reconnectAttempts = this.maxReconnectAttempts // Prevent auto-reconnect
 		if (this.socket) {
 			this.socket.close(1000, 'User disconnected')
@@ -632,6 +658,7 @@ export class CalendarWebSocket {
 	private maxReconnectAttempts = 5
 	private reconnectDelay = 2000
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null
+	private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
 
 	// Reactive state
 	public connected = ref(false)
@@ -650,6 +677,11 @@ export class CalendarWebSocket {
 		if (this.socket?.readyState === WebSocket.OPEN) return
 
 		try {
+			if (this.reconnectTimeout) {
+				clearTimeout(this.reconnectTimeout)
+				this.reconnectTimeout = null
+			}
+
 			// Authentication is handled automatically via httpOnly cookies
 			// sent during WebSocket handshake — no first-message auth needed.
 			const wsUrl = `${WS_BASE}/ws/calendar/`
@@ -683,7 +715,10 @@ export class CalendarWebSocket {
 				this.stopHeartbeat()
 				if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
 					this.reconnectAttempts++
-					setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts)
+					this.reconnectTimeout = setTimeout(() => {
+						this.reconnectTimeout = null
+						this.connect()
+					}, this.reconnectDelay * this.reconnectAttempts)
 				}
 			}
 
@@ -697,6 +732,10 @@ export class CalendarWebSocket {
 
 	disconnect() {
 		this.stopHeartbeat()
+		if (this.reconnectTimeout) {
+			clearTimeout(this.reconnectTimeout)
+			this.reconnectTimeout = null
+		}
 		this.reconnectAttempts = this.maxReconnectAttempts // Prevent auto-reconnect
 		if (this.socket) {
 			this.socket.close(1000, 'User disconnected')

@@ -196,7 +196,7 @@ class UserSession(models.Model):
     # while token_hash (SHA-256) is used for efficient indexed lookups.
     access_token = models.TextField()
     token_hash = models.CharField(max_length=64, unique=True, db_index=True)
-    refresh_token = models.TextField(blank=True, null=True)
+    refresh_token = models.TextField(blank=True, null=True, db_index=True)
 
     # Token metadata
     token_expires_at = models.DateTimeField(db_index=True)

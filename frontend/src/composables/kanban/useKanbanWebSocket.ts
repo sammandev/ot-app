@@ -1,9 +1,20 @@
-import type { Ref } from 'vue'
+import { computed, type Ref } from 'vue'
 
 import type { CalendarEvent } from '@/services/api/calendar'
 import type { BoardWebSocket } from '@/services/websocket'
 
 export function useKanbanWebSocket(events: Ref<CalendarEvent[]>, boardWs: BoardWebSocket) {
+	const editorsByTaskId = computed(() => {
+		const map = new Map<number, { user_id: number; user_name: string }[]>()
+		for (const viewer of boardWs.viewers.value) {
+			if (!viewer.editing_task_id) continue
+			const existing = map.get(viewer.editing_task_id) ?? []
+			existing.push({ user_id: viewer.user_id, user_name: viewer.user_name })
+			map.set(viewer.editing_task_id, existing)
+		}
+		return map
+	})
+
 	// ── WebSocket Setup ────────────────────────────────────────────────
 	function setupWebSocket() {
 		boardWs.connect()
@@ -58,9 +69,7 @@ export function useKanbanWebSocket(events: Ref<CalendarEvent[]>, boardWs: BoardW
 
 	function getTaskEditors(taskId: number | undefined): { user_id: number; user_name: string }[] {
 		if (!taskId) return []
-		return boardWs.viewers.value
-			.filter((v) => v.editing_task_id === taskId)
-			.map((v) => ({ user_id: v.user_id, user_name: v.user_name }))
+		return editorsByTaskId.value.get(taskId) ?? []
 	}
 
 	function getTaskEditingIndicator(taskId: number | undefined): string {

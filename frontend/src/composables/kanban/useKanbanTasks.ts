@@ -116,7 +116,7 @@ export function useKanbanTasks(
 	// ── Fetch Functions ────────────────────────────────────────────────
 	async function fetchTasks() {
 		try {
-			const response = await calendarAPI.list({ event_type: 'task' })
+			const response = await calendarAPI.list({ event_type: 'task', page_size: 500 })
 			events.value = response
 		} catch (e) {
 			console.error('Failed to fetch tasks', e)
