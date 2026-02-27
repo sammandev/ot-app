@@ -56,6 +56,7 @@ export const useUIStore = defineStore('ui', () => {
 		duration?: number
 	}
 	const toasts = ref<Toast[]>([])
+	const _toastTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 	// Initialize from localStorage
 	const initFromStorage = () => {
@@ -154,20 +155,26 @@ export const useUIStore = defineStore('ui', () => {
 
 	// Toast actions
 	const addToast = (message: string, type: Toast['type'] = 'info', duration = 3000) => {
-		const id = Math.random().toString(36).substring(7)
+		const id = `toast-${Date.now()}-${Math.round(Math.random() * 1000)}`
 		const toast: Toast = { id, message, type, duration }
 		toasts.value.push(toast)
 
 		if (duration > 0) {
-			setTimeout(() => {
+			const timer = setTimeout(() => {
 				removeToast(id)
 			}, duration)
+			_toastTimers.set(id, timer)
 		}
 
 		return id
 	}
 
 	const removeToast = (id: string) => {
+		const timer = _toastTimers.get(id)
+		if (timer) {
+			clearTimeout(timer)
+			_toastTimers.delete(id)
+		}
 		const index = toasts.value.findIndex((t) => t.id === id)
 		if (index > -1) {
 			toasts.value.splice(index, 1)
@@ -175,6 +182,10 @@ export const useUIStore = defineStore('ui', () => {
 	}
 
 	const clearToasts = () => {
+		for (const timer of _toastTimers.values()) {
+			clearTimeout(timer)
+		}
+		_toastTimers.clear()
 		toasts.value = []
 	}
 
@@ -185,10 +196,11 @@ export const useUIStore = defineStore('ui', () => {
 	}
 
 	const resetDateFilter = () => {
+		const period = _getCurrentPeriod()
 		dateFilter.value = {
 			selectionType: 'year-month',
-			selectedYear: new Date().getFullYear(),
-			selectedMonth: new Date().getMonth() + 1,
+			selectedYear: period.year,
+			selectedMonth: period.month,
 			customDateRange: '',
 		}
 		localStorage.setItem('overtimeDateFilter', JSON.stringify(dateFilter.value))

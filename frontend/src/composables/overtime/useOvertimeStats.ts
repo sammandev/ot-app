@@ -1,14 +1,12 @@
 import { type ComputedRef, computed, type Reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { OvertimeFormState } from '@/composables/overtime/useBreakScheduler'
-import { type OvertimeLimitConfig, overtimeLimitAPI } from '@/services/api'
+import { type OvertimeLimitConfig, overtimeLimitAPI } from '@/services/api/overtime'
 import type { useOvertimeStore } from '@/stores/overtime'
 
 // ── Shared types ──────────────────────────────────────────────────
 
 export interface RequestBreak {
-	break_start?: string | null
-	break_end?: string | null
 	start_time?: string | null
 	end_time?: string | null
 }
@@ -27,12 +25,9 @@ export interface RawOvertimeResponse {
 	total_hours?: number | string | null
 	time_start?: string | null
 	time_end?: string | null
-	time_in?: string | null
-	time_out?: string | null
 	breaks?: RequestBreak[]
 	break_hours?: number | string | null
 	reason?: string | null
-	work_description?: string | null
 	detail?: string | null
 }
 
@@ -56,8 +51,8 @@ export const computeRequestHours = (req: RawOvertimeResponse): number => {
 		return Number(rawTotal)
 
 	// Fallback: derive from time fields
-	const start = parseMinutes(req.time_start || req.time_in)
-	const end = parseMinutes(req.time_end || req.time_out)
+	const start = parseMinutes(req.time_start)
+	const end = parseMinutes(req.time_end)
 	if (start === null || end === null) return 0
 	let duration = end - start
 	if (duration <= 0) duration += 24 * 60
@@ -66,8 +61,8 @@ export const computeRequestHours = (req: RawOvertimeResponse): number => {
 	let breakMinutes = 0
 	if (Array.isArray(req.breaks) && req.breaks.length > 0) {
 		breakMinutes = req.breaks.reduce((sum: number, b: RequestBreak) => {
-			const bs = parseMinutes(b.break_start || b.start_time)
-			const be = parseMinutes(b.break_end || b.end_time)
+			const bs = parseMinutes(b.start_time)
+			const be = parseMinutes(b.end_time)
 			if (bs === null || be === null) return sum
 			let span = be - bs
 			if (span <= 0) span += 24 * 60

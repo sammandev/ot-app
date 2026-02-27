@@ -1,6 +1,6 @@
 import type { Ref } from 'vue'
 
-import type { CalendarEvent } from '@/services/api'
+import type { CalendarEvent } from '@/services/api/calendar'
 import type { BoardWebSocket } from '@/services/websocket'
 
 export function useKanbanWebSocket(events: Ref<CalendarEvent[]>, boardWs: BoardWebSocket) {

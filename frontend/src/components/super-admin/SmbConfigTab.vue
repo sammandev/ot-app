@@ -4,13 +4,17 @@
             <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
                 <div class="flex items-center gap-4">
                     <div class="rounded-xl bg-indigo-100 p-3 dark:bg-indigo-500/20">
-                        <svg class="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                        <svg class="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SMB / Network Share Configurations</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage multiple SMB servers. Mark one as active for file uploads. Passwords are encrypted at rest.</p>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">SMB / Network Share
+                            Configurations</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Manage multiple SMB servers. Mark one as
+                            active for file uploads. Passwords are encrypted at rest.</p>
                     </div>
                 </div>
                 <button @click="openSmbModal(null)"
@@ -21,15 +25,19 @@
 
             <!-- Loading -->
             <div v-if="smbLoading" class="flex justify-center py-12">
-                <svg class="animate-spin h-6 w-6 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-6 w-6 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
             </div>
 
-            <div v-else-if="smbConfigs.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-10 w-10 mb-2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+            <div v-else-if="smbConfigs.length === 0"
+                class="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="h-10 w-10 mb-2">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
                 </svg>
                 <p class="text-sm">No SMB configurations yet. Click "Add Config" to create one.</p>
             </div>
@@ -67,8 +75,7 @@
                             title="Set as Active">
                             Activate
                         </button>
-                        <button @click="testSmbConnection(cfg.id!)"
-                            :disabled="smbTesting === cfg.id"
+                        <button @click="testSmbConnection(cfg.id!)" :disabled="smbTesting === cfg.id"
                             class="h-8 rounded-lg border border-gray-300 bg-white px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 disabled:opacity-50 transition"
                             title="Test Connection">
                             {{ smbTesting === cfg.id ? 'Testing...' : 'Test' }}
@@ -90,9 +97,12 @@
             <!-- Test result banner -->
             <div v-if="smbTestResult" class="mx-6 mb-4 rounded-xl p-4 text-sm flex items-start gap-3"
                 :class="smbTestResult.success ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-5 w-5 shrink-0 mt-0.5">
-                    <path v-if="smbTestResult.success" stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    <path v-else stroke-linecap="round" stroke-linejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                    stroke="currentColor" class="h-5 w-5 shrink-0 mt-0.5">
+                    <path v-if="smbTestResult.success" stroke-linecap="round" stroke-linejoin="round"
+                        d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    <path v-else stroke-linecap="round" stroke-linejoin="round"
+                        d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 <span>{{ smbTestResult.message || smbTestResult.error }}</span>
                 <button @click="smbTestResult = null" class="ml-auto text-current hover:opacity-70">&times;</button>
@@ -101,67 +111,81 @@
 
         <!-- SMB Edit/Create Modal -->
         <div v-if="showSmbModal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 p-4">
-            <div role="dialog" aria-modal="true" aria-labelledby="smb-modal-title" class="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
+            <div role="dialog" aria-modal="true" aria-labelledby="smb-modal-title"
+                class="w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
                 @click.stop>
                 <!-- Sticky Header -->
-                <div class="sticky top-0 z-10 flex items-center justify-between px-6 pt-5 pb-4 bg-white dark:bg-gray-900 rounded-t-2xl border-b border-gray-200 dark:border-gray-700">
+                <div
+                    class="sticky top-0 z-10 flex items-center justify-between px-6 pt-5 pb-4 bg-white dark:bg-gray-900 rounded-t-2xl border-b border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                         {{ smbEditId ? 'Edit SMB Configuration' : 'New SMB Configuration' }}
                     </h3>
-                    <button @click="showSmbModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
+                    <button @click="showSmbModal = false"
+                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
                 </div>
 
                 <!-- Scrollable Body -->
                 <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Config Name</label>
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Config
+                            Name</label>
                         <input v-model="smbForm.name" type="text" placeholder="e.g., Production Server"
                             class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Server Host</label>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Server
+                                Host</label>
                             <input v-model="smbForm.server" type="text" placeholder="e.g., 192.168.1.100"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Main Folder Name</label>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Main Folder
+                                Name</label>
                             <input v-model="smbForm.share_name" type="text" placeholder="e.g., ATS_DataCenter"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+                            <label
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
                             <input v-model="smbForm.username" type="text" placeholder="SMB Username"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                         <div>
                             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Password
-                                <span v-if="smbForm.has_password" class="text-xs text-green-600 dark:text-green-400 ml-1">(stored)</span>
+                                <span v-if="smbForm.has_password"
+                                    class="text-xs text-green-600 dark:text-green-400 ml-1">(stored)</span>
                             </label>
-                            <input v-model="smbForm.new_password" type="password" :placeholder="smbEditId ? 'Leave blank to keep current' : 'Enter password'"
+                            <input v-model="smbForm.new_password" type="password"
+                                :placeholder="smbEditId ? 'Leave blank to keep current' : 'Enter password'"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Domain</label>
+                            <label
+                                class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Domain</label>
                             <input v-model="smbForm.domain" type="text" placeholder="WORKGROUP"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                         <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Port (Default: 445)</label>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Port
+                                (Default: 445)</label>
                             <input v-model.number="smbForm.port" type="number" placeholder="445"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
                     </div>
                     <div>
-                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Path Prefix (Sub Folder Path within the Main Folder)</label>
-                        <input v-model="smbForm.path_prefix" type="text" placeholder="Management\PTB\AST_Portal_Overtime\"
+                        <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Path Prefix
+                            (Sub Folder Path within the Main Folder)</label>
+                        <input v-model="smbForm.path_prefix" type="text"
+                            placeholder="Management\PTB\AST_Portal_Overtime\"
                             class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                     </div>
                 </div>
 
                 <!-- Sticky Footer -->
-                <div class="sticky bottom-0 z-10 flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-2xl">
+                <div
+                    class="sticky bottom-0 z-10 flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-2xl">
                     <button @click="showSmbModal = false"
                         class="h-11 rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                         Cancel
@@ -180,7 +204,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
-import { type SMBConfigData, smbConfigAPI } from '@/services/api'
+import { type SMBConfigData, smbConfigAPI } from '@/services/api/config'
 
 const { showToast } = useToast()
 const confirmDialog = useConfirmDialog()

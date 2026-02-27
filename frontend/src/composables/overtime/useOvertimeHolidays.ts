@@ -1,6 +1,6 @@
 import { computed, type Ref, ref, watch } from 'vue'
 import type { FlatpickrInstance } from '@/composables/useFlatpickrScroll'
-import { type Holiday, holidayAPI } from '@/services/api'
+import { type Holiday, holidayAPI } from '@/services/api/holiday'
 
 export function useOvertimeHolidays(flatpickrInstances: Ref<FlatpickrInstance[]>) {
 	const holidays = ref<Holiday[]>([])

@@ -5,7 +5,7 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { type CalendarEvent, calendarAPI } from '@/services/api'
+import { type CalendarEvent, calendarAPI } from '@/services/api/calendar'
 import { extractApiError } from '@/utils/extractApiError'
 
 interface CalendarView {
@@ -21,6 +21,10 @@ export const useCalendarStore = defineStore('calendar', () => {
 	const error = ref<string | null>(null)
 	const lastFetch = ref<number | null>(null)
 
+	// Track cached date-range to bust when params change
+	const lastFetchStart = ref<string | undefined>(undefined)
+	const lastFetchEnd = ref<string | undefined>(undefined)
+
 	// View state
 	const view = ref<CalendarView>({
 		currentView: 'dayGridMonth',
@@ -32,16 +36,17 @@ export const useCalendarStore = defineStore('calendar', () => {
 
 	// Computed
 	const upcomingEvents = computed(() => {
-		const now = new Date()
+		const nowMs = Date.now()
 		return events.value
-			.filter((event) => new Date(event.start) > now)
+			.filter((event) => new Date(event.start).getTime() > nowMs)
 			.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
 			.slice(0, 10)
 	})
 
 	const todayEvents = computed(() => {
 		const today = new Date().toISOString().split('T')[0]
-		return events.value.filter((event) => event.start?.startsWith(today || ''))
+		if (!today) return []
+		return events.value.filter((event) => event.start?.startsWith(today))
 	})
 
 	const getEventById = computed(() => {
@@ -68,10 +73,6 @@ export const useCalendarStore = defineStore('calendar', () => {
 	})
 
 	// Actions
-	// Track cached date-range to bust when params change
-	const lastFetchStart = ref<string | undefined>(undefined)
-	const lastFetchEnd = ref<string | undefined>(undefined)
-
 	async function fetchEvents(start?: string, end?: string, force = false) {
 		// Return cached data if available, fresh, AND same date-range
 		const rangeChanged = start !== lastFetchStart.value || end !== lastFetchEnd.value
@@ -83,7 +84,7 @@ export const useCalendarStore = defineStore('calendar', () => {
 		error.value = null
 
 		try {
-			const params: { start?: string; end?: string } = {}
+			const params: { start?: string; end?: string; page_size?: number } = { page_size: 500 }
 			if (start) params.start = start
 			if (end) params.end = end
 

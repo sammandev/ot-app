@@ -1,45 +1,46 @@
 <template>
-    <AdminLayout>
-        <div class="space-y-6">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <!-- <p class="text-sm font-semibold text-brand-500">Others</p> -->
-                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.calendar.title') }}</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.calendar.subtitle') }}</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                    <select v-model="selectedTheme"
-                        class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                        <option v-for="theme in themeOptions" :key="theme.value" :value="theme.value">
-                            {{ theme.label }}
-                        </option>
-                    </select>
-                    <button v-if="canCreate" type="button"
-                        class="h-10 rounded-lg border border-brand-300 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-200"
-                        @click="openCreateEvent">
-                        + Add Event
-                    </button>
-                </div>
-            </div>
+	<AdminLayout>
+		<div class="space-y-6">
+			<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<!-- <p class="text-sm font-semibold text-brand-500">Others</p> -->
+					<h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.calendar.title') }}
+					</h1>
+					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.calendar.subtitle') }}</p>
+				</div>
+				<div class="flex flex-wrap items-center gap-2 sm:justify-end">
+					<select v-model="selectedTheme"
+						class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
+						<option v-for="theme in themeOptions" :key="theme.value" :value="theme.value">
+							{{ theme.label }}
+						</option>
+					</select>
+					<button v-if="canCreate" type="button"
+						class="h-10 rounded-lg border border-brand-300 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-200"
+						@click="openCreateEvent">
+						+ Add Event
+					</button>
+				</div>
+			</div>
 
-            <div
-                class="rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
-                <div class="relative">
-                    <FullCalendar ref="calendarRef" :options="calendarOptions" class="min-h-[680px]" />
-                    <div v-if="isPageLoading"
-                        class="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-sm dark:bg-gray-900/70">
-                        <div class="h-10 w-10 animate-spin rounded-full border-2 border-brand-500 border-t-transparent">
-                        </div>
-                    </div>
-                </div>
-                <p v-if="error" class="mt-3 text-sm text-error-600 dark:text-error-400">{{ error }}</p>
-            </div>
-        </div>
+			<div
+				class="rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+				<div class="relative">
+					<FullCalendar ref="calendarRef" :options="calendarOptions" class="min-h-[680px]" />
+					<div v-if="isPageLoading"
+						class="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/70 backdrop-blur-sm dark:bg-gray-900/70">
+						<div class="h-10 w-10 animate-spin rounded-full border-2 border-brand-500 border-t-transparent">
+						</div>
+					</div>
+				</div>
+				<p v-if="error" class="mt-3 text-sm text-error-600 dark:text-error-400">{{ error }}</p>
+			</div>
+		</div>
 
-        <CalendarEventForm v-if="showForm" :visible="showForm" :event="selectedEvent" :select-info="selectInfo"
-            :employees="employees" :projects="projects" :submitting="isSubmitting" :can-update="canUpdate"
-            :can-delete="canDelete" @close="closeForm" @submit="handleSaveEvent" @delete="handleDeleteEvent" />
-    </AdminLayout>
+		<CalendarEventForm v-if="showForm" :visible="showForm" :event="selectedEvent" :select-info="selectInfo"
+			:employees="employees" :projects="projects" :submitting="isSubmitting" :can-update="canUpdate"
+			:can-delete="canDelete" @close="closeForm" @submit="handleSaveEvent" @delete="handleDeleteEvent" />
+	</AdminLayout>
 </template>
 
 <script setup lang="ts">
@@ -58,18 +59,38 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import '@fullcalendar/core/skeleton.css'
-import '@fullcalendar/theme-breezy/theme.css'
-import '@fullcalendar/theme-breezy/palettes/indigo.css'
-import '@fullcalendar/theme-forma/theme.css'
-import '@fullcalendar/theme-forma/palettes/purple.css'
-import '@fullcalendar/theme-pulse/theme.css'
-import '@fullcalendar/theme-pulse/palettes/purple.css'
+
+// Theme CSS is loaded dynamically — only the active theme is imported.
+// See loadThemeCSS() below.
+const themeCSSLoaders: Record<string, () => Promise<unknown>> = {
+	breezy: () =>
+		Promise.all([
+			import('@fullcalendar/theme-breezy/theme.css'),
+			import('@fullcalendar/theme-breezy/palettes/indigo.css'),
+		]),
+	forma: () =>
+		Promise.all([
+			import('@fullcalendar/theme-forma/theme.css'),
+			import('@fullcalendar/theme-forma/palettes/purple.css'),
+		]),
+	pulse: () =>
+		Promise.all([
+			import('@fullcalendar/theme-pulse/theme.css'),
+			import('@fullcalendar/theme-pulse/palettes/purple.css'),
+		]),
+}
+
+const loadThemeCSS = (theme: string) => {
+	themeCSSLoaders[theme]?.()
+}
 
 import CalendarEventForm from '@/components/calendar/CalendarEventForm.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import { useCalendarHandlers } from '@/composables/calendar/useCalendarHandlers'
 import { useCalendarOptions } from '@/composables/calendar/useCalendarOptions'
-import type { CalendarEvent } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import { STORAGE_KEY_CALENDAR_THEME, STORAGE_KEY_CALENDAR_VIEW } from '@/constants/storage'
+import type { CalendarEvent } from '@/services/api/calendar'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarStore } from '@/stores/calendar'
 import { useEmployeeStore } from '@/stores/employee'
@@ -78,6 +99,7 @@ import type { CalendarEventPayload } from '@/types/calendar'
 
 // Pinia Stores
 const { t } = useI18n()
+const { showToast } = useToast()
 const calendarStore = useCalendarStore()
 const employeeStore = useEmployeeStore()
 const projectStore = useProjectStore()
@@ -99,7 +121,7 @@ const canDelete = computed(() => authStore.hasPermission('calendar', 'delete'))
 
 // Load theme from localStorage or default to 'breezy'
 const loadThemeFromStorage = (): 'breezy' | 'forma' | 'pulse' => {
-	const stored = localStorage.getItem('calendar_theme')
+	const stored = localStorage.getItem(STORAGE_KEY_CALENDAR_THEME)
 	if (stored === 'breezy' || stored === 'forma' || stored === 'pulse') {
 		return stored
 	}
@@ -280,7 +302,7 @@ const { handleEventDrop, handleEventResize } = useCalendarHandlers(updateEvent)
 const handleViewChange = (info: unknown) => {
 	const viewInfo = info as { view?: { type?: string } }
 	if (viewInfo?.view?.type) {
-		localStorage.setItem('calendarView', viewInfo.view.type)
+		localStorage.setItem(STORAGE_KEY_CALENDAR_VIEW, viewInfo.view.type)
 	}
 }
 
@@ -408,6 +430,7 @@ const handleSaveEvent = async (payload: CalendarEventPayload) => {
 		// The store watcher below will auto-sync the calendar
 	} catch (err) {
 		console.error('Failed to save event', err)
+		showToast(t('calendar.saveFailed', 'Failed to save event'), 'error')
 	} finally {
 		isSubmitting.value = false
 	}
@@ -421,6 +444,7 @@ const handleDeleteEvent = async (id: string | number) => {
 		// The store watcher below will auto-sync the calendar
 	} catch (err) {
 		console.error('Failed to delete event', err)
+		showToast(t('calendar.deleteFailed', 'Failed to delete event'), 'error')
 	} finally {
 		isSubmitting.value = false
 	}
@@ -429,7 +453,8 @@ const handleDeleteEvent = async (id: string | number) => {
 watch(
 	() => selectedTheme.value,
 	(newTheme) => {
-		localStorage.setItem('calendar_theme', newTheme)
+		localStorage.setItem(STORAGE_KEY_CALENDAR_THEME, newTheme)
+		loadThemeCSS(newTheme)
 		// Re-sync events after theme change to apply new plugin
 		nextTick(() => {
 			syncEventsWithCalendar()
@@ -449,6 +474,7 @@ watch(
 )
 // Load initial data from API and sync calendar
 onMounted(async () => {
+	loadThemeCSS(selectedTheme.value)
 	await Promise.all([
 		calendarStore.fetchEvents(),
 		employeeStore.fetchEmployees(),
@@ -470,144 +496,144 @@ onUnmounted(() => {
 
 <style scoped>
 :deep(.fc) {
-    --fc-border-color: var(--color-gray-200);
-    --fc-page-bg-color: transparent;
-    --fc-neutral-bg-color: var(--color-gray-50);
-    --fc-list-event-hover-bg-color: var(--color-gray-100);
-    --fc-today-bg-color: var(--color-brand-50);
-    --fc-button-text-color: var(--color-gray-700);
+	--fc-border-color: var(--color-gray-200);
+	--fc-page-bg-color: transparent;
+	--fc-neutral-bg-color: var(--color-gray-50);
+	--fc-list-event-hover-bg-color: var(--color-gray-100);
+	--fc-today-bg-color: var(--color-brand-50);
+	--fc-button-text-color: var(--color-gray-700);
 }
 
 :deep(.fc .fc-toolbar-title) {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--color-gray-900);
+	font-size: 1.125rem;
+	font-weight: 700;
+	color: var(--color-gray-900);
 }
 
 :deep(.fc .fc-button-primary) {
-    background: var(--color-gray-100);
-    border: 1px solid var(--color-gray-200);
-    color: var(--color-gray-700);
-    border-radius: 0.5rem;
-    padding: 0.35rem 0.75rem;
+	background: var(--color-gray-100);
+	border: 1px solid var(--color-gray-200);
+	color: var(--color-gray-700);
+	border-radius: 0.5rem;
+	padding: 0.35rem 0.75rem;
 }
 
 :deep(.fc .fc-button-primary:hover) {
-    background: var(--color-gray-200);
+	background: var(--color-gray-200);
 }
 
 :deep(.fc .fc-daygrid-day-number),
 :deep(.fc .fc-col-header-cell-cushion) {
-    color: var(--color-gray-700);
+	color: var(--color-gray-700);
 }
 
 :deep(.dark .fc .fc-toolbar-title) {
-    color: var(--color-white);
+	color: var(--color-white);
 }
 
 :deep(.dark .fc .fc-button-primary) {
-    background: var(--color-gray-800);
-    border-color: var(--color-gray-700);
-    color: var(--color-gray-100);
+	background: var(--color-gray-800);
+	border-color: var(--color-gray-700);
+	color: var(--color-gray-100);
 }
 
 :deep(.dark .fc .fc-daygrid-day-number),
 :deep(.dark .fc .fc-col-header-cell-cushion) {
-    color: var(--color-gray-100);
+	color: var(--color-gray-100);
 }
 
 :deep(.fc .fc-multimonth-title) {
-    font-weight: 700;
-    color: var(--color-gray-900);
+	font-weight: 700;
+	color: var(--color-gray-900);
 }
 
 :deep(.dark .fc .fc-multimonth-title) {
-    color: var(--color-white);
+	color: var(--color-white);
 }
 
 :deep(.fc .week-number) {
-    color: var(--color-gray-500);
-    font-weight: 600;
+	color: var(--color-gray-500);
+	font-weight: 600;
 }
 
 :deep(.dark .fc .week-number) {
-    color: var(--color-gray-300);
+	color: var(--color-gray-300);
 }
 
 /* Calendar date hover effects - Month/Year views */
 :deep(.fc .fc-daygrid-day) {
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
 }
 
 :deep(.fc .fc-daygrid-day:hover) {
-    background-color: var(--color-gray-100);
+	background-color: var(--color-gray-100);
 }
 
 :deep(.dark .fc .fc-daygrid-day:hover) {
-    background-color: var(--color-gray-800);
+	background-color: var(--color-gray-800);
 }
 
 /* Calendar date hover effects - Week view time grid */
 :deep(.fc .fc-timegrid-slot) {
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
 }
 
 :deep(.fc .fc-timegrid-slot:hover) {
-    background-color: var(--color-gray-100);
+	background-color: var(--color-gray-100);
 }
 
 :deep(.dark .fc .fc-timegrid-slot:hover) {
-    background-color: var(--color-gray-800);
+	background-color: var(--color-gray-800);
 }
 
 /* Calendar date hover effects - Day view slots */
 :deep(.fc .fc-timegrid-col) {
-    cursor: pointer;
+	cursor: pointer;
 }
 
 /* Calendar header date cells */
 :deep(.fc .fc-col-header-cell) {
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
 }
 
 :deep(.fc .fc-col-header-cell:hover) {
-    background-color: var(--color-gray-100);
+	background-color: var(--color-gray-100);
 }
 
 :deep(.dark .fc .fc-col-header-cell:hover) {
-    background-color: var(--color-gray-800);
+	background-color: var(--color-gray-800);
 }
 
 /* Multi-month (Year view) date cells */
 :deep(.fc .fc-multimonth-daygrid-table td) {
-    cursor: pointer;
-    transition: background-color 0.15s ease;
+	cursor: pointer;
+	transition: background-color 0.15s ease;
 }
 
 :deep(.fc .fc-multimonth-daygrid-table td:hover) {
-    background-color: var(--color-gray-100);
+	background-color: var(--color-gray-100);
 }
 
 :deep(.dark .fc .fc-multimonth-daygrid-table td:hover) {
-    background-color: var(--color-gray-800);
+	background-color: var(--color-gray-800);
 }
 
 /* Date number links */
 :deep(.fc .fc-daygrid-day-number) {
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background-color 0.15s ease;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	transition: background-color 0.15s ease;
 }
 
 :deep(.fc .fc-daygrid-day-number:hover) {
-    background-color: var(--color-brand-100);
+	background-color: var(--color-brand-100);
 }
 
 :deep(.dark .fc .fc-daygrid-day-number:hover) {
-    background-color: var(--color-brand-900);
+	background-color: var(--color-brand-900);
 }
 </style>

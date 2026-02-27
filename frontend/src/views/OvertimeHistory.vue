@@ -27,7 +27,7 @@
             <template v-if="dateSelectionType === 'year-month'">
               <div>
                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.year')
-                  }}</label>
+                }}</label>
                 <select v-model.number="selectedYear"
                   class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                   <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
@@ -35,7 +35,7 @@
               </div>
               <div>
                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.month')
-                  }}</label>
+                }}</label>
                 <select v-model="selectedMonth"
                   class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                   <option value="all">{{ t('months.allMonths') }}</option>
@@ -160,37 +160,37 @@
                     @change="toggleSelectAll"
                     class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800" />
                 </th>
-                <th @click="toggleSort('request_date')"
+                <th @click="toggleSort('request_date')" @keydown.enter="toggleSort('request_date')" tabindex="0"
                   :aria-sort="sortBy === 'request_date' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.date') }}<span class="text-gray-400">{{ getSortIcon('request_date') }}</span></th>
-                <th @click="toggleSort('employee_name')"
+                <th @click="toggleSort('employee_name')" @keydown.enter="toggleSort('employee_name')" tabindex="0"
                   :aria-sort="sortBy === 'employee_name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.employee') }}<span class="text-gray-400">{{ getSortIcon('employee_name') }}</span>
                 </th>
-                <th @click="toggleSort('project_name')"
+                <th @click="toggleSort('project_name')" @keydown.enter="toggleSort('project_name')" tabindex="0"
                   :aria-sort="sortBy === 'project_name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.project') }}<span class="text-gray-400">{{ getSortIcon('project_name') }}</span></th>
-                <th @click="toggleSort('time_in')"
-                  :aria-sort="sortBy === 'time_in' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
+                <th @click="toggleSort('time_start')" @keydown.enter="toggleSort('time_start')" tabindex="0"
+                  :aria-sort="sortBy === 'time_start' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
-                  {{ t('otHistory.time') }}<span class="text-gray-400">{{ getSortIcon('time_in') }}</span></th>
-                <th @click="toggleSort('total_hours')"
+                  {{ t('otHistory.time') }}<span class="text-gray-400">{{ getSortIcon('time_start') }}</span></th>
+                <th @click="toggleSort('total_hours')" @keydown.enter="toggleSort('total_hours')" tabindex="0"
                   :aria-sort="sortBy === 'total_hours' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.hours') }}<span class="text-gray-400">{{ getSortIcon('total_hours') }}</span></th>
-                <th @click="toggleSort('type')"
+                <th @click="toggleSort('type')" @keydown.enter="toggleSort('type')" tabindex="0"
                   :aria-sort="sortBy === 'type' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.type') }}<span class="text-gray-400">{{ getSortIcon('type') }}</span></th>
-                <th @click="toggleSort('status')"
+                <th @click="toggleSort('status')" @keydown.enter="toggleSort('status')" tabindex="0"
                   :aria-sort="sortBy === 'status' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                   class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                   {{ t('otHistory.status') }}<span class="text-gray-400">{{ getSortIcon('status') }}</span></th>
                 <th class="px-6 py-4 text-center font-semibold text-gray-900 dark:text-white">{{ t('otHistory.actions')
-                  }}
+                }}
                 </th>
               </tr>
             </thead>
@@ -208,7 +208,7 @@
                 <td class="px-6 py-4 text-gray-700 dark:text-gray-300">{{ request.employee_name }}</td>
                 <td class="px-6 py-4 text-gray-700 dark:text-gray-300">{{ request.project_name }}</td>
                 <td class="px-6 py-4 text-gray-700 dark:text-gray-300">
-                  {{ formatTime(request.time_in) }} - {{ formatTime(request.time_out) }}
+                  {{ formatTime(request.time_start) }} - {{ formatTime(request.time_end) }}
                 </td>
                 <td class="px-6 py-4 text-gray-700 dark:text-gray-300">
                   {{ formatHours(request.total_hours) }}h
@@ -293,8 +293,7 @@
       <!-- View Modal -->
       <div v-if="showViewModal && viewingRequest" class="fixed inset-0 z-[100000] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50" @click="showViewModal = false"></div>
-        <div
-          role="dialog" aria-modal="true" aria-labelledby="ot-history-modal-title"
+        <div role="dialog" aria-modal="true" aria-labelledby="ot-history-modal-title"
           class="relative z-10 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
           <!-- Sticky Header -->
           <div
@@ -315,13 +314,13 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.employee')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ viewingRequest.employee_name }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.employeeId')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ viewingRequest.employee_emp_id || '—' }}</p>
               </div>
               <div>
@@ -334,13 +333,13 @@
             <div class="grid grid-cols-3 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.date')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ formatDate(viewingRequest.request_date) }}
                 </p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.type')
-                  }}</label>
+                }}</label>
                 <span v-if="viewingRequest.is_holiday"
                   class="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-800 dark:bg-purple-500/20 dark:text-purple-300">
                   {{ t('otHistory.holiday') }}
@@ -356,7 +355,7 @@
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.status')
-                  }}</label>
+                }}</label>
                 <span :class="{
                   'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300': viewingRequest.status === 'pending',
                   'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300': viewingRequest.status === 'approved',
@@ -372,18 +371,18 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.startTime')
-                  }}</label>
-                <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.time_in) }}</p>
+                }}</label>
+                <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.time_start) }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.endTime')
-                  }}</label>
-                <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.time_out) }}</p>
+                }}</label>
+                <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.time_end) }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.overtimeHours')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ formatHours(viewingRequest.total_hours) }}h
                 </p>
               </div>
@@ -393,19 +392,19 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.breakStart')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.break_start) || '—' }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.breakEnd')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ formatTime(viewingRequest.break_end) || '—' }}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                   t('otHistory.breakHours')
-                  }}</label>
+                }}</label>
                 <p class="text-gray-900 dark:text-white">{{ formatHours(viewingRequest.break_hours) }}h
                 </p>
               </div>
@@ -413,19 +412,19 @@
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.project')
-                }}</label>
+              }}</label>
               <p class="text-gray-900 dark:text-white">{{ viewingRequest.project_name }}</p>
             </div>
 
             <div>
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.reason')
-                }}</label>
+              }}</label>
               <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ viewingRequest.reason }}</p>
             </div>
 
             <div v-if="viewingRequest.detail">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.details')
-                }}</label>
+              }}</label>
               <p class="text-gray-900 dark:text-white whitespace-pre-wrap">{{ viewingRequest.detail }}</p>
             </div>
           </div>
@@ -452,7 +451,8 @@ import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
 import { usePagePermission } from '@/composables/usePagePermission'
-import type { OvertimeRequest } from '@/services/api'
+import { DEBOUNCE_SEARCH_MS } from '@/constants/ui'
+import type { OvertimeRequest } from '@/services/api/overtime'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentStore } from '@/stores/department'
 import { useEmployeeStore } from '@/stores/employee'
@@ -635,7 +635,7 @@ type SortField =
 	| 'request_date'
 	| 'employee_name'
 	| 'project_name'
-	| 'time_in'
+	| 'time_start'
 	| 'total_hours'
 	| 'status'
 	| 'type'
@@ -691,7 +691,7 @@ const serverOrdering = computed<string | undefined>(() => {
 		project_name: 'project_name',
 		total_hours: 'total_hours',
 		status: 'status',
-		time_in: 'request_date', // no direct backend field; approximate with request_date
+		time_start: 'request_date', // no direct backend field; approximate with request_date
 		type: null,
 	}
 	const field = fieldMap[sortBy.value]
@@ -776,7 +776,7 @@ const debouncedFetch = (resetPage = true) => {
 	if (fetchTimer) clearTimeout(fetchTimer)
 	fetchTimer = setTimeout(() => {
 		void fetchServerData(resetPage)
-	}, 300)
+	}, DEBOUNCE_SEARCH_MS)
 }
 
 const toggleSort = (field: SortField) => {

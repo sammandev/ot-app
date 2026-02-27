@@ -1,459 +1,338 @@
 <template>
-  <AdminLayout>
-    <div class="space-y-6">
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.weeklyOvertime') }} - {{ selectedEmployeeName
-            }}</p>
-          <div class="flex items-baseline gap-2 mt-2">
-            <p :class="weeklyStatusColor" class="text-lg font-semibold">{{ weeklyAppliedHours.toFixed(2) }}
-              / {{ WEEKLY_LIMIT }} <span class="text-sm font-normal">{{ t('otForm.hours') }}</span></p>
-          </div>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.appliedLimit') }}</p>
-          <p v-if="weeklyWarning" :class="weeklyWarningClass" class="mt-1 text-xs">{{ weeklyWarning }}</p>
-        </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.monthlyOvertime') }} - {{
-            selectedEmployeeName }}
-          </p>
-          <div class="flex items-baseline gap-2 mt-2">
-            <p :class="monthlyStatusColor" class="text-lg font-semibold">{{ monthlyAppliedHours.toFixed(2)
-            }}
-              / {{ MONTHLY_LIMIT }} <span class="text-sm font-normal">{{ t('otForm.hours') }}</span></p>
-          </div>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.appliedLimit') }}</p>
-          <p v-if="monthlyWarning" :class="monthlyWarningClass" class="mt-1 text-xs">{{ monthlyWarning }}</p>
-        </div>
-        <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.remainingApplicable') }}
-            <span v-if="overtimePeriod" class="text-xs text-gray-400 dark:text-gray-500">{{ overtimePeriod
-            }} </span>
-          </p>
-          <div class="flex items-baseline gap-2 mt-2">
-            <p class="text-lg font-semibold">
-              <span :class="weeklyRemainingColor">{{ weeklyRemainingHours.toFixed(2) }}</span> <span class="text-gray-900 dark:text-white">/</span>
-              <span :class="monthlyRemainingColor">{{ monthlyRemainingHours.toFixed(2) }}</span>
-              <span class="text-sm font-normal text-gray-900 dark:text-white"> {{ t('otForm.hours') }}</span>
-            </p>
-          </div>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.weeklyMonthly') }}</p>
-          <p v-if="remainingWarning" :class="remainingWarningClass" class="mt-1 text-xs">{{ remainingWarning }}</p>
-        </div>
-      </div>
+	<AdminLayout>
+		<div class="space-y-6">
+			<div class="grid gap-4 sm:grid-cols-3">
+				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.weeklyOvertime') }} - {{
+						selectedEmployeeName
+					}}</p>
+					<div class="flex items-baseline gap-2 mt-2">
+						<p :class="weeklyStatusColor" class="text-lg font-semibold">{{ weeklyAppliedHours.toFixed(2) }}
+							/ {{ WEEKLY_LIMIT }} <span class="text-sm font-normal">{{ t('otForm.hours') }}</span></p>
+					</div>
+					<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.appliedLimit') }}</p>
+					<p v-if="weeklyWarning" :class="weeklyWarningClass" class="mt-1 text-xs">{{ weeklyWarning }}</p>
+				</div>
+				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.monthlyOvertime') }} - {{
+						selectedEmployeeName }}
+					</p>
+					<div class="flex items-baseline gap-2 mt-2">
+						<p :class="monthlyStatusColor" class="text-lg font-semibold">{{ monthlyAppliedHours.toFixed(2)
+						}}
+							/ {{ MONTHLY_LIMIT }} <span class="text-sm font-normal">{{ t('otForm.hours') }}</span></p>
+					</div>
+					<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.appliedLimit') }}</p>
+					<p v-if="monthlyWarning" :class="monthlyWarningClass" class="mt-1 text-xs">{{ monthlyWarning }}</p>
+				</div>
+				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.remainingApplicable') }}
+						<span v-if="overtimePeriod" class="text-xs text-gray-400 dark:text-gray-500">{{ overtimePeriod
+						}} </span>
+					</p>
+					<div class="flex items-baseline gap-2 mt-2">
+						<p class="text-lg font-semibold">
+							<span :class="weeklyRemainingColor">{{ weeklyRemainingHours.toFixed(2) }}</span> <span
+								class="text-gray-900 dark:text-white">/</span>
+							<span :class="monthlyRemainingColor">{{ monthlyRemainingHours.toFixed(2) }}</span>
+							<span class="text-sm font-normal text-gray-900 dark:text-white"> {{ t('otForm.hours')
+							}}</span>
+						</p>
+					</div>
+					<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.weeklyMonthly') }}</p>
+					<p v-if="remainingWarning" :class="remainingWarningClass" class="mt-1 text-xs">{{ remainingWarning
+					}}</p>
+				</div>
+			</div>
 
-      <!-- Overtime Regulations -->
-      <OvertimeRegulations />
+			<!-- Overtime Regulations -->
+			<OvertimeRegulations />
 
-      <!-- Overtime Request Form Card -->
-      <ComponentCard :title="t('otForm.requestDetails')" :desc="t('otForm.requestDetailsDesc')">
-        <template #header-extra>
-          <span class="px-4 py-1.5 text-sm font-semibold rounded-full border" :class="dayTypeChipClass">
-            {{ dayTypeLabel }}
-          </span>
-        </template>
-        <!-- Alert Section -->
-        <div class="space-y-4" v-if="submitSuccess || submitError">
-          <div v-if="submitSuccess"
-            class="flex items-center justify-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/30 dark:text-emerald-100">
-            <span class="flex-1 text-center">{{ successMessage }}</span>
-            <button type="button" class="text-emerald-600 hover:text-emerald-800 flex-shrink-0"
-              @click="submitSuccess = false">
-              <XIcon />
-            </button>
-          </div>
-          <div v-if="submitError"
-            class="flex items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-900/50 dark:bg-rose-900/30 dark:text-rose-100">
-            <span class="flex-1 text-center">{{ submitError }}</span>
-            <button type="button" class="text-rose-600 hover:text-rose-800 flex-shrink-0" @click="submitError = null">
-              <XIcon />
-            </button>
-          </div>
-        </div>
+			<!-- Overtime Request Form Card -->
+			<ComponentCard :title="t('otForm.requestDetails')" :desc="t('otForm.requestDetailsDesc')">
+				<template #header-extra>
+					<span class="px-4 py-1.5 text-sm font-semibold rounded-full border" :class="dayTypeChipClass">
+						{{ dayTypeLabel }}
+					</span>
+				</template>
+				<!-- Alert Section -->
+				<div class="space-y-4" v-if="submitSuccess || submitError">
+					<div v-if="submitSuccess"
+						class="flex items-center justify-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/30 dark:text-emerald-100">
+						<span class="flex-1 text-center">{{ successMessage }}</span>
+						<button type="button" class="text-emerald-600 hover:text-emerald-800 flex-shrink-0"
+							@click="submitSuccess = false">
+							<XIcon />
+						</button>
+					</div>
+					<div v-if="submitError"
+						class="flex items-center justify-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-800 dark:border-rose-900/50 dark:bg-rose-900/30 dark:text-rose-100">
+						<span class="flex-1 text-center">{{ submitError }}</span>
+						<button type="button" class="text-rose-600 hover:text-rose-800 flex-shrink-0"
+							@click="submitError = null">
+							<XIcon />
+						</button>
+					</div>
+				</div>
 
-        <form class="space-y-5" @submit.prevent="handleSubmit">
-          <div class="grid gap-4 lg:grid-cols-2">
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.employeeName') }}</label>
-              <div class="relative" ref="employeeDropdownRef">
-                <button type="button" @click="showEmployeeDropdown = !showEmployeeDropdown"
-                  class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-center shadow-theme-xs focus:outline-hidden focus:ring-3 dark:bg-gray-900 truncate"
-                  :class="[
-                    validationErrors.employee ? 'border-error-300 text-gray-800 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:text-white/90 dark:focus:border-error-800' : 'border-gray-300 text-gray-800 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 dark:focus:border-brand-800'
-                  ]">
-                  {{ selectedEmployeeName === 'Employee' ? t('otForm.selectEmployee') : selectedEmployeeName }}
-                </button>
-                <span
-                  class="absolute z-30 text-gray-500 -translate-y-1/2 pointer-events-none right-4 top-1/2 dark:text-gray-400">
-                  <svg class="stroke-current" width="20" height="20" viewBox="0 0 20 20" fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4.79175 7.396L10.0001 12.6043L15.2084 7.396" stroke="" stroke-width="1.5"
-                      stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </span>
-                <!-- Searchable dropdown -->
-                <div v-if="showEmployeeDropdown"
-                  class="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                  <div class="p-2">
-                    <input v-model="employeeSearch" type="text" :placeholder="t('otForm.searchEmployee')"
-                      class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-1 focus:ring-brand-500/20 dark:border-gray-600 dark:text-white dark:placeholder:text-gray-400"
-                      @click.stop ref="employeeSearchInput" />
-                  </div>
-                  <ul class="max-h-60 overflow-y-auto py-1">
-                    <li v-for="emp in searchFilteredEmployees" :key="emp.id" @click="selectEmployee(emp.id)"
-                      class="cursor-pointer px-4 py-2 text-sm text-center hover:bg-gray-100 dark:hover:bg-gray-800"
-                      :class="[
-                        form.selectedEmployee === emp.id ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 font-medium' : 'text-gray-700 dark:text-gray-300'
-                      ]">
-                      {{ emp.name }}
-                    </li>
-                    <li v-if="searchFilteredEmployees.length === 0"
-                      class="px-4 py-2 text-sm text-center text-gray-400 dark:text-gray-500">{{ t('otForm.noResults') }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <p v-if="validationErrors.employee" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.employee }}
-              </p>
-            </div>
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-gray-300 dark:text-white/15">{{ t('otForm.workerId') }}</label>
-              <input :value="selectedEmployeeCode" type="text"
-                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:shadow-focus-ring focus:outline-hidden disabled:border-gray-100 disabled:bg-gray-50 disabled:placeholder:text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-gray-400 dark:focus:border-brand-300 dark:disabled:border-gray-800 dark:disabled:bg-white/[0.03] dark:disabled:placeholder:text-white/15"
-                disabled />
-            </div>
-          </div>
+				<form class="space-y-5" @submit.prevent="handleSubmit">
+					<div class="grid gap-4 lg:grid-cols-2">
+						<div class="space-y-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.employeeName') }}</label>
+							<SearchableDropdown v-model="form.selectedEmployee" :items="filteredEmployees"
+								:placeholder="t('otForm.selectEmployee')"
+								:search-placeholder="t('otForm.searchEmployee')"
+								:no-results-text="t('otForm.noResults')" :error="validationErrors.employee" />
+							<p v-if="validationErrors.employee" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.employee }}
+							</p>
+						</div>
+						<div class="space-y-2">
+							<label class="text-sm font-medium text-gray-300 dark:text-white/15">{{ t('otForm.workerId')
+							}}</label>
+							<input :value="selectedEmployeeCode" type="text"
+								class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:shadow-focus-ring focus:outline-hidden disabled:border-gray-100 disabled:bg-gray-50 disabled:placeholder:text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-gray-400 dark:focus:border-brand-300 dark:disabled:border-gray-800 dark:disabled:bg-white/[0.03] dark:disabled:placeholder:text-white/15"
+								disabled />
+						</div>
+					</div>
 
-          <div class="grid gap-4 lg:grid-cols-8">
-            <div class="space-y-2 lg:col-span-4">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.projectName') }}</label>
-              <div class="relative" ref="projectDropdownRef">
-                <button type="button" @click="!isApprovedRequest && (showProjectDropdown = !showProjectDropdown)"
-                  class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 pr-11 text-sm text-center shadow-theme-xs focus:outline-hidden focus:ring-3 dark:bg-gray-900 truncate"
-                  :class="[
-                    validationErrors.project ? 'border-error-300 text-gray-800 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:text-white/90 dark:focus:border-error-800' : 'border-gray-300 text-gray-800 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:text-white/90 dark:focus:border-brand-800',
-                    isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
-                  ]" :disabled="isApprovedRequest">
-                  {{ selectedProjectName === '' ? t('otForm.selectProject') : selectedProjectName }}
-                </button>
-                <span
-                  class="absolute z-30 text-gray-500 -translate-y-1/2 pointer-events-none right-4 top-1/2 dark:text-gray-400">
-                  <svg class="stroke-current" width="20" height="20" viewBox="0 0 20 20" fill="none"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4.79175 7.396L10.0001 12.6043L15.2084 7.396" stroke="" stroke-width="1.5"
-                      stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </span>
-                <!-- Searchable dropdown -->
-                <div v-if="showProjectDropdown"
-                  class="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
-                  <div class="p-2">
-                    <input v-model="projectSearch" type="text" :placeholder="t('otForm.searchProject')"
-                      class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm focus:border-brand-300 focus:outline-hidden focus:ring-1 focus:ring-brand-500/20 dark:border-gray-600 dark:text-white dark:placeholder:text-gray-400"
-                      @click.stop ref="projectSearchInput" />
-                  </div>
-                  <ul class="max-h-60 overflow-y-auto py-1">
-                    <li v-for="proj in searchFilteredProjects" :key="proj.id" @click="selectProject(proj.id)"
-                      class="cursor-pointer px-4 py-2 text-sm text-center hover:bg-gray-100 dark:hover:bg-gray-800"
-                      :class="[
-                        form.selectedProject === proj.id ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/20 dark:text-brand-300 font-medium' : 'text-gray-700 dark:text-gray-300'
-                      ]">
-                      {{ proj.name }}
-                    </li>
-                    <!-- Show currently selected project even if disabled -->
-                    <li v-if="form.selectedProject && !enabledProjects.find(p => p.id === form.selectedProject)"
-                      class="cursor-pointer px-4 py-2 text-sm text-center text-gray-400 italic">
-                      {{projects.find(p => p.id === form.selectedProject)?.name}} {{ t('otForm.disabled') }}
-                    </li>
-                    <li v-if="searchFilteredProjects.length === 0"
-                      class="px-4 py-2 text-sm text-center text-gray-400 dark:text-gray-500">{{ t('otForm.noResults') }}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <p v-if="validationErrors.project" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.project }}</p>
-            </div>
-            <div class="space-y-2 lg:col-span-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.overtimeDate') }}</label>
-              <flat-pickr v-model="selectedDate" :config="datePickerOptions" :class="[
-                validationErrors.date ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800'
-              ]"
-                class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
-              <p v-if="validationErrors.date" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.date }}</p>
-            </div>
-            <div class="space-y-2 lg:col-span-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.overtimeOnHoliday')
-                }}</label>
-              <label :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'"
-                class="flex items-center text-sm font-medium text-gray-700 select-none dark:text-gray-200">
-                <div class="relative">
-                  <input v-model="isHoliday" type="checkbox" class="sr-only" :disabled="isApprovedRequest" />
-                  <div
-                    :class="isHoliday ? 'border-brand-500 bg-brand-500' : 'bg-transparent border-gray-300 dark:border-gray-700'"
-                    class="mr-3 flex h-5 w-5 items-center justify-center rounded-md border-[1.25px] hover:border-brand-500 dark:hover:border-brand-500">
-                    <span :class="isHoliday ? '' : 'opacity-0'">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="white" stroke-width="1.94437"
-                          stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-                {{ t('otForm.applyHolidayRules') }}
-              </label>
-            </div>
-          </div>
+					<div class="grid gap-4 lg:grid-cols-8">
+						<div class="space-y-2 lg:col-span-4">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.projectName') }}</label>
+							<SearchableDropdown v-model="form.selectedProject" :items="enabledProjects"
+								:placeholder="t('otForm.selectProject')" :search-placeholder="t('otForm.searchProject')"
+								:no-results-text="t('otForm.noResults')" :disabled="isApprovedRequest"
+								:error="validationErrors.project">
+								<template #extra-items>
+									<li v-if="form.selectedProject && !enabledProjects.find(p => p.id === form.selectedProject)"
+										class="cursor-pointer px-4 py-2 text-sm text-center text-gray-400 italic">
+										{{projects.find(p => p.id === form.selectedProject)?.name}} {{
+											t('otForm.disabled') }}
+									</li>
+								</template>
+							</SearchableDropdown>
+							<p v-if="validationErrors.project" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.project }}</p>
+						</div>
+						<div class="space-y-2 lg:col-span-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.overtimeDate') }}</label>
+							<flat-pickr v-model="selectedDate" :config="datePickerOptions" :class="[
+								validationErrors.date ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800'
+							]" class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+							<p v-if="validationErrors.date" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.date }}</p>
+						</div>
+						<div class="space-y-2 lg:col-span-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.overtimeOnHoliday')
+							}}</label>
+							<label :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'"
+								class="flex items-center text-sm font-medium text-gray-700 select-none dark:text-gray-200">
+								<div class="relative">
+									<input v-model="isHoliday" type="checkbox" class="sr-only"
+										:disabled="isApprovedRequest" />
+									<div :class="isHoliday ? 'border-brand-500 bg-brand-500' : 'bg-transparent border-gray-300 dark:border-gray-700'"
+										class="mr-3 flex h-5 w-5 items-center justify-center rounded-md border-[1.25px] hover:border-brand-500 dark:hover:border-brand-500">
+										<span :class="isHoliday ? '' : 'opacity-0'">
+											<svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+												xmlns="http://www.w3.org/2000/svg">
+												<path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="white"
+													stroke-width="1.94437" stroke-linecap="round"
+													stroke-linejoin="round" />
+											</svg>
+										</span>
+									</div>
+								</div>
+								{{ t('otForm.applyHolidayRules') }}
+							</label>
+						</div>
+					</div>
 
-          <div class="grid gap-4 items-end lg:grid-cols-6">
-            <div class="space-y-2 lg:col-span-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.timeStart') }}</label>
-              <flat-pickr v-model="timeStart" :config="timePickerOptions" :disabled="isApprovedRequest" :class="[
-                validationErrors.timeStart ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
-                isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
-              ]"
-                class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
-              <p v-if="validationErrors.timeStart" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.timeStart }}
-              </p>
-            </div>
-            <div class="flex items-center justify-between gap-3 lg:col-span-2">
-              <button type="button" class="btn-secondary" @click="adjustDuration(-0.5)" :disabled="isApprovedRequest">-
-                0.5h</button>
-              <div class="flex flex-col items-center text-center">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.rawHours') }}</span>
-                <span class="text-xl font-semibold text-gray-900 dark:text-white">{{ rawHours.toFixed(2)
-                }} h</span>
-              </div>
-              <button type="button" class="btn-secondary" @click="adjustDuration(0.5)" :disabled="isApprovedRequest">+
-                0.5h</button>
-            </div>
-            <div class="space-y-2 lg:col-span-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.timeEnd') }}</label>
-              <flat-pickr v-model="timeEnd" :config="timePickerOptions" :disabled="isApprovedRequest" :class="[
-                validationErrors.timeEnd ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
-                isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
-              ]"
-                class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
-              <p v-if="validationErrors.timeEnd" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.timeEnd }}</p>
-            </div>
-          </div>
+					<div class="grid gap-4 items-end lg:grid-cols-6">
+						<div class="space-y-2 lg:col-span-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.timeStart')
+							}}</label>
+							<flat-pickr v-model="timeStart" :config="timePickerOptions" :disabled="isApprovedRequest"
+								:class="[
+									validationErrors.timeStart ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
+									isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
+								]" class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+							<p v-if="validationErrors.timeStart" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.timeStart }}
+							</p>
+						</div>
+						<div class="flex items-center justify-between gap-3 lg:col-span-2">
+							<button type="button" class="btn-secondary" @click="adjustDuration(-0.5)"
+								:disabled="isApprovedRequest">-
+								0.5h</button>
+							<div class="flex flex-col items-center text-center">
+								<span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+									t('otForm.rawHours') }}</span>
+								<span class="text-xl font-semibold text-gray-900 dark:text-white">{{ rawHours.toFixed(2)
+								}} h</span>
+							</div>
+							<button type="button" class="btn-secondary" @click="adjustDuration(0.5)"
+								:disabled="isApprovedRequest">+
+								0.5h</button>
+						</div>
+						<div class="space-y-2 lg:col-span-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.timeEnd')
+							}}</label>
+							<flat-pickr v-model="timeEnd" :config="timePickerOptions" :disabled="isApprovedRequest"
+								:class="[
+									validationErrors.timeEnd ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
+									isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
+								]" class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
+							<p v-if="validationErrors.timeEnd" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.timeEnd }}</p>
+						</div>
+					</div>
 
-          <div
-            class="space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/40">
-            <div class="flex flex-col items-center justify-center gap-1">
-              <label :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'"
-                class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                <div class="relative">
-                  <input v-model="hasBreak" type="checkbox" class="sr-only" :disabled="isApprovedRequest" />
-                  <div
-                    :class="hasBreak ? 'border-brand-500 bg-brand-500' : 'bg-transparent border-gray-300 dark:border-gray-700'"
-                    class="mr-2 flex h-5 w-5 items-center justify-center rounded-md border-[1.25px] hover:border-brand-500 dark:hover:border-brand-500">
-                    <span :class="hasBreak ? '' : 'opacity-0'">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="white" stroke-width="1.94437"
-                          stroke-linecap="round" stroke-linejoin="round" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-                {{ t('otForm.takeBreak') }}
-              </label>
-              <p class="text-xs text-center text-gray-500 dark:text-gray-400">{{ t('otForm.breakRule') }}</p>
-            </div>
-            <div class="space-y-4" v-if="hasBreak">
-              <div class="grid gap-4 md:grid-cols-2">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.breakStart')
-                    }}</label>
-                  <flat-pickr v-model="breakStart" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.breakEnd') }}</label>
-                  <flat-pickr v-model="breakEnd" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-              </div>
-              <div class="grid gap-4 md:grid-cols-2" v-if="showSecondBreak">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.break2Start')
-                    }}</label>
-                  <flat-pickr v-model="breakStart2" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.break2End')
-                    }}</label>
-                  <flat-pickr v-model="breakEnd2" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-              </div>
-              <div class="grid gap-4 md:grid-cols-2" v-if="showThirdBreak">
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.break3Start')
-                    }}</label>
-                  <flat-pickr v-model="breakStart3" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-                <div class="space-y-2">
-                  <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.break3End')
-                    }}</label>
-                  <flat-pickr v-model="breakEnd3" :config="timePickerOptions" :disabled="isApprovedRequest"
-                    :class="isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''"
-                    class="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
-                </div>
-              </div>
-            </div>
-            <div class="text-sm text-gray-600 dark:text-gray-300">
-              <div class="flex flex-wrap justify-center gap-3">
-                <span
-                  class="badge px-4 py-1.5 text-sm font-semibold rounded-full border border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">{{
-                    t('otForm.breakHours') }}: {{ totalBreakHours.toFixed(2) }}</span>
-                <span
-                  class="badge px-4 py-1.5 text-sm font-semibold rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">{{
-                    t('otForm.overtimeHours') }}: {{ totalHours.toFixed(2) }}</span>
-              </div>
-            </div>
-          </div>
+					<BreakSchedulerSection v-model:has-break="hasBreak" v-model:break-start="breakStart"
+						v-model:break-end="breakEnd" v-model:break-start2="breakStart2" v-model:break-end2="breakEnd2"
+						v-model:break-start3="breakStart3" v-model:break-end3="breakEnd3"
+						:show-second-break="showSecondBreak" :show-third-break="showThirdBreak"
+						:total-break-hours="totalBreakHours" :total-hours="totalHours"
+						:time-picker-config="timePickerOptions" :disabled="isApprovedRequest" />
 
-          <div class="space-y-4">
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.overtimeReason')
-                }}</label>
-              <input v-model="reason" type="text" maxlength="20" :disabled="isApprovedRequest" :class="[
-                validationErrors.reason ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
-                isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
-              ]"
-                class="dark:bg-dark-900 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                :placeholder="t('otForm.reasonPlaceholder')" />
-              <p v-if="validationErrors.reason" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.reason }}</p>
-            </div>
-            <div class="space-y-2">
-              <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('otForm.overtimeDetails')
-                }}</label>
-              <textarea v-model="details" rows="3" :disabled="isApprovedRequest" :class="[
-                validationErrors.details ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
-                isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
-              ]"
-                class="dark:bg-dark-900 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
-                :placeholder="t('otForm.detailsPlaceholder')"></textarea>
-              <p v-if="validationErrors.details" class="mt-1.5 text-xs text-error-500">{{
-                validationErrors.details }}</p>
-            </div>
-          </div>
+					<div class="space-y-4">
+						<div class="space-y-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.overtimeReason')
+							}}</label>
+							<input v-model="reason" type="text" maxlength="20" :disabled="isApprovedRequest" :class="[
+								validationErrors.reason ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
+								isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
+							]" class="dark:bg-dark-900 h-11 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+								:placeholder="t('otForm.reasonPlaceholder')" />
+							<p v-if="validationErrors.reason" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.reason }}</p>
+						</div>
+						<div class="space-y-2">
+							<label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+								t('otForm.overtimeDetails')
+							}}</label>
+							<textarea v-model="details" rows="3" :disabled="isApprovedRequest" :class="[
+								validationErrors.details ? 'border-error-300 focus:border-error-300 focus:ring-error-500/10 dark:border-error-700 dark:focus:border-error-800' : 'border-gray-300 focus:border-brand-300 focus:ring-brand-500/10 dark:border-gray-700 dark:focus:border-brand-800',
+								isApprovedRequest ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : ''
+							]" class="dark:bg-dark-900 w-full rounded-lg border bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
+								:placeholder="t('otForm.detailsPlaceholder')"></textarea>
+							<p v-if="validationErrors.details" class="mt-1.5 text-xs text-error-500">{{
+								validationErrors.details }}</p>
+						</div>
+					</div>
 
-          <div class="grid gap-3 md:grid-cols-3" v-if="!submittedRequestId">
-            <button type="button"
-              class="h-11 rounded-lg border border-brand-200 bg-transparent px-4 text-sm font-semibold text-brand-700 shadow-theme-xs transition hover:bg-brand-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-700 dark:text-brand-200 dark:hover:bg-brand-500/10"
-              :disabled="isSubmitting || isAutofilling || !form.selectedEmployee" @click="handleAutofill">
-              {{ isAutofilling ? t('otForm.autofilling') : t('otForm.autofillYesterday') }}
-            </button>
-            <button type="button"
-              class="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5"
-              :disabled="isSubmitting" @click="handleReset">
-              {{ t('common.reset') }}
-            </button>
-            <button type="submit"
-              class="h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="isSubmitting || !canCreate">
-              {{ isSubmitting ? t('otForm.submitting') : t('otForm.submitRequest') }}
-            </button>
-          </div>
+					<div class="grid gap-3 md:grid-cols-3" v-if="!submittedRequestId">
+						<button type="button"
+							class="h-11 rounded-lg border border-brand-200 bg-transparent px-4 text-sm font-semibold text-brand-700 shadow-theme-xs transition hover:bg-brand-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-700 dark:text-brand-200 dark:hover:bg-brand-500/10"
+							:disabled="isSubmitting || isAutofilling || !form.selectedEmployee" @click="handleAutofill">
+							{{ isAutofilling ? t('otForm.autofilling') : t('otForm.autofillYesterday') }}
+						</button>
+						<button type="button"
+							class="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5"
+							:disabled="isSubmitting" @click="handleReset">
+							{{ t('common.reset') }}
+						</button>
+						<button type="submit"
+							class="h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+							:disabled="isSubmitting || !canCreate">
+							{{ isSubmitting ? t('otForm.submitting') : t('otForm.submitRequest') }}
+						</button>
+					</div>
 
-          <div class="space-y-4" v-else>
-            <!-- Approved/Rejected request notice -->
-            <div v-if="submittedRequestStatus === 'approved'"
-              class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/30 dark:text-emerald-100">
-              <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clip-rule="evenodd" />
-              </svg>
-              <span class="text-sm font-medium">{{ t('otForm.approvedNotice') }}</span>
-            </div>
-            <div v-else-if="submittedRequestStatus === 'rejected'"
-              class="flex items-center gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-error-800 dark:border-error-900/50 dark:bg-error-900/30 dark:text-error-100">
-              <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clip-rule="evenodd" />
-              </svg>
-              <span class="text-sm font-medium">{{ t('otForm.rejectedNotice') }}</span>
-            </div>
+					<div class="space-y-4" v-else>
+						<!-- Approved/Rejected request notice -->
+						<div v-if="submittedRequestStatus === 'approved'"
+							class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-900/30 dark:text-emerald-100">
+							<svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+								<path fill-rule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+									clip-rule="evenodd" />
+							</svg>
+							<span class="text-sm font-medium">{{ t('otForm.approvedNotice') }}</span>
+						</div>
+						<div v-else-if="submittedRequestStatus === 'rejected'"
+							class="flex items-center gap-3 rounded-xl border border-error-200 bg-error-50 px-4 py-3 text-error-800 dark:border-error-900/50 dark:bg-error-900/30 dark:text-error-100">
+							<svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+								<path fill-rule="evenodd"
+									d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+									clip-rule="evenodd" />
+							</svg>
+							<span class="text-sm font-medium">{{ t('otForm.rejectedNotice') }}</span>
+						</div>
 
-            <div class="grid gap-3 md:grid-cols-2">
-              <button type="button" v-if="canDeleteRequest"
-                class="h-11 rounded-lg border border-error-300 bg-error-50 px-4 text-sm font-semibold text-error-700 shadow-theme-xs transition hover:bg-error-100 focus:outline-hidden focus:ring-3 focus:ring-error-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
-                :disabled="isSubmitting" @click="showDeleteModal = true">
-                {{ t('otForm.deleteRequest') }}
-              </button>
-              <button type="submit" v-if="canEditRequest"
-                class="h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="isSubmitting">
-                {{ isSubmitting ? t('otForm.updatingRequest') : t('otForm.updateRequest') }}
-              </button>
-            </div>
-          </div>
-        </form>
-      </ComponentCard>
+						<div class="grid gap-3 md:grid-cols-2">
+							<button type="button" v-if="canDeleteRequest"
+								class="h-11 rounded-lg border border-error-300 bg-error-50 px-4 text-sm font-semibold text-error-700 shadow-theme-xs transition hover:bg-error-100 focus:outline-hidden focus:ring-3 focus:ring-error-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
+								:disabled="isSubmitting" @click="showDeleteModal = true">
+								{{ t('otForm.deleteRequest') }}
+							</button>
+							<button type="submit" v-if="canEditRequest"
+								class="h-11 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+								:disabled="isSubmitting">
+								{{ isSubmitting ? t('otForm.updatingRequest') : t('otForm.updateRequest') }}
+							</button>
+						</div>
+					</div>
+				</form>
+			</ComponentCard>
 
-      <!-- Delete Confirmation Modal -->
-      <div v-if="showDeleteModal"
-        class="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-900/50 dark:bg-gray-950/70"
-        @click.self="showDeleteModal = false">
-        <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
-          <div class="mb-4">
-            <div
-              class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-error-100 dark:bg-error-500/20">
-              <svg class="h-6 w-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24" stroke-width="2"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-            </div>
-          </div>
-          <div class="text-center">
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">{{ t('otForm.deleteConfirmTitle') }}
-            </h3>
-            <p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
-              {{ t('otForm.deleteConfirmMsg') }}
-            </p>
-          </div>
-          <div class="flex gap-3">
-            <button type="button"
-              class="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              @click="showDeleteModal = false">
-              {{ t('common.cancel') }}
-            </button>
-            <button type="button"
-              class="h-11 flex-1 rounded-lg bg-error-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-error-700 focus:outline-hidden focus:ring-3 focus:ring-error-500/20"
-              @click="handleDelete">
-              {{ t('common.delete') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </AdminLayout>
+			<!-- Delete Confirmation Modal -->
+			<div v-if="showDeleteModal"
+				class="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-900/50 dark:bg-gray-950/70"
+				role="dialog" aria-modal="true" aria-labelledby="ot-form-delete-modal-title"
+				@click.self="showDeleteModal = false">
+				<div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
+					<div class="mb-4">
+						<div
+							class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-error-100 dark:bg-error-500/20">
+							<svg class="h-6 w-6 text-error-600 dark:text-error-400" fill="none" viewBox="0 0 24 24"
+								stroke-width="2" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round"
+									d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+							</svg>
+						</div>
+					</div>
+					<div class="text-center">
+						<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white"
+							id="ot-form-delete-modal-title">{{
+								t('otForm.deleteConfirmTitle') }}
+						</h3>
+						<p class="mb-6 text-sm text-gray-600 dark:text-gray-400">
+							{{ t('otForm.deleteConfirmMsg') }}
+						</p>
+					</div>
+					<div class="flex gap-3">
+						<button type="button"
+							class="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+							@click="showDeleteModal = false">
+							{{ t('common.cancel') }}
+						</button>
+						<button type="button"
+							class="h-11 flex-1 rounded-lg bg-error-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-error-700 focus:outline-hidden focus:ring-3 focus:ring-error-500/20"
+							@click="handleDelete">
+							{{ t('common.delete') }}
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</AdminLayout>
 </template>
 
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
 import ComponentCard from '@/components/common/ComponentCard.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import BreakSchedulerSection from '@/components/ot/BreakSchedulerSection.vue'
 import OvertimeRegulations from '@/components/ot/OvertimeRegulations.vue'
+import SearchableDropdown from '@/components/ui/SearchableDropdown.vue'
 import {
 	isWeekend,
 	type OvertimeFormState,
@@ -502,67 +381,6 @@ const selectedEmployeeData = computed(() =>
 )
 
 const selectedEmployeeName = computed(() => selectedEmployeeData.value?.name || 'Employee')
-
-const selectedProjectName = computed(() => {
-	if (!form.selectedProject) return ''
-	const proj = projects.value.find((p) => p.id === form.selectedProject)
-	return proj?.name || ''
-})
-
-// ── Searchable dropdown state ─────────────────────────────────────
-
-const showEmployeeDropdown = ref(false)
-const showProjectDropdown = ref(false)
-const employeeSearch = ref('')
-const projectSearch = ref('')
-const employeeDropdownRef = ref<HTMLElement | null>(null)
-const projectDropdownRef = ref<HTMLElement | null>(null)
-const employeeSearchInput = ref<HTMLInputElement | null>(null)
-const projectSearchInput = ref<HTMLInputElement | null>(null)
-
-const searchFilteredEmployees = computed(() => {
-	const list = filteredEmployees.value
-	if (!employeeSearch.value) return list
-	const q = employeeSearch.value.toLowerCase()
-	return list.filter((e) => e.name.toLowerCase().includes(q))
-})
-
-const searchFilteredProjects = computed(() => {
-	const list = enabledProjects.value
-	if (!projectSearch.value) return list
-	const q = projectSearch.value.toLowerCase()
-	return list.filter((p) => p.name.toLowerCase().includes(q))
-})
-
-function selectEmployee(id: string) {
-	form.selectedEmployee = id
-	showEmployeeDropdown.value = false
-	employeeSearch.value = ''
-}
-
-function selectProject(id: string) {
-	form.selectedProject = id
-	showProjectDropdown.value = false
-	projectSearch.value = ''
-}
-
-function handleClickOutside(e: MouseEvent) {
-	if (employeeDropdownRef.value && !employeeDropdownRef.value.contains(e.target as Node)) {
-		showEmployeeDropdown.value = false
-		employeeSearch.value = ''
-	}
-	if (projectDropdownRef.value && !projectDropdownRef.value.contains(e.target as Node)) {
-		showProjectDropdown.value = false
-		projectSearch.value = ''
-	}
-}
-
-watch(showEmployeeDropdown, (val) => {
-	if (val) nextTick(() => employeeSearchInput.value?.focus())
-})
-watch(showProjectDropdown, (val) => {
-	if (val) nextTick(() => projectSearchInput.value?.focus())
-})
 
 // ── Admin access & permissions ────────────────────────────────────
 
@@ -877,8 +695,8 @@ async function checkExistingRequest(employeeId: string, date: string) {
 				const aCreated = new Date(a.created_at || a.request_date || 0).getTime()
 				const bCreated = new Date(b.created_at || b.request_date || 0).getTime()
 				if (bCreated !== aCreated) return bCreated - aCreated
-				const aStart = a.time_in || a.time_start || ''
-				const bStart = b.time_in || b.time_start || ''
+				const aStart = a.time_start || ''
+				const bStart = b.time_start || ''
 				return aStart.localeCompare(bStart)
 			})
 			const request = sorted[0]
@@ -895,23 +713,23 @@ async function checkExistingRequest(employeeId: string, date: string) {
 
 				const reqProjectId = request.project ?? request.project_id
 				form.selectedProject = reqProjectId ? String(reqProjectId) : ''
-				form.timeStart = extractTime(request.time_in) || extractTime(request.time_start) || ''
-				form.timeEnd = extractTime(request.time_out) || extractTime(request.time_end) || ''
+				form.timeStart = extractTime(request.time_start) || ''
+				form.timeEnd = extractTime(request.time_end) || ''
 				form.isHoliday = request.is_holiday ?? false
 				form.reason = request.reason || ''
-				form.details = request.work_description || request.detail || ''
+				form.details = request.detail || ''
 				form.hasBreak = request.has_break ?? false
 
 				if (request.has_break && request.breaks && request.breaks.length > 0) {
-					form.breakStart = extractTime(request.breaks[0]?.break_start)
-					form.breakEnd = extractTime(request.breaks[0]?.break_end)
+					form.breakStart = extractTime(request.breaks[0]?.start_time)
+					form.breakEnd = extractTime(request.breaks[0]?.end_time)
 					if (request.breaks.length > 1) {
-						form.breakStart2 = extractTime(request.breaks[1]?.break_start)
-						form.breakEnd2 = extractTime(request.breaks[1]?.break_end)
+						form.breakStart2 = extractTime(request.breaks[1]?.start_time)
+						form.breakEnd2 = extractTime(request.breaks[1]?.end_time)
 					}
 					if (request.breaks.length > 2) {
-						form.breakStart3 = extractTime(request.breaks[2]?.break_start)
-						form.breakEnd3 = extractTime(request.breaks[2]?.break_end)
+						form.breakStart3 = extractTime(request.breaks[2]?.start_time)
+						form.breakEnd3 = extractTime(request.breaks[2]?.end_time)
 					}
 				} else if (request.has_break && request.break_start && request.break_end) {
 					form.breakStart = extractTime(request.break_start)
@@ -978,23 +796,23 @@ async function handleAutofill() {
 
 		const reqProjectId = request.project ?? request.project_id
 		form.selectedProject = reqProjectId ? String(reqProjectId) : ''
-		form.timeStart = request.time_in?.slice(0, 5) || ''
-		form.timeEnd = request.time_out?.slice(0, 5) || ''
+		form.timeStart = request.time_start?.slice(0, 5) || ''
+		form.timeEnd = request.time_end?.slice(0, 5) || ''
 		form.isHoliday = request.is_holiday ?? false
 		form.reason = request.reason || ''
-		form.details = request.work_description || request.detail || ''
+		form.details = request.detail || ''
 		form.hasBreak = request.has_break ?? false
 
 		if (request.has_break && request.breaks && request.breaks.length > 0) {
-			form.breakStart = request.breaks[0]?.break_start?.slice(0, 5) || ''
-			form.breakEnd = request.breaks[0]?.break_end?.slice(0, 5) || ''
+			form.breakStart = request.breaks[0]?.start_time?.slice(0, 5) || ''
+			form.breakEnd = request.breaks[0]?.end_time?.slice(0, 5) || ''
 			if (request.breaks.length > 1) {
-				form.breakStart2 = request.breaks[1]?.break_start?.slice(0, 5) || ''
-				form.breakEnd2 = request.breaks[1]?.break_end?.slice(0, 5) || ''
+				form.breakStart2 = request.breaks[1]?.start_time?.slice(0, 5) || ''
+				form.breakEnd2 = request.breaks[1]?.end_time?.slice(0, 5) || ''
 			}
 			if (request.breaks.length > 2) {
-				form.breakStart3 = request.breaks[2]?.break_start?.slice(0, 5) || ''
-				form.breakEnd3 = request.breaks[2]?.break_end?.slice(0, 5) || ''
+				form.breakStart3 = request.breaks[2]?.start_time?.slice(0, 5) || ''
+				form.breakEnd3 = request.breaks[2]?.end_time?.slice(0, 5) || ''
 			}
 		} else if (request.has_break && request.break_start && request.break_end) {
 			form.breakStart = request.break_start.slice(0, 5)
@@ -1044,8 +862,6 @@ async function handleSubmit() {
 			request_date: form.selectedDate,
 			time_start: form.timeStart,
 			time_end: form.timeEnd,
-			time_in: form.timeStart,
-			time_out: form.timeEnd,
 			total_hours: computedTotalHours,
 			has_break: form.hasBreak,
 			break_start: form.hasBreak && form.breakStart ? form.breakStart : undefined,
@@ -1053,7 +869,7 @@ async function handleSubmit() {
 			is_holiday: form.isHoliday,
 			is_weekend: isWeekend(form.selectedDate),
 			reason: form.reason,
-			work_description: form.details,
+			detail: form.details,
 		}
 
 		let result: RawOvertimeResponse | null = null
@@ -1315,7 +1131,6 @@ const details = computed({
 // ── Lifecycle ─────────────────────────────────────────────────────
 
 onMounted(async () => {
-	document.addEventListener('click', handleClickOutside)
 	await Promise.all([
 		employeeStore.fetchEmployees(),
 		projectStore.fetchProjects(),
@@ -1365,7 +1180,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-	document.removeEventListener('click', handleClickOutside)
 	destroyFlatpickrs()
 })
 </script>
@@ -1374,32 +1188,32 @@ onUnmounted(() => {
 <style scoped>
 /* Holiday marker dot on flatpickr calendar days */
 :deep(.ot-holiday-day) {
-  position: relative;
-  background-color: rgba(239, 68, 68, 0.1) !important;
+	position: relative;
+	background-color: rgba(239, 68, 68, 0.1) !important;
 }
 
 :deep(.ot-holiday-day::after) {
-  content: '';
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background-color: #ef4444;
+	content: '';
+	position: absolute;
+	bottom: 2px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background-color: #ef4444;
 }
 
 :deep(.ot-holiday-day:hover) {
-  background-color: rgba(239, 68, 68, 0.2) !important;
+	background-color: rgba(239, 68, 68, 0.2) !important;
 }
 
 /* When a holiday day is selected, keep the brand color but show the dot */
 :deep(.ot-holiday-day.selected) {
-  background-color: var(--color-brand-500, #465fff) !important;
+	background-color: var(--color-brand-500, #465fff) !important;
 }
 
 :deep(.ot-holiday-day.selected::after) {
-  background-color: #ffffff;
+	background-color: #ffffff;
 }
 </style>

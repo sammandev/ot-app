@@ -44,20 +44,20 @@ class ExternalAuthService:
 
             if response.status_code == 200:
                 data = response.json()
-                logger.info(f"Successful login for user: {username}")
+                logger.info("Successful login for user: %s", username)
                 return {"access": data.get("access"), "refresh": data.get("refresh"), "user_data": data}
             elif response.status_code == 401:
-                logger.warning(f"Invalid credentials for user: {username}")
+                logger.warning("Invalid credentials for user: %s", username)
                 raise AuthenticationFailed("Invalid username or password")
             else:
-                logger.error(f"Login failed with status {response.status_code}")
+                logger.error("Login failed with status %s", response.status_code)
                 raise AuthenticationFailed("Authentication service error")
 
         except requests.exceptions.Timeout as e:
-            logger.error(f"External API timeout for user: {username}")
+            logger.error("External API timeout for user: %s", username)
             raise AuthenticationFailed("Authentication service timeout") from e
         except requests.exceptions.RequestException as e:
-            logger.error(f"External API error: {str(e)}")
+            logger.error("External API error: %s", e)
             raise AuthenticationFailed("Authentication service unavailable") from e
 
     @classmethod
@@ -88,7 +88,7 @@ class ExternalAuthService:
                 raise AuthenticationFailed("Token refresh failed")
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Token refresh error: {str(e)}")
+            logger.error("Token refresh error: %s", e)
             raise AuthenticationFailed("Token refresh service unavailable") from e
 
     @classmethod
@@ -113,17 +113,17 @@ class ExternalAuthService:
 
             if response.status_code == 200:
                 data = response.json()
-                logger.debug(f"Retrieved user info for: {data.get('username')}")
+                logger.debug("Retrieved user info for: %s", data.get("username"))
                 return data
             elif response.status_code == 401:
                 logger.warning("Invalid or expired token")
                 raise AuthenticationFailed("Token is invalid or expired")
             else:
-                logger.error(f"Get user info failed with status {response.status_code}")
+                logger.error("Get user info failed with status %s", response.status_code)
                 raise AuthenticationFailed("Failed to retrieve user information")
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Get user info error: {str(e)}")
+            logger.error("Get user info error: %s", e)
             raise AuthenticationFailed("User info service unavailable") from e
 
     @classmethod
@@ -152,11 +152,11 @@ class ExternalAuthService:
                 logger.debug("External token is invalid or expired")
                 return False
             else:
-                logger.warning(f"Token verification returned status {response.status_code}")
+                logger.warning("Token verification returned status %s", response.status_code)
                 return False
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Token verification error: {str(e)}")
+            logger.error("Token verification error: %s", e)
             raise AuthenticationFailed("Token verification service unavailable") from e
 
     @classmethod
@@ -187,5 +187,5 @@ class ExternalAuthService:
 
             return json.loads(decoded)
         except Exception as e:
-            logger.error(f"Token decode error: {str(e)}")
+            logger.error("Token decode error: %s", e)
             return {}

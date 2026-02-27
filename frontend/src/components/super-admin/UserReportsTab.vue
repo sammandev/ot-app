@@ -4,24 +4,30 @@
             <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
                 <div class="flex items-center gap-4">
                     <div class="rounded-xl bg-orange-100 p-3 dark:bg-orange-500/20">
-                        <svg class="h-6 w-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg class="h-6 w-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">User Reports</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Bug reports and feature requests from users</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Bug reports and feature requests from users
+                        </p>
                     </div>
                 </div>
                 <!-- Stats badges -->
                 <div v-if="reportStats" class="hidden md:flex items-center gap-3">
-                    <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span
+                        class="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                         Open: {{ reportStats.by_status?.open || 0 }}
                     </span>
-                    <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    <span
+                        class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                         In Progress: {{ reportStats.by_status?.in_progress || 0 }}
                     </span>
-                    <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    <span
+                        class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
                         Resolved: {{ reportStats.by_status?.resolved || 0 }}
                     </span>
                 </div>
@@ -58,7 +64,8 @@
 
             <!-- Loading -->
             <div v-if="reportsLoading" class="flex justify-center py-12">
-                <svg class="animate-spin h-6 w-6 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg class="animate-spin h-6 w-6 text-brand-500" xmlns="http://www.w3.org/2000/svg" fill="none"
+                    viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
@@ -76,17 +83,23 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex items-center gap-2 mb-1">
                                 <span class="text-base">{{ report.report_type === 'bug' ? '🐛' : '💡' }}</span>
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ report.title }}</h4>
+                                <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ report.title
+                                    }}</h4>
                             </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{{ report.description }}</p>
-                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                                <span class="font-medium text-gray-700 dark:text-gray-300" :title="report.reporter_email || ''">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{{ report.description
+                                }}</p>
+                            <div
+                                class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                <span class="font-medium text-gray-700 dark:text-gray-300"
+                                    :title="report.reporter_email || ''">
                                     {{ report.reporter_name || report.reporter_username }}
                                 </span>
-                                <span v-if="report.reporter_worker_id" class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                                <span v-if="report.reporter_worker_id"
+                                    class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                                     {{ report.reporter_worker_id }}
                                 </span>
-                                <span v-if="report.reporter_email" class="text-gray-400 dark:text-gray-500">{{ report.reporter_email }}</span>
+                                <span v-if="report.reporter_email" class="text-gray-400 dark:text-gray-500">{{
+                                    report.reporter_email }}</span>
                                 <span class="text-gray-400 dark:text-gray-500">&middot;</span>
                                 <span>{{ formatReportDate(report.created_at!) }}</span>
                             </div>
@@ -124,7 +137,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { type UserReportData, userReportAPI } from '@/services/api'
+import { type UserReportData, userReportAPI } from '@/services/api/user-report'
 
 const reportsLoading = ref(false)
 const reports = ref<UserReportData[]>([])

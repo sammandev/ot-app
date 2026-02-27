@@ -26,8 +26,7 @@
                             users system-wide</p>
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" v-model="reminderSettings.disabled_globally"
-                            class="sr-only peer">
+                        <input type="checkbox" v-model="reminderSettings.disabled_globally" class="sr-only peer">
                         <div
                             class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform dark:border-gray-600 peer-checked:bg-red-500">
                         </div>
@@ -35,16 +34,14 @@
                 </div>
 
                 <!-- Disable by Role -->
-                <div
-                    class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
                     <h4 class="font-medium text-gray-900 dark:text-white mb-3">Disable by Role</h4>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select roles that should NOT receive
                         event reminders</p>
                     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <label v-for="role in availableRoles" :key="role.key"
                             class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" :value="role.key"
-                                v-model="reminderSettings.disabled_roles"
+                            <input type="checkbox" :value="role.key" v-model="reminderSettings.disabled_roles"
                                 class="rounded border-gray-300 text-brand-600 focus:ring-brand-500">
                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ role.label }}</span>
                         </label>
@@ -52,25 +49,21 @@
                 </div>
 
                 <!-- Disable by Specific Users -->
-                <div
-                    class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
                     <h4 class="font-medium text-gray-900 dark:text-white mb-3">Disable for Specific Users</h4>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select individual users to disable
                         reminders for</p>
                     <div class="mb-3">
-                        <input v-model="reminderUserSearch" type="text"
-                            placeholder="Search users..."
+                        <input v-model="reminderUserSearch" type="text" placeholder="Search users..."
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
                     </div>
                     <div class="max-h-48 overflow-y-auto space-y-1">
                         <label v-for="user in filteredReminderUsers" :key="user.id"
                             class="flex items-center gap-2 cursor-pointer p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <input type="checkbox" :value="user.id"
-                                v-model="reminderSettings.disabled_users"
+                            <input type="checkbox" :value="user.id" v-model="reminderSettings.disabled_users"
                                 class="rounded border-gray-300 text-brand-600 focus:ring-brand-500">
                             <span class="text-sm text-gray-700 dark:text-gray-300">{{ user.username }}</span>
-                            <span v-if="user.worker_id"
-                                class="text-xs text-gray-500">({{ user.worker_id }})</span>
+                            <span v-if="user.worker_id" class="text-xs text-gray-500">({{ user.worker_id }})</span>
                         </label>
                     </div>
                 </div>
@@ -94,8 +87,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useToast } from '@/composables/useToast'
-import type { UserAccessControl } from '@/services/api'
-import { apiClient } from '@/services/api'
+import type { UserAccessControl } from '@/services/api/auth'
+import { apiClient } from '@/services/api/client'
 import { useConfigStore } from '@/stores/config'
 
 const props = defineProps<{

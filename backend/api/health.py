@@ -47,7 +47,7 @@ class HealthCheckDetailedView(APIView):
                 cursor.fetchone()
             health_status["checks"]["database"] = {"status": "healthy", "message": "Database connection successful"}
         except Exception as e:
-            logger.error(f"Database health check failed: {str(e)}")
+            logger.error("Database health check failed: %s", e)
             health_status["checks"]["database"] = {"status": "unhealthy", "message": str(e)}
             overall_healthy = False
 
@@ -63,7 +63,7 @@ class HealthCheckDetailedView(APIView):
             else:
                 raise Exception("Cache read/write mismatch")
         except Exception as e:
-            logger.warning(f"Cache health check failed: {str(e)}")
+            logger.warning("Cache health check failed: %s", e)
             health_status["checks"]["cache"] = {"status": "degraded", "message": f"Cache unavailable: {str(e)}"}
             # Cache failure is not critical, mark as degraded not unhealthy
 
@@ -80,7 +80,7 @@ class HealthCheckDetailedView(APIView):
                 else:
                     health_status["checks"]["celery"] = {"status": "degraded", "message": "No active workers"}
             except Exception as e:
-                logger.warning(f"Celery health check failed: {str(e)}")
+                logger.warning("Celery health check failed: %s", e)
                 health_status["checks"]["celery"] = {"status": "degraded", "message": f"Celery unavailable: {str(e)}"}
 
         # Set overall status
@@ -112,7 +112,7 @@ class ReadinessCheckView(APIView):
             return Response({"status": "ready", "timestamp": time.time()}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Readiness check failed: {str(e)}")
+            logger.error("Readiness check failed: %s", e)
             return Response({"status": "not_ready", "message": str(e), "timestamp": time.time()}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { apiClient } from '@/services/api'
+import { MAX_PAGE_VIEW_CACHE_SIZE } from '@/constants/ui'
+import { apiClient } from '@/services/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 
@@ -358,7 +359,7 @@ router.afterEach(async (to) => {
 		_pageViewCache.set(to.path, now)
 
 		// Evict stale entries to prevent unbounded growth in long sessions
-		if (_pageViewCache.size > 100) {
+		if (_pageViewCache.size > MAX_PAGE_VIEW_CACHE_SIZE) {
 			for (const [key, ts] of _pageViewCache) {
 				if (now - ts > PAGE_VIEW_COOLDOWN) _pageViewCache.delete(key)
 			}

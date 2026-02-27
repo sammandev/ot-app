@@ -41,16 +41,20 @@
                 <table class="w-full text-sm">
                     <thead class="border-b border-gray-200 dark:border-gray-800">
                         <tr>
-                            <th @click="toggleSort('name')"
+                            <th @click="toggleSort('name')" @keydown.enter="toggleSort('name')" tabindex="0"
+                                :aria-sort="sortBy === 'name' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                                 class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                 {{ t('common.name') }}<span class="text-gray-400">{{ getSortIcon('name') }}</span></th>
-                            <th @click="toggleSort('emp_id')"
+                            <th @click="toggleSort('emp_id')" @keydown.enter="toggleSort('emp_id')" tabindex="0"
+                                :aria-sort="sortBy === 'emp_id' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                                 class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                 {{ t('admin.emp.employeeId') }}<span class="text-gray-400">{{ getSortIcon('emp_id') }}</span></th>
-                            <th @click="toggleSort('department')"
+                            <th @click="toggleSort('department')" @keydown.enter="toggleSort('department')" tabindex="0"
+                                :aria-sort="sortBy === 'department' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                                 class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                 {{ t('admin.emp.department') }}<span class="text-gray-400">{{ getSortIcon('department') }}</span></th>
-                            <th @click="toggleSort('is_enabled')"
+                            <th @click="toggleSort('is_enabled')" @keydown.enter="toggleSort('is_enabled')" tabindex="0"
+                                :aria-sort="sortBy === 'is_enabled' ? (sortOrder === 'asc' ? 'ascending' : 'descending') : 'none'"
                                 class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
                                 {{ t('common.status') }}<span class="text-gray-400">{{ getSortIcon('is_enabled') }}</span></th>
                             <th class="px-6 py-4 text-left font-semibold text-gray-900 dark:text-white">{{ t('admin.emp.otReports') }}</th>
@@ -58,7 +62,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                        <tr v-for="emp in paginatedEmployees" :key="emp.id"
+                        <tr v-for="emp in employees" :key="emp.id"
                             class="hover:bg-gray-50 dark:hover:bg-white/5">
                             <td class="px-6 py-4 text-gray-900 dark:text-white">
                                 <span class="font-medium">{{ emp.name }}</span>
@@ -112,7 +116,7 @@
                 <div
                     class="flex flex-col gap-3 border-t border-gray-200 px-6 py-4 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex items-center gap-3">
-                        <p>{{ t('common.showing') }} {{ pageRangeStart }}-{{ pageRangeEnd }} {{ t('common.of') }} {{ sortedEmployees.length }}</p>
+                        <p>{{ t('common.showing') }} {{ pageRangeStart }}-{{ pageRangeEnd }} {{ t('common.of') }} {{ totalCount }}</p>
                         <select v-model.number="pageSize"
                             class="h-9 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} {{ t('common.perPage') }}</option>
@@ -134,7 +138,8 @@
 
             <!-- Create/Edit Modal -->
             <div v-if="showCreateModal || showEditModal"
-                class="fixed inset-0 z-[100000] flex items-center justify-center">
+                class="fixed inset-0 z-[100000] flex items-center justify-center"
+                @keydown.esc="showCreateModal = false; showEditModal = false">
                 <div class="absolute inset-0 bg-black/50" @click="showCreateModal = false; showEditModal = false"></div>
                 <div
                     role="dialog" aria-modal="true" aria-labelledby="employee-modal-title"
@@ -241,7 +246,8 @@
             </div>
 
             <!-- Delete Confirmation Modal -->
-            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center"
+                @keydown.esc="cancelDelete">
                 <div class="absolute inset-0 bg-black/50" @click="cancelDelete"></div>
                 <div
                     role="dialog" aria-modal="true" aria-labelledby="employee-delete-modal-title"
@@ -269,17 +275,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+import { useDebounce } from '@/composables/useDebounce'
 import { usePagePermission } from '@/composables/usePagePermission'
-import type { Employee } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import type { Employee } from '@/services/api/employee'
 import { useDepartmentStore } from '@/stores/department'
 import { useEmployeeStore } from '@/stores/employee'
 
 // Pinia Stores
 const { t } = useI18n()
+const { showToast } = useToast()
 const employeeStore = useEmployeeStore()
 const departmentStore = useDepartmentStore()
 const { canCreate, canUpdate, canDelete } = usePagePermission('admin_employees')
@@ -287,9 +296,11 @@ const { canCreate, canUpdate, canDelete } = usePagePermission('admin_employees')
 // Computed data from stores
 const employees = computed(() => employeeStore.employees)
 const departments = computed(() => departmentStore.departments)
+const totalCount = computed(() => employeeStore.totalCount)
 const isLoading = computed(() => employeeStore.loading || departmentStore.loading)
 const isSaving = ref(false)
 const searchQuery = ref('')
+const debouncedSearch = useDebounce(searchQuery, 300)
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModal = ref(false)
@@ -311,6 +322,14 @@ const errors = reactive({
 
 import { getSortIcon as _getSortIcon } from '@/utils/getSortIcon'
 
+// Sort field mapping: frontend field name -> backend ordering field
+const orderingFieldMap: Record<string, string> = {
+	name: 'name',
+	emp_id: 'emp_id',
+	department: 'department__name',
+	is_enabled: 'is_enabled',
+}
+
 const sortBy = ref<'name' | 'emp_id' | 'department' | 'is_enabled' | null>(null)
 const sortOrder = ref<'asc' | 'desc'>('asc')
 
@@ -331,68 +350,34 @@ const resetForm = () => {
 	editingEmp.value = null
 }
 
-const filteredEmployees = computed(() => {
-	if (!searchQuery.value.trim()) return employees.value
-	const query = searchQuery.value.toLowerCase()
-	return employees.value.filter(
-		(emp) => emp.name.toLowerCase().includes(query) || emp.emp_id.toLowerCase().includes(query),
-	)
-})
+// Server-side data fetching
+const fetchData = async () => {
+	const ordering = sortBy.value
+		? `${sortOrder.value === 'desc' ? '-' : ''}${orderingFieldMap[sortBy.value] ?? sortBy.value}`
+		: undefined
 
-const sortedEmployees = computed(() => {
-	// If no sort applied, return filtered data as-is
-	if (!sortBy.value) return filteredEmployees.value
-
-	const sorted = [...filteredEmployees.value].sort((a, b) => {
-		let aVal: string | boolean | number = a[sortBy.value!]
-		let bVal: string | boolean | number = b[sortBy.value!]
-
-		if (sortBy.value === 'department') {
-			const deptA = departments.value.find((d) => d.id === a.department)
-			const deptB = departments.value.find((d) => d.id === b.department)
-			aVal = deptA?.name || ''
-			bVal = deptB?.name || ''
-		}
-
-		if (typeof aVal === 'string' && typeof bVal === 'string') {
-			aVal = aVal.toLowerCase()
-			bVal = bVal.toLowerCase()
-		}
-
-		if (aVal < bVal) return sortOrder.value === 'asc' ? -1 : 1
-		if (aVal > bVal) return sortOrder.value === 'asc' ? 1 : -1
-		return 0
+	await employeeStore.fetchEmployees({
+		page: currentPage.value,
+		page_size: pageSize.value,
+		search: debouncedSearch.value || undefined,
+		ordering,
 	})
-	return sorted
-})
+}
 
-const totalPages = computed(() =>
-	Math.max(1, Math.ceil(sortedEmployees.value.length / pageSize.value)),
-)
-const paginatedEmployees = computed(() => {
-	const start = (currentPage.value - 1) * pageSize.value
-	const end = start + pageSize.value
-	return sortedEmployees.value.slice(start, end)
-})
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
 const pageRangeStart = computed(() =>
-	sortedEmployees.value.length === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
+	totalCount.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
 )
-const pageRangeEnd = computed(() =>
-	Math.min(sortedEmployees.value.length, currentPage.value * pageSize.value),
-)
+const pageRangeEnd = computed(() => Math.min(totalCount.value, currentPage.value * pageSize.value))
 
 const toggleSort = (field: 'name' | 'emp_id' | 'department' | 'is_enabled') => {
-	// If clicking the same field that's currently sorted
 	if (sortBy.value === field) {
-		// Cycle: asc -> desc -> unsorted
 		if (sortOrder.value === 'asc') {
 			sortOrder.value = 'desc'
 		} else {
-			// Reset to unsorted
 			sortBy.value = null
 		}
 	} else {
-		// Clicking a different field, start with ascending
 		sortBy.value = field
 		sortOrder.value = 'asc'
 	}
@@ -406,8 +391,19 @@ const goToPage = (page: number) => {
 	currentPage.value = page
 }
 
-watch([pageSize, () => sortedEmployees.value.length], () => {
-	currentPage.value = 1
+// Watch search/sort/pageSize changes → reset to page 1 and refetch
+watch([debouncedSearch, sortBy, sortOrder, pageSize], () => {
+	if (currentPage.value !== 1) {
+		// Setting currentPage will trigger its own watcher to fetchData
+		currentPage.value = 1
+	} else {
+		fetchData()
+	}
+})
+
+// Watch page changes separately (don't reset page)
+watch(currentPage, () => {
+	fetchData()
 })
 
 const handleEdit = (emp: Employee) => {
@@ -431,8 +427,10 @@ const confirmDelete = async () => {
 			await employeeStore.deleteEmployee(deletingEmpId.value)
 			showDeleteModal.value = false
 			deletingEmpId.value = null
+			await fetchData()
 		} catch (error) {
 			console.error('Failed to delete employee:', error)
+			showToast(t('admin.emp.deleteFailed', 'Failed to delete employee'), 'error')
 		}
 	}
 }
@@ -442,23 +440,13 @@ const cancelDelete = () => {
 	deletingEmpId.value = null
 }
 
-// Handle Esc key to close modals
-const handleEscKey = (event: KeyboardEvent) => {
-	if (event.key === 'Escape') {
-		if (showDeleteModal.value) {
-			cancelDelete()
-		} else if (showCreateModal.value || showEditModal.value) {
-			showCreateModal.value = false
-			showEditModal.value = false
-		}
-	}
-}
-
 const handleToggleEnabled = async (id: number, currentStatus: boolean) => {
 	try {
 		await employeeStore.updateEmployee(id, { is_enabled: !currentStatus })
+		await fetchData()
 	} catch (error) {
 		console.error('Failed to toggle status:', error)
+		showToast(t('admin.emp.toggleFailed', 'Failed to toggle status'), 'error')
 	}
 }
 
@@ -467,8 +455,10 @@ const handleToggleReportExclusion = async (id: number, currentStatus: boolean) =
 		await employeeStore.updateEmployee(id, {
 			exclude_from_reports: !currentStatus,
 		})
+		await fetchData()
 	} catch (error) {
 		console.error('Failed to toggle report exclusion:', error)
+		showToast(t('admin.emp.toggleFailed', 'Failed to toggle report exclusion'), 'error')
 	}
 }
 
@@ -505,6 +495,7 @@ const handleSave = async () => {
 		showCreateModal.value = false
 		showEditModal.value = false
 		resetForm()
+		await fetchData()
 	} catch (error) {
 		console.error('Failed to save employee:', error)
 		// Show error message
@@ -534,11 +525,6 @@ const handleSave = async () => {
 
 // Load initial data from API
 onMounted(async () => {
-	await Promise.all([employeeStore.fetchEmployees(), departmentStore.fetchDepartments()])
-	window.addEventListener('keydown', handleEscKey)
-})
-
-onBeforeUnmount(() => {
-	window.removeEventListener('keydown', handleEscKey)
+	await Promise.all([fetchData(), departmentStore.fetchDepartments()])
 })
 </script>

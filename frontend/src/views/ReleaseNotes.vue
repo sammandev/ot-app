@@ -5,8 +5,10 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-semibold text-brand-500">{{ t('pages.releaseNotes.category') }}</p>
-                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.releaseNotes.title') }}</h1>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.releaseNotes.subtitle', { appAcronym: configStore.appAcronym }) }}</p>
+                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.releaseNotes.title') }}
+                    </h1>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.releaseNotes.subtitle', {
+                        appAcronym: configStore.appAcronym }) }}</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <!-- Super Admin: Add Release Note -->
@@ -61,8 +63,7 @@
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-3">
                                 <!-- Version Badge -->
-                                <span
-                                    class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-bold"
+                                <span class="inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-bold"
                                     :class="getStatusBadgeClass(release.status)">
                                     v{{ release.version }}
                                 </span>
@@ -96,8 +97,8 @@
                                     {{ formatDate(release.release_date) }}
                                 </span>
                                 <!-- Expand/collapse chevron -->
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                    stroke-width="2" stroke="currentColor"
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                                    stroke="currentColor"
                                     class="h-4 w-4 text-gray-400 transition-transform duration-200"
                                     :class="{ 'rotate-180': expandedReleases.has(release.id!) }">
                                     <path stroke-linecap="round" stroke-linejoin="round"
@@ -118,10 +119,14 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">🚀</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">New Features</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{{ release.new_features.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{{
+                                    release.new_features.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.new_features" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.new_features" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
@@ -130,10 +135,14 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">✨</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Improvements</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{{ release.improvements.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{{
+                                    release.improvements.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.improvements" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.improvements" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
@@ -142,10 +151,14 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">🐛</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Bug Fixes</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">{{ release.bug_fixes.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">{{
+                                    release.bug_fixes.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.bug_fixes" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.bug_fixes" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
@@ -154,10 +167,14 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">⚠️</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Breaking Changes</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{{ release.breaking_changes.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">{{
+                                    release.breaking_changes.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.breaking_changes" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.breaking_changes" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
@@ -166,10 +183,14 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">🔒</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Security</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">{{ release.security.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">{{
+                                    release.security.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.security" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.security" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
@@ -178,15 +199,20 @@
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-base">⚡</span>
                                 <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Known Issues</h4>
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{{ release.known_issues.length }}</span>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">{{
+                                    release.known_issues.length }}</span>
                             </div>
                             <ul class="space-y-1.5 pl-7">
-                                <li v-for="(item, i) in release.known_issues" :key="i" class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">{{ item }}</li>
+                                <li v-for="(item, i) in release.known_issues" :key="i"
+                                    class="text-sm text-gray-600 dark:text-gray-400 relative before:content-['•'] before:absolute before:-left-4 before:text-gray-400 dark:before:text-gray-600">
+                                    {{ item }}</li>
                             </ul>
                         </div>
 
                         <!-- Contributors -->
-                        <div v-if="release.contributors?.length" class="pt-3 border-t border-gray-100 dark:border-gray-800">
+                        <div v-if="release.contributors?.length"
+                            class="pt-3 border-t border-gray-100 dark:border-gray-800">
                             <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                     stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
@@ -205,83 +231,98 @@
                 <div class="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900"
                     @click.stop>
                     <!-- Sticky Header -->
-                    <div class="sticky top-0 z-10 flex items-center justify-between px-6 pt-5 pb-4 bg-white dark:bg-gray-900 rounded-t-2xl border-b border-gray-200 dark:border-gray-700">
+                    <div
+                        class="sticky top-0 z-10 flex items-center justify-between px-6 pt-5 pb-4 bg-white dark:bg-gray-900 rounded-t-2xl border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                             {{ editId ? 'Edit Release Note' : 'New Release Note' }}
                         </h3>
-                        <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
+                        <button @click="showModal = false"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xl">&times;</button>
                     </div>
 
                     <!-- Scrollable Body -->
                     <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-                    <!-- Basic info -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Basic info -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Version
+                                    *</label>
+                                <input v-model="form.version" type="text" placeholder="e.g., 2.3.0"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Release
+                                    Date
+                                    *</label>
+                                <input v-model="form.release_date" type="date"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+                            </div>
+                            <div>
+                                <label
+                                    class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
+                                <select v-model="form.status"
+                                    class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                                    <option value="stable">Stable</option>
+                                    <option value="beta">Beta</option>
+                                    <option value="hotfix">Hotfix</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <div>
-                            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Version *</label>
-                            <input v-model="form.version" type="text" placeholder="e.g., 2.3.0"
+                            <label
+                                class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Summary</label>
+                            <textarea v-model="form.summary" rows="2" placeholder="Brief summary of this release"
                                 class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
                         </div>
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Release Date *</label>
-                            <input v-model="form.release_date" type="date"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
-                        </div>
-                        <div>
-                            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
-                            <select v-model="form.status"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                                <option value="stable">Stable</option>
-                                <option value="beta">Beta</option>
-                                <option value="hotfix">Hotfix</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div>
-                        <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Summary</label>
-                        <textarea v-model="form.summary" rows="2" placeholder="Brief summary of this release"
-                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
-                    </div>
+                        <!-- Category editors -->
+                        <div v-for="cat in categories" :key="cat.key" class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    {{ cat.emoji }} {{ cat.label }}
+                                    <span class="text-xs text-gray-400 ml-1">({{ (form[cat.key] as string[]).length
+                                        }})</span>
+                                </label>
+                                <button @click="addCategoryItem(cat.key)" type="button"
+                                    class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium">
+                                    + Add Item
+                                </button>
+                            </div>
+                            <div v-for="(_, idx) in (form[cat.key] as string[])" :key="idx"
+                                class="flex items-center gap-2">
+                                <input v-model="(form[cat.key] as string[])[idx]" type="text"
+                                    class="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                    :placeholder="`${cat.label} item`" />
+                                <button @click="removeCategoryItem(cat.key, idx)" type="button"
+                                    class="h-8 w-8 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 flex items-center justify-center dark:border-red-700 dark:hover:bg-red-900/20 transition text-sm">
+                                    &times;
+                                </button>
+                            </div>
+                        </div>
 
-                    <!-- Category editors -->
-                    <div v-for="cat in categories" :key="cat.key" class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ cat.emoji }} {{ cat.label }}
-                                <span class="text-xs text-gray-400 ml-1">({{ (form[cat.key] as string[]).length }})</span>
+                        <!-- Published toggle -->
+                        <div
+                            class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                            <div>
+                                <h4 class="font-medium text-gray-900 dark:text-white">Published</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">When unpublished, only super admin
+                                    can see this
+                                    release</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="form.published" class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform dark:border-gray-600 peer-checked:bg-brand-500">
+                                </div>
                             </label>
-                            <button @click="addCategoryItem(cat.key)" type="button"
-                                class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium">
-                                + Add Item
-                            </button>
                         </div>
-                        <div v-for="(_, idx) in (form[cat.key] as string[])" :key="idx" class="flex items-center gap-2">
-                            <input v-model="(form[cat.key] as string[])[idx]" type="text"
-                                class="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                                :placeholder="`${cat.label} item`" />
-                            <button @click="removeCategoryItem(cat.key, idx)" type="button"
-                                class="h-8 w-8 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 flex items-center justify-center dark:border-red-700 dark:hover:bg-red-900/20 transition text-sm">
-                                &times;
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Published toggle -->
-                    <div class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-                        <div>
-                            <h4 class="font-medium text-gray-900 dark:text-white">Published</h4>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">When unpublished, only super admin can see this release</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" v-model="form.published" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-transform dark:border-gray-600 peer-checked:bg-brand-500"></div>
-                        </label>
-                    </div>
                     </div>
 
                     <!-- Sticky Footer -->
-                    <div class="sticky bottom-0 z-10 flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-2xl">
+                    <div
+                        class="sticky bottom-0 z-10 flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-b-2xl">
                         <button @click="showModal = false"
                             class="h-11 rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                             Cancel
@@ -303,7 +344,7 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
-import { type ReleaseNoteData, releaseNoteAPI } from '@/services/api'
+import { type ReleaseNoteData, releaseNoteAPI } from '@/services/api/release-notes'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 

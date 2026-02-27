@@ -3,12 +3,15 @@
     <SidebarProvider>
       <ToastNotification />
       <EventReminderToast />
-      <RouterView />
+      <ErrorBoundary>
+        <RouterView />
+      </ErrorBoundary>
     </SidebarProvider>
   </ThemeProvider>
 </template>
 
 <script setup lang="ts">
+import ErrorBoundary from './components/common/ErrorBoundary.vue'
 import EventReminderToast from './components/common/EventReminderToast.vue'
 import ToastNotification from './components/common/Toast.vue'
 import SidebarProvider from './components/layout/SidebarProvider.vue'

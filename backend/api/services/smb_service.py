@@ -42,9 +42,9 @@ class SMBConnectionPool:
                 conn = self._create_connection()
                 if conn:
                     self.connections.append(conn)
-            logger.info(f"SMB pool initialized with {len(self.connections)} connections to {self.server}")
+            logger.info("SMB pool initialized with %s connections to %s", len(self.connections), self.server)
         except Exception as e:
-            logger.error(f"Failed to initialize SMB pool: {e}")
+            logger.error("Failed to initialize SMB pool: %s", e)
             self.enabled = False
 
     def _create_connection(self):
@@ -57,10 +57,10 @@ class SMBConnectionPool:
 
             conn = SMBConnection(username=self.username, password=self.password, my_name="OvertimeApp", remote_name=self.server, domain=self.domain, use_ntlm_v2=True, is_direct_tcp=True)
             conn.connect((self.server, self.port), timeout=self.timeout)
-            logger.debug(f"Created new SMB connection to {self.server}:{self.port}")
+            logger.debug("Created new SMB connection to %s:%s", self.server, self.port)
             return conn
         except Exception as e:
-            logger.error(f"Failed to create SMB connection to {self.server}: {e}")
+            logger.error("Failed to create SMB connection to %s: %s", self.server, e)
             return None
 
     def get_connection(self):
@@ -83,7 +83,7 @@ class SMBConnectionPool:
                 conn = self._create_connection()
                 if conn:
                     self.connections.append(conn)
-                    logger.debug(f"Created new connection. Pool size: {len(self.connections)}")
+                    logger.debug("Created new connection. Pool size: %s", len(self.connections))
                     return conn
 
             # Return first alive connection if all are busy
@@ -100,7 +100,7 @@ class SMBConnectionPool:
             conn.listPath(self.share_name, "/", timeout=5)
             return True
         except Exception as e:
-            logger.debug(f"Connection check failed: {e}")
+            logger.debug("Connection check failed: %s", e)
             return False
 
     def cleanup(self):
@@ -110,7 +110,7 @@ class SMBConnectionPool:
                 try:
                     conn.close()
                 except Exception as e:
-                    logger.debug(f"Error closing SMB connection: {e}")
+                    logger.debug("Error closing SMB connection: %s", e)
             self.connections.clear()
             logger.info("SMB connection pool cleaned up")
 
@@ -133,7 +133,7 @@ class SMBService:
             raise FileNotFoundError(f"Local file not found: {local_path}")
 
         if self.pool is None or not self.pool.enabled:
-            self.logger.info(f"SMB disabled. File would be uploaded to: {remote_path}")
+            self.logger.info("SMB disabled. File would be uploaded to: %s", remote_path)
             return remote_path
 
         conn = self.pool.get_connection()
@@ -145,16 +145,16 @@ class SMBService:
             with open(local_path, "rb") as f:
                 conn.storeFile(self.pool.share_name, remote_path, f, timeout=60)
 
-            self.logger.info(f"Successfully uploaded {os.path.basename(local_path)} to SMB ({file_size} bytes)")
+            self.logger.info("Successfully uploaded %s to SMB (%s bytes)", os.path.basename(local_path), file_size)
             return remote_path
 
         except Exception as e:
             error_str = str(e)
             # Check for file sharing violation (0xC0000043 = STATUS_SHARING_VIOLATION)
             if "0xC0000043" in error_str or "Unable to open file" in error_str:
-                self.logger.warning(f"File sharing violation for {remote_path}. The file may be open by another user. Error: {e}")
+                self.logger.warning("File sharing violation for %s. The file may be open by another user. Error: %s", remote_path, e)
                 raise FileSharingViolation(f"Cannot upload to {remote_path}: The file is currently open by another user. Please ask them to close the file and try again.") from e
-            self.logger.error(f"Failed to upload {local_path} to {remote_path}: {e}")
+            self.logger.error("Failed to upload %s to %s: %s", local_path, remote_path, e)
             raise
 
     def file_exists(self, remote_path):
@@ -177,10 +177,10 @@ class SMBService:
             file_list = conn.listPath(self.pool.share_name, remote_dir, timeout=10)
 
             exists = any(f.filename == filename for f in file_list)
-            self.logger.debug(f"File {remote_path} exists: {exists}")
+            self.logger.debug("File %s exists: %s", remote_path, exists)
             return exists
         except Exception as e:
-            self.logger.error(f"Error checking file existence: {e}")
+            self.logger.error("Error checking file existence: %s", e)
             return False
 
     def delete_file(self, remote_path):
@@ -190,7 +190,7 @@ class SMBService:
     def _delete_file_impl(self, remote_path):
         """Delete file implementation"""
         if self.pool is None or not self.pool.enabled:
-            self.logger.info(f"SMB disabled. File would be deleted: {remote_path}")
+            self.logger.info("SMB disabled. File would be deleted: %s", remote_path)
             return True
 
         conn = self.pool.get_connection()
@@ -199,10 +199,10 @@ class SMBService:
 
         try:
             conn.deleteFile(self.pool.share_name, remote_path, timeout=10)
-            self.logger.info(f"Deleted {remote_path} from SMB share")
+            self.logger.info("Deleted %s from SMB share", remote_path)
             return True
         except Exception as e:
-            self.logger.error(f"Failed to delete {remote_path}: {e}")
+            self.logger.error("Failed to delete %s: %s", remote_path, e)
             raise
 
     def _retry_operation(self, operation, operation_name, max_retries=None):
@@ -213,25 +213,25 @@ class SMBService:
         last_error = None
         for attempt in range(max_retries):
             try:
-                self.logger.debug(f"Executing: {operation_name} (attempt {attempt + 1}/{max_retries})")
+                self.logger.debug("Executing: %s (attempt %s/%s)", operation_name, attempt + 1, max_retries)
                 return operation()
             except FileSharingViolation as e:
                 # For sharing violations, use shorter retry intervals
                 last_error = e
                 if attempt < max_retries - 1:
                     wait_time = 30 * (attempt + 1)  # 30s, 60s, 90s
-                    self.logger.warning(f"File sharing violation for '{operation_name}' (attempt {attempt + 1}/{max_retries}). File is open by another user. Retrying in {wait_time}s...")
+                    self.logger.warning("File sharing violation for '%s' (attempt %s/%s). File is open by another user. Retrying in %ss...", operation_name, attempt + 1, max_retries, wait_time)
                     time.sleep(wait_time)
                 else:
-                    self.logger.error(f"File sharing violation for '{operation_name}' persists after {max_retries} attempts. Please ensure no one has the file open.")
+                    self.logger.error("File sharing violation for '%s' persists after %s attempts. Please ensure no one has the file open.", operation_name, max_retries)
             except Exception as e:
                 last_error = e
                 if attempt < max_retries - 1:
                     wait_time = 60 * (attempt + 1)
-                    self.logger.warning(f"Operation '{operation_name}' failed (attempt {attempt + 1}/{max_retries}). Retrying in {wait_time}s. Error: {e}")
+                    self.logger.warning("Operation '%s' failed (attempt %s/%s). Retrying in %ss. Error: %s", operation_name, attempt + 1, max_retries, wait_time, e)
                     time.sleep(wait_time)
                 else:
-                    self.logger.error(f"Operation '{operation_name}' failed after {max_retries} attempts. Final error: {e}")
+                    self.logger.error("Operation '%s' failed after %s attempts. Final error: %s", operation_name, max_retries, e)
 
         raise last_error
 
@@ -270,7 +270,7 @@ def get_smb_service():
         _smb_service = SMBService(_smb_pool)
         return _smb_service
     except Exception as e:
-        logger.error(f"Failed to initialize SMB service: {e}")
+        logger.error("Failed to initialize SMB service: %s", e)
         return None
 
 

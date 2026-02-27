@@ -487,6 +487,7 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
+import { useToast } from '@/composables/useToast'
 import {
 	type OvertimeLimitConfig,
 	type OvertimeRegulationContent,
@@ -494,12 +495,13 @@ import {
 	overtimeLimitAPI,
 	regulationAPI,
 	regulationDocumentAPI,
-} from '@/services/api'
+} from '@/services/api/overtime'
 import { useAuthStore } from '@/stores/auth'
 import { formatLocalDateTime } from '@/utils/dateTime'
 
 const authStore = useAuthStore()
 const { t } = useI18n()
+const { showToast } = useToast()
 const { canCreate, canUpdate, canDelete } = usePagePermission('admin_regulations')
 
 // State
@@ -812,12 +814,12 @@ const handleFileChange = async (event: Event) => {
 
 const processFile = async (file: File) => {
 	if (file.type !== 'application/pdf') {
-		alert(t('admin.reg.pleaseUploadPdf'))
+		showToast(t('admin.reg.pleaseUploadPdf'), 'warning')
 		return
 	}
 
 	if (file.size > 10 * 1024 * 1024) {
-		alert(t('admin.reg.fileSizeLimit'))
+		showToast(t('admin.reg.fileSizeLimit'), 'warning')
 		return
 	}
 
@@ -841,7 +843,7 @@ const processFile = async (file: File) => {
 		showPdfSuccess(t('admin.reg.docUploaded'))
 	} catch (error) {
 		console.error('Failed to upload document:', error)
-		alert(t('admin.reg.docUploadFailed'))
+		showToast(t('admin.reg.docUploadFailed'), 'error')
 	} finally {
 		isUploading.value = false
 	}

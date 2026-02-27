@@ -34,9 +34,9 @@ def generate_excel_files_async(self, overtime_id):
         # Update progress
         self.update_state(state="PROGRESS", meta={"progress": 10, "status": "Fetching data"})
 
-        overtime = OvertimeRequest.objects.get(id=overtime_id)
+        overtime = OvertimeRequest.objects.select_related("employee", "project", "department").get(id=overtime_id)
 
-        logger.info(f"Generating Excel files for overtime request {overtime_id} (date: {overtime.request_date})")
+        logger.info("Generating Excel files for overtime request %s (date: %s)", overtime_id, overtime.request_date)
 
         # Export data grouped by department (multi-sheet support)
         export_data_grouped = OvertimeRequest.export_daily_data_by_department(overtime.request_date)
@@ -60,13 +60,13 @@ def generate_excel_files_async(self, overtime_id):
                 temp_only=ExcelGenerator.EXCEL_TEMP_ONLY,
             )
             dept_count = len(export_data_grouped or {})
-            logger.info(f"Excel files generated and uploaded for date {overtime.request_date} (multi-sheet with {dept_count} departments)")
+            logger.info("Excel files generated and uploaded for date %s (multi-sheet with %s departments)", overtime.request_date, dept_count)
         else:
-            logger.warning(f"No data to export for overtime request {overtime_id} (date: {overtime.request_date})")
+            logger.warning("No data to export for overtime request %s (date: %s)", overtime_id, overtime.request_date)
 
         self.update_state(state="PROGRESS", meta={"progress": 95, "status": "Finalizing"})
 
-        logger.info(f"Task completed for overtime request {overtime_id}")
+        logger.info("Task completed for overtime request %s", overtime_id)
 
         return {
             "status": "success",
@@ -75,7 +75,7 @@ def generate_excel_files_async(self, overtime_id):
             "file_paths": {k: str(v) for k, v in file_paths.items()},
         }
     except Exception as exc:
-        logger.error(f"Error generating Excel files for OT {overtime_id}: {str(exc)}", exc_info=True)
+        logger.error("Error generating Excel files for OT %s: %s", overtime_id, exc, exc_info=True)
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1)) from exc
 
@@ -90,7 +90,7 @@ def regenerate_excel_after_delete(self, request_date_str):
         request_date_str: ISO date string (YYYY-MM-DD) of the deleted request
     """
     try:
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         from api.models import OvertimeRequest
         from api.utils.excel_generator import ExcelGenerator
@@ -109,7 +109,7 @@ def regenerate_excel_after_delete(self, request_date_str):
                 upload=True,
                 temp_only=getattr(ExcelGenerator, "EXCEL_TEMP_ONLY", False),
             )
-            logger.info(f"Excel files regenerated and uploaded after deletion for date {date}")
+            logger.info("Excel files regenerated and uploaded after deletion for date %s", date)
         else:
             # No remaining requests for this date — delete daily files from SMB, handle monthly
             monthly_data = OvertimeRequest.export_monthly_data(date)
@@ -122,28 +122,27 @@ def regenerate_excel_after_delete(self, request_date_str):
                         try:
                             conn.deleteFiles(ExcelGenerator.SMB_CONFIG["share_name"], f"{period_path}/{date_str}OT.xlsx")
                             conn.deleteFiles(ExcelGenerator.SMB_CONFIG["share_name"], f"{period_path}/{date_str}OTSummary.xlsx")
-                            logger.info(f"Deleted daily SMB files for {date}")
+                            logger.info("Deleted daily SMB files for %s", date)
                         except Exception as e:
-                            logger.warning(f"Error deleting daily files for {date}: {e}")
+                            logger.warning("Error deleting daily files for %s: %s", date, e)
 
                         if monthly_data:
                             conn.close()
                             conn = None  # Prevent double-close in finally
                             ExcelGenerator.generate_monthly_excel_files(monthly_data, date)
-                            logger.info(f"Monthly files regenerated after deletion for {date}")
+                            logger.info("Monthly files regenerated after deletion for %s", date)
                         else:
-                            current_period_start = date.replace(day=26)
-                            if date.day < 26:
-                                current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(day=26)
-                            next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
+                            from api.utils.time_helpers import get_period_boundaries
+
+                            current_period_start, next_period_end = get_period_boundaries(date)
                             monthly_fn = f"~{current_period_start.strftime('%Y_%m_%d')}-{next_period_end.strftime('%Y_%m_%d')}OT.xlsx"
                             monthly_sum_fn = f"~{current_period_start.strftime('%Y_%m_%d')}-{next_period_end.strftime('%Y_%m_%d')}OTSummary.xlsx"
                             try:
                                 conn.deleteFiles(ExcelGenerator.SMB_CONFIG["share_name"], f"{period_path}/{monthly_fn}")
                                 conn.deleteFiles(ExcelGenerator.SMB_CONFIG["share_name"], f"{period_path}/{monthly_sum_fn}")
-                                logger.info(f"Deleted monthly SMB files for period containing {date}")
+                                logger.info("Deleted monthly SMB files for period containing %s", date)
                             except Exception as e:
-                                logger.warning(f"Error deleting monthly files: {e}")
+                                logger.warning("Error deleting monthly files: %s", e)
                 finally:
                     if conn:
                         try:
@@ -153,7 +152,7 @@ def regenerate_excel_after_delete(self, request_date_str):
 
         return {"status": "success", "date": request_date_str}
     except Exception as exc:
-        logger.error(f"Error regenerating Excel after delete: {exc}", exc_info=True)
+        logger.error("Error regenerating Excel after delete: %s", exc, exc_info=True)
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1)) from exc
 
 
@@ -166,12 +165,12 @@ def cleanup_expired_sessions():
     try:
         from api.models import UserSession
 
-        # Delete expired sessions
-        deleted_count, _ = UserSession.objects.filter(token_expires_at__lt=timezone.now(), is_active=False).delete()
+        # Delete expired sessions (both active and inactive)
+        deleted_count, _ = UserSession.objects.filter(token_expires_at__lt=timezone.now()).delete()
 
-        logger.info(f"Cleaned up {deleted_count} expired sessions")
+        logger.info("Cleaned up %s expired sessions", deleted_count)
 
         return {"status": "success", "deleted_count": deleted_count}
     except Exception as e:
-        logger.error(f"Error cleaning up sessions: {str(e)}", exc_info=True)
+        logger.error("Error cleaning up sessions: %s", e, exc_info=True)
         return {"status": "error", "message": str(e)}

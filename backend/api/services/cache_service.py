@@ -75,11 +75,11 @@ class CacheService:
         if query_params:
             # Sort params for consistent key generation
             params_str = json.dumps(query_params, sort_keys=True, default=str)
-            params_hash = hashlib.md5(params_str.encode()).hexdigest()
+            params_hash = hashlib.sha256(params_str.encode()).hexdigest()[:16]
             key_parts.append(params_hash)
 
         cache_key = ":".join(key_parts)
-        logger.debug(f"Generated cache key: {cache_key}")
+        logger.debug("Generated cache key: %s", cache_key)
         return cache_key
 
     @staticmethod
@@ -113,10 +113,10 @@ class CacheService:
 
             ttl = ttl or CacheService.DEFAULT_TTLS.get(view_name, CacheService.DEFAULT_TTLS["default"])
             cache.set(cache_key, data, timeout=ttl)
-            logger.info(f"Cached list '{view_name}' for {ttl}s (key: {cache_key})")
+            logger.info("Cached list '%s' for %ss (key: %s)", view_name, ttl, cache_key)
             return True
         except Exception as e:
-            logger.warning(f"Failed to cache list '{view_name}': {str(e)}")
+            logger.warning("Failed to cache list '%s': %s", view_name, e)
             return False
 
     @staticmethod
@@ -146,12 +146,12 @@ class CacheService:
 
             data = cache.get(cache_key)
             if data is not None:
-                logger.info(f"Cache HIT for list '{view_name}'")
+                logger.debug("Cache HIT for list '%s'", view_name)
                 return data
-            logger.info(f"Cache MISS for list '{view_name}'")
+            logger.debug("Cache MISS for list '%s'", view_name)
             return None
         except Exception as e:
-            logger.warning(f"Failed to retrieve cached list '{view_name}': {str(e)}")
+            logger.warning("Failed to retrieve cached list '%s': %s", view_name, e)
             return None
 
     @staticmethod
@@ -182,10 +182,10 @@ class CacheService:
 
             ttl = ttl or CacheService.DEFAULT_TTLS.get(view_name, CacheService.DEFAULT_TTLS["default"])
             cache.set(cache_key, data, timeout=ttl)
-            logger.debug(f"Cached object '{view_name}:{obj_id}'")
+            logger.debug("Cached object '%s:%s'", view_name, obj_id)
             return True
         except Exception as e:
-            logger.warning(f"Failed to cache object '{view_name}:{obj_id}': {str(e)}")
+            logger.warning("Failed to cache object '%s:%s': %s", view_name, obj_id, e)
             return False
 
     @staticmethod
@@ -208,7 +208,7 @@ class CacheService:
             cache_key = f"{cache_key}:{obj_id}"
             return cache.get(cache_key)
         except Exception as e:
-            logger.warning(f"Failed to retrieve cached object '{view_name}:{obj_id}': {str(e)}")
+            logger.warning("Failed to retrieve cached object '%s:%s': %s", view_name, obj_id, e)
             return None
 
     @staticmethod
@@ -238,10 +238,10 @@ class CacheService:
                 user_id,
             )
             cache.delete(cache_key)
-            logger.info(f"Invalidated cache for '{view_name}' (key: {cache_key})")
+            logger.info("Invalidated cache for '%s' (key: %s)", view_name, cache_key)
             return True
         except Exception as e:
-            logger.warning(f"Failed to invalidate cache for '{view_name}': {str(e)}")
+            logger.warning("Failed to invalidate cache for '%s': %s", view_name, e)
             return False
 
     @staticmethod
@@ -267,17 +267,17 @@ class CacheService:
                     pattern = f"*{prefix}:{view_name}*"
                     cache.delete_pattern(pattern)
                     deleted += 1  # approximate — delete_pattern doesn't return count
-                logger.info(f"Invalidated all cache for '{view_name}' via delete_pattern")
+                logger.info("Invalidated all cache for '%s' via delete_pattern", view_name)
             else:
                 # Fallback: delete the known prefixed keys (no wildcard)
                 for prefix in (CacheService.PREFIX_LIST, CacheService.PREFIX_OBJECT, CacheService.PREFIX_CUSTOM):
                     key = f"{prefix}:{view_name}"
                     if cache.delete(key):
                         deleted += 1
-                logger.info(f"Invalidated {deleted} cache key(s) for '{view_name}' (no delete_pattern support)")
+                logger.info("Invalidated %d cache key(s) for '%s' (no delete_pattern support)", deleted, view_name)
             return max(deleted, 1)
         except Exception as e:
-            logger.warning(f"Failed to invalidate all cache for '{view_name}': {str(e)}")
+            logger.warning("Failed to invalidate all cache for '%s': %s", view_name, e)
             return 0
 
     @staticmethod
@@ -295,7 +295,7 @@ class CacheService:
                 "backend": cache.__class__.__name__,
             }
         except Exception as e:
-            logger.error(f"Failed to get cache stats: {str(e)}")
+            logger.error("Failed to get cache stats: %s", e)
             return {"status": "error", "message": str(e)}
 
 
@@ -350,7 +350,7 @@ def cached_list(
                 return response
             except Exception as e:
                 # Fail-open: return uncached response on any error
-                logger.error(f"Error in cached_list decorator for '{view_name}': {str(e)}")
+                logger.error("Error in cached_list decorator for '%s': %s", view_name, e)
                 return func(self, request, *args, **kwargs)
 
         return wrapper
@@ -387,7 +387,7 @@ def cache_invalidate_on_change(view_names: list):
                 try:
                     CacheService.invalidate_all_for_view(view_name)
                 except Exception as e:
-                    logger.error(f"Failed to invalidate cache for '{view_name}': {str(e)}")
+                    logger.error("Failed to invalidate cache for '%s': %s", view_name, e)
 
             return result
 

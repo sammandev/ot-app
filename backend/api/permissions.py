@@ -44,8 +44,24 @@ class ResourcePermission(permissions.BasePermission):
     If resource_name is not in menu_permissions, default behavior applies.
     """
 
+    # Key aliases to handle naming differences between frontend sidebar/Access Control keys
+    # and backend resource_name values (e.g., sidebar uses 'admin_employees' but backend uses 'employees').
+    # Defined at class level to avoid re-creating the dict on every request.
+    KEY_ALIASES = {
+        "employees": ["employees", "admin_employees"],
+        "admin_employees": ["employees", "admin_employees"],
+        "regulations": ["regulations", "admin_regulations"],
+        "admin_regulations": ["regulations", "admin_regulations"],
+        "overtime_form": ["overtime_form", "ot_form"],
+        "ot_form": ["overtime_form", "ot_form"],
+        "overtime_history": ["overtime_history", "ot_history"],
+        "ot_history": ["overtime_history", "ot_history"],
+        "overtime_summary": ["overtime_summary", "ot_summary"],
+        "ot_summary": ["overtime_summary", "ot_summary"],
+    }
+
     def has_permission(self, request, view):
-        # 1. Authenticaton check
+        # 1. Authentication check
         if not request.user or not request.user.is_authenticated:
             logger.debug("Permission denied: User not authenticated")
             return False
@@ -54,7 +70,7 @@ class ResourcePermission(permissions.BasePermission):
         # Note: We check this explicitly because is_superuser might be granted to others
         role = getattr(request.user, "role", "") or ""
         if role in ("developer", "superadmin"):
-            logger.debug(f"Permission granted: {role} role user")
+            logger.debug("Permission granted: %s role user", role)
             return True
 
         # Note: Hardcoded identity bypass was removed. Use the role field
@@ -71,7 +87,7 @@ class ResourcePermission(permissions.BasePermission):
 
         required_action = method_map.get(request.method)
         if not required_action:
-            logger.warning(f"Permission denied: Unknown HTTP method {request.method}")
+            logger.warning("Permission denied: Unknown HTTP method %s", request.method)
             return False
 
         # 4a. Regulations are always readable by ALL authenticated users.
@@ -86,23 +102,9 @@ class ResourcePermission(permissions.BasePermission):
         menu_perms = getattr(request.user, "menu_permissions", None)
         username = getattr(request.user, "username", "")
         worker_id = getattr(request.user, "worker_id", "")
-        logger.info(f"Permission check: user={username}, worker_id={worker_id}, is_ptb_admin={is_ptb_admin}, resource={resource_name}, action={required_action}, method={request.method}, menu_perms_type={type(menu_perms).__name__}")
+        logger.debug("Permission check: user=%s, worker_id=%s, is_ptb_admin=%s, resource=%s, action=%s, method=%s, menu_perms_type=%s", username, worker_id, is_ptb_admin, resource_name, required_action, request.method, type(menu_perms).__name__)
 
-        # Key aliases to handle naming differences between frontend sidebar/Access Control keys
-        # and backend resource_name values (e.g., sidebar uses 'admin_employees' but backend uses 'employees')
-        key_aliases = {
-            "employees": ["employees", "admin_employees"],
-            "admin_employees": ["employees", "admin_employees"],
-            "regulations": ["regulations", "admin_regulations"],
-            "admin_regulations": ["regulations", "admin_regulations"],
-            "overtime_form": ["overtime_form", "ot_form"],
-            "ot_form": ["overtime_form", "ot_form"],
-            "overtime_history": ["overtime_history", "ot_history"],
-            "ot_history": ["overtime_history", "ot_history"],
-            "overtime_summary": ["overtime_summary", "ot_summary"],
-            "ot_summary": ["overtime_summary", "ot_summary"],
-        }
-        keys_to_check = key_aliases.get(resource_name, [resource_name])
+        keys_to_check = self.KEY_ALIASES.get(resource_name, [resource_name])
 
         # CHECK 1: Explicit Permissions (Override defaults if present)
         # Only use explicit permissions if the user has a dictionary set for this specific resource.
@@ -113,14 +115,14 @@ class ResourcePermission(permissions.BasePermission):
                 if key in menu_perms:
                     allowed_actions = menu_perms.get(key, [])
                     result = required_action in allowed_actions
-                    logger.info(f"Explicit permission check for key '{key}': {result} (allowed: {allowed_actions})")
+                    logger.debug("Explicit permission check for key '%s': %s (allowed: %s)", key, result, allowed_actions)
                     return result
 
         # CHECK 2: PTB Admin Role (Default: Full Access to everything except Superadmin)
         # Note: Superadmin check is already done at step 2.
         if is_ptb_admin:
             # PTB Admin has full CRUD on all resources by default
-            logger.info(f"Permission granted: PTB Admin has full access to {resource_name}")
+            logger.debug("Permission granted: PTB Admin has full access to %s", resource_name)
             return True
 
         # CHECK 3: Legacy List Permissions
@@ -129,14 +131,14 @@ class ResourcePermission(permissions.BasePermission):
         if isinstance(menu_perms, list) and len(menu_perms) > 0:
             for key in keys_to_check:
                 if key in menu_perms:
-                    logger.info(f"Legacy list permission granted for key '{key}'")
+                    logger.debug("Legacy list permission granted for key '%s'", key)
                     return True
-            logger.info(f"Legacy list permission denied: none of {keys_to_check} in whitelist {menu_perms}")
+            logger.debug("Legacy list permission denied: none of %s in whitelist %s", keys_to_check, menu_perms)
             return False  # Strict whitelist behavior for legacy lists
 
         # CHECK 4: Regular User Defaults
         # If no explicit permission set for this resource, apply default policy
-        logger.debug(f"Applying default permission rules for resource: {resource_name}")
+        logger.debug("Applying default permission rules for resource: %s", resource_name)
 
         # a) OT Form: Create, Read, Update, Delete
         if resource_name == "overtime_form":
@@ -144,55 +146,56 @@ class ResourcePermission(permissions.BasePermission):
             return True  # All actions allowed
 
         # b) OT History: Read Only
-        if resource_name == "overtime_history":
+        elif resource_name == "overtime_history":
             result = required_action == "read"
-            logger.debug(f"Default: overtime_history read-only: {result}")
+            logger.debug("Default: overtime_history read-only: %s", result)
             return result
 
         # c) Projects: Read Only
-        if resource_name == "projects":
+        elif resource_name == "projects":
             result = required_action == "read"
-            logger.debug(f"Default: projects read-only: {result}")
+            logger.debug("Default: projects read-only: %s", result)
             return result
 
         # d) Departments: Read Only
-        if resource_name == "departments":
+        elif resource_name == "departments":
             result = required_action == "read"
-            logger.debug(f"Default: departments read-only: {result}")
+            logger.debug("Default: departments read-only: %s", result)
             return result
 
         # e) Calendar: Create, Read, Update, Delete
-        if resource_name == "calendar":
+        elif resource_name == "calendar":
             logger.debug("Default: calendar allows all actions")
             return True  # All actions allowed
 
         # f) Employees: Read Only for regular users (needed for OT Form dropdown)
-        if resource_name == "employees":
+        elif resource_name == "employees":
             result = required_action == "read"
-            logger.debug(f"Default: employees read-only: {result}")
+            logger.debug("Default: employees read-only: %s", result)
             return result
 
         # g) Kanban/Task Board: Create, Read, Update, Delete (assigned tasks only - enforced in queryset)
-        if resource_name == "kanban" or resource_name == "calendar_events":
-            logger.debug(f"Default: {resource_name} allows all actions")
+        elif resource_name == "kanban" or resource_name == "calendar_events":
+            logger.debug("Default: %s allows all actions", resource_name)
             return True  # All actions allowed
 
         # h) Purchasing: Create, Read, Update, Delete
-        if resource_name == "purchasing":
+        elif resource_name == "purchasing":
             logger.debug("Default: purchasing allows all actions")
             return True
 
         # i) Assets: Create, Read, Update, Delete
-        if resource_name == "assets":
+        elif resource_name == "assets":
             logger.debug("Default: assets allows all actions")
             return True
 
         # j) Regulations: Read Only for everyone (needed for OT Form page)
-        if resource_name == "regulations":
+        elif resource_name == "regulations":
             result = required_action == "read"
-            logger.debug(f"Default: regulations read-only: {result}")
+            logger.debug("Default: regulations read-only: %s", result)
             return result
 
         # Default Deny for unknown resources or admin-only resources
-        logger.warning(f"Permission denied: Unknown resource '{resource_name}' - default deny")
-        return False
+        else:
+            logger.warning("Permission denied: Unknown resource '%s' - default deny", resource_name)
+            return False

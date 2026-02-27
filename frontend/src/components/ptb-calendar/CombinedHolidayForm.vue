@@ -98,7 +98,7 @@ import type { Instance } from 'flatpickr/dist/types/instance'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { attachMonthScrollStandalone } from '@/composables/useFlatpickrScroll'
-import type { Holiday } from '@/services/api'
+import type { Holiday } from '@/services/api/holiday'
 
 const { t } = useI18n()
 

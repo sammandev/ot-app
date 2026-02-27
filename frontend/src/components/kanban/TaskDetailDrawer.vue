@@ -708,8 +708,8 @@ import {
 	TrashIcon,
 	XIcon,
 } from '@/icons'
+import type { CalendarEvent } from '@/services/api/calendar'
 import {
-	type CalendarEvent,
 	type ReminderType,
 	type TaskActivity,
 	type TaskAttachment,
@@ -725,7 +725,7 @@ import {
 	taskReminderAPI,
 	taskSubtaskAPI,
 	taskTimeLogAPI,
-} from '@/services/api'
+} from '@/services/api/task'
 import { type TaskEditor, useTaskWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'

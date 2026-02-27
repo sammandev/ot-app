@@ -6,12 +6,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { type SupportedLocale, setLocale } from '@/i18n'
-import { authAPI, type User } from '@/services/api'
+import { authAPI, type User } from '@/services/api/auth'
 import {
 	disconnectBoardWebSocket,
 	disconnectPermissionWebSocket,
 	usePermissionWebSocket,
 } from '@/services/websocket'
+import { getCookie } from '@/utils/cookies'
 import { extractApiError } from '@/utils/extractApiError'
 
 interface LoginCredentials {
@@ -36,6 +37,31 @@ const PERMISSION_KEY_ALIASES: Record<string, string[]> = {
 	admin_regulations: ['regulations', 'admin_regulations'],
 }
 
+/**
+ * Default permission policy for regular users (no explicit menu_permissions set).
+ * 'all' = full CRUD, 'read' = read-only, absent = denied.
+ */
+const DEFAULT_PERMISSION_POLICY: Record<string, 'all' | 'read'> = {
+	ot_form: 'all',
+	overtime_form: 'all',
+	ot_history: 'read',
+	overtime_history: 'read',
+	ot_summary: 'read',
+	overtime_summary: 'read',
+	projects: 'read',
+	admin_projects: 'read',
+	departments: 'read',
+	admin_departments: 'read',
+	calendar: 'all',
+	kanban: 'all',
+	purchasing: 'all',
+	request_purchase: 'all',
+	assets: 'all',
+	report: 'all',
+	release_notes: 'read',
+	personal_notes: 'all',
+}
+
 // Storage helper — persists the *user* object only (tokens are httpOnly cookies)
 const STORAGE_KEY_REMEMBER = 'rememberMe'
 
@@ -55,6 +81,20 @@ function getFromStorage(key: string): string | null {
 function removeFromStorage(key: string) {
 	localStorage.removeItem(key)
 	sessionStorage.removeItem(key)
+}
+
+type CookieStoreLike = {
+	delete: (cookieNameOrOptions: string | { name: string; path?: string }) => Promise<void>
+}
+
+async function clearExternalAccessTokenCookie() {
+	const store = (window as Window & { cookieStore?: CookieStoreLike }).cookieStore
+	if (!store) {
+		console.warn('[Auth] Cookie Store API unavailable; unable to clear external access_token cookie')
+		return
+	}
+
+	await store.delete({ name: 'access_token', path: '/' })
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -87,12 +127,6 @@ export const useAuthStore = defineStore('auth', () => {
 
 			// 1. Hardcoded super admins have full access
 			if (isSuperAdmin.value) return true
-
-			// Note: users with is_superuser flag from backend are NOT necessarily the hardcoded superadmin.
-			// They might be just API superusers. If you want them to have full access too, keep this check.
-			// But per instruction "is_superuser ... is not the same as superadmin user", we should rely on explicit permissions or defaults for them.
-			// However, usually superuser implies full access. I will COMMENT OUT the generic is_superuser check to strict compliance with "Superadmin is hardcoded".
-			// if (user.value?.is_superuser) return true
 
 			const perms = user.value?.menu_permissions
 
@@ -128,65 +162,10 @@ export const useAuthStore = defineStore('auth', () => {
 				return true
 			}
 
-			// Regular User Defaults
-			switch (resource) {
-				case 'ot_form':
-				case 'overtime_form':
-					// a) OT Form: create, read, update, delete (own records only - enforced by backend)
-					return true
-
-				case 'ot_history':
-				case 'overtime_history':
-					// b) OT History: read only (own records only - enforced by backend)
-					return action === 'read'
-
-				case 'ot_summary':
-				case 'overtime_summary':
-					// c) OT Summary: read only (own records only - enforced by backend)
-					return action === 'read'
-
-				case 'projects':
-				case 'admin_projects':
-					// d) Projects: read only
-					return action === 'read'
-
-				case 'departments':
-				case 'admin_departments':
-					// e) Departments: read only
-					return action === 'read'
-
-				case 'calendar':
-					// f) Calendar: create, read, update, delete (own events only - enforced by backend)
-					return true
-
-				case 'kanban':
-					// g) Task Board: create, read, update, delete (assigned tasks only - enforced by backend)
-					return true
-
-				case 'purchasing':
-				case 'request_purchase':
-					// h) Purchasing: create, read, update, delete
-					return true
-
-				case 'assets':
-					// i) Assets: create, read, update, delete
-					return true
-
-				case 'report':
-					// j) Submit a Report: create, read, update, delete (own reports only)
-					return true
-
-				case 'release_notes':
-					// k) Release Notes: read only
-					return action === 'read'
-
-				case 'personal_notes':
-					// l) Personal Notes: create, read, update, delete (own notes only)
-					return true
-
-				default:
-					return false
-			}
+			// Regular User Defaults — use declarative policy map
+			const policy = DEFAULT_PERMISSION_POLICY[resource]
+			if (!policy) return false
+			return policy === 'all' || action === 'read'
 		}
 	})
 
@@ -232,39 +211,8 @@ export const useAuthStore = defineStore('auth', () => {
 				return true
 			}
 
-			// Regular user defaults - these menus are accessible to all users by default
-			// Resources NOT listed here (admin_employees, admin_regulations, etc.)
-			// require explicit permissions to be visible for regular users
-			switch (resource) {
-				case 'ot_form':
-				case 'overtime_form':
-				case 'calendar':
-				case 'kanban':
-				case 'purchasing':
-				case 'request_purchase':
-				case 'assets':
-				case 'report':
-				case 'personal_notes':
-					return true
-
-				case 'ot_history':
-				case 'overtime_history':
-				case 'ot_summary':
-				case 'overtime_summary':
-				case 'projects':
-				case 'admin_projects':
-				case 'departments':
-				case 'admin_departments':
-				case 'release_notes':
-					return true // Has read access by default
-
-				// Resources that require explicit permissions for regular users:
-				// admin_employees, admin_regulations, super_admin_access
-				// These will return false unless explicit permissions are granted above
-
-				default:
-					return false
-			}
+			// Regular user defaults — use declarative policy map
+			return !!DEFAULT_PERMISSION_POLICY[resource]
 		}
 	})
 
@@ -419,18 +367,6 @@ export const useAuthStore = defineStore('auth', () => {
 	}
 
 	/**
-	 * Get cookie value by name
-	 */
-	function getCookie(name: string): string | null {
-		const value = `; ${document.cookie}`
-		const parts = value.split(`; ${name}=`)
-		if (parts.length === 2) {
-			return parts.pop()?.split(';').shift() || null
-		}
-		return null
-	}
-
-	/**
 	 * Check for external access token in cookies and exchange it
 	 * for httpOnly session cookies.
 	 */
@@ -446,6 +382,17 @@ export const useAuthStore = defineStore('auth', () => {
 			return true
 		}
 
+		// Quick local expiry check — avoid wasting a round-trip for clearly expired JWTs
+		try {
+			const payload = JSON.parse(atob(externalToken.split('.')[1] ?? '')) as { exp?: number }
+			if (payload.exp && payload.exp * 1000 < Date.now()) {
+				await clearExternalAccessTokenCookie()
+				return false
+			}
+		} catch {
+			// Token is not a valid JWT — let the server decide
+		}
+
 		loading.value = true
 		error.value = null
 
@@ -456,7 +403,7 @@ export const useAuthStore = defineStore('auth', () => {
 			user.value = response.user
 			setToStorage('user', JSON.stringify(user.value))
 
-			document.cookie = 'access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+			await clearExternalAccessTokenCookie()
 
 			return true
 		} catch (err) {
@@ -497,19 +444,23 @@ export const useAuthStore = defineStore('auth', () => {
 		// Handle new notifications in real-time
 		permissionWs.onNewNotification = (data: Record<string, unknown>) => {
 			// Import notification store dynamically to avoid circular dependency
-			import('@/stores/notification').then(({ useNotificationStore }) => {
-				const notificationStore = useNotificationStore()
-				notificationStore.addNotification({
-					id: data.id as number,
-					title: data.title as string,
-					message: data.message as string,
-					event_type: data.event_type as string,
-					event_id: data.event_id as number | null,
-					is_read: data.is_read as boolean,
-					created_at: data.created_at as string,
+			import('@/stores/notification')
+				.then(({ useNotificationStore }) => {
+					const notificationStore = useNotificationStore()
+					notificationStore.addNotification({
+						id: data.id as number,
+						title: data.title as string,
+						message: data.message as string,
+						event_type: data.event_type as string,
+						event_id: data.event_id as number | null,
+						is_read: data.is_read as boolean,
+						created_at: data.created_at as string,
+					})
+					console.info('[Auth] New notification received via WebSocket:', data.title)
 				})
-				console.info('[Auth] New notification received via WebSocket:', data.title)
-			})
+				.catch((err: unknown) => {
+					console.error('[Auth] Failed to load notification store:', err)
+				})
 		}
 
 		// Connect

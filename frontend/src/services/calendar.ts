@@ -3,7 +3,7 @@
  */
 
 import type { CalendarEventPayload, CalendarEventResponse } from '@/types/calendar'
-import apiClient from './api'
+import apiClient from './api/client'
 
 const BASE_PATH = '/v1/calendar-events/'
 

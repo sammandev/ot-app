@@ -9,13 +9,9 @@
  */
 
 import { ref } from 'vue'
-import type {
-	BoardWebSocketMessage,
-	CalendarEvent,
-	TaskComment,
-	TaskWebSocketMessage,
-	User,
-} from './api'
+import type { User } from './api/auth'
+import type { CalendarEvent } from './api/calendar'
+import type { BoardWebSocketMessage, TaskComment, TaskWebSocketMessage } from './api/task'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 // Remove /api suffix and convert absolute http(s) URL to ws(s),

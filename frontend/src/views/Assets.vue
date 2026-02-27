@@ -454,7 +454,7 @@
                                 <div class="md:col-span-2 lg:col-span-3">
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('assets.notes') }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                        {{ selectedAsset.note1 || '-' }}</p>
+                                        {{ selectedAsset.notes?.note1 || '-' }}</p>
                                 </div>
                             </div>
                         </div>
@@ -672,7 +672,7 @@ import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
 import { XIcon } from '@/icons'
-import { type Asset, type AssetSummary, assetAPI } from '@/services/api'
+import { type Asset, type AssetSummary, assetAPI } from '@/services/api/asset'
 
 const { showToast } = useToast()
 const { t } = useI18n()
@@ -982,7 +982,7 @@ const editAsset = async (id: number) => {
 			sn: asset.sn || '',
 			price: asset.price || null,
 			currency: asset.currency || '',
-			note1: asset.note1 || '',
+			note1: asset.notes?.note1 || '',
 		}
 		showDetailModal.value = false
 		showEditModal.value = true
@@ -1019,7 +1019,9 @@ const saveAsset = async () => {
 
 	isSaving.value = true
 	try {
-		await assetAPI.update(selectedAsset.value.id, editForm.value)
+		const { note1, ...rest } = editForm.value
+		const payload = { ...rest, notes: { note1: note1 || null } }
+		await assetAPI.update(selectedAsset.value.id, payload)
 		showToast(t('assets.assetUpdated'), 'success')
 		closeModals()
 		loadData()

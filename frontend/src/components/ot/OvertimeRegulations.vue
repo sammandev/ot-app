@@ -77,6 +77,7 @@
     <Teleport to="body">
     <div v-if="showRegulationModal"
         class="fixed inset-0 z-[100000] flex items-center justify-center overflow-hidden"
+        role="dialog" aria-modal="true" aria-labelledby="ot-regulations-modal-title"
         :class="isFullscreen ? '' : 'p-4'" @click.self="closeModal">
         <!-- Backdrop covers full viewport -->
         <div class="fixed inset-0 bg-black/60" aria-hidden="true"></div>
@@ -100,7 +101,7 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('otForm.regulations.policyTitle') }}
+                        <h2 id="ot-regulations-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('otForm.regulations.policyTitle') }}
                         </h2>
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('otForm.regulations.updated') }} {{ formattedDate }}</p>
                     </div>
@@ -141,10 +142,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { regulationAPI, regulationDocumentAPI } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import { regulationAPI, regulationDocumentAPI } from '@/services/api/overtime'
 import type { OvertimeRegulation } from '@/types/admin'
 
 const { t } = useI18n()
+const { showToast } = useToast()
 
 const showRegulationModal = ref(false)
 const showInfoCard = ref(true)
@@ -328,7 +331,7 @@ const hideInfoCard = () => {
 const openModal = () => {
 	// Check if PDF exists (this is a simple check, in production you'd verify the file actually exists)
 	if (!pdfUrl.value) {
-		alert(t('otForm.regulations.noPolicyAvailable'))
+		showToast(t('otForm.regulations.noPolicyAvailable'), 'warning')
 		return
 	}
 	showRegulationModal.value = true

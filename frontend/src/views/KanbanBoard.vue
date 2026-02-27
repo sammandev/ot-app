@@ -43,199 +43,24 @@
                 </div>
             </div>
 
-            <!-- Filter Panel (for all users) -->
-            <div v-if="showFilters"
-                class="mb-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm">
-                <div class="flex flex-wrap items-end gap-4">
-                    <!-- Department Filter (PTB admins only) -->
-                    <div v-if="authStore.isPtbAdmin" class="flex-1 min-w-[200px]">
-                        <label
-                            class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.department') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedDepartment"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allDepartments') }}</option>
-                                <option v-for="dept in sortedDepartments" :key="dept.id" :value="dept.id">{{ dept.name
-                                    }}</option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Employee Filter (PTB admins only) -->
-                    <div v-if="authStore.isPtbAdmin" class="flex-1 min-w-[200px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.employee') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedEmployee"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allEmployees') }}</option>
-                                <option v-for="emp in filteredEmployees" :key="emp.id" :value="emp.id">{{ emp.name }}
-                                </option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Project Filter (Searchable Dropdown) -->
-                    <div class="flex-1 min-w-[200px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.project') }}</label>
-                        <div class="relative" ref="filterProjectDropdownRef">
-                            <input type="text" v-model="filterProjectSearch" @focus="showFilterProjectDropdown = true"
-                                @blur="handleFilterProjectBlur"
-                                :placeholder="selectedProject ? '' : t('kanban.searchProjects')"
-                                class="w-full px-3 py-2 pr-8 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-sm focus:outline-none focus:border-brand-500" />
-
-                            <!-- Selected Project Display -->
-                            <div v-if="selectedProject && !showFilterProjectDropdown && !filterProjectSearch"
-                                class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                <span class="text-gray-700 dark:text-gray-300 text-sm">
-                                    {{sortedProjects.find(p => p.id === selectedProject)?.name}}
-                                </span>
-                            </div>
-
-                            <ChevronDownIcon class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-
-                            <!-- Dropdown -->
-                            <div v-if="showFilterProjectDropdown"
-                                class="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg">
-                                <button type="button"
-                                    @mousedown.prevent="selectedProject = null; showFilterProjectDropdown = false; filterProjectSearch = ''"
-                                    :class="['w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700', selectedProject === null ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300']">
-                                    {{ t('kanban.allProjects') }}
-                                </button>
-                                <button v-for="proj in filteredFilterProjects" :key="proj.id" type="button"
-                                    @mousedown.prevent="selectedProject = proj.id; showFilterProjectDropdown = false; filterProjectSearch = ''"
-                                    :class="['w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700', selectedProject === proj.id ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'text-gray-700 dark:text-gray-300']">
-                                    {{ proj.name }}
-                                </button>
-                                <p v-if="filteredFilterProjects.length === 0 && filterProjectSearch"
-                                    class="text-center text-gray-400 text-sm py-2">
-                                    {{ t('kanban.noProjectsFound') }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Status Filter -->
-                    <div class="flex-1 min-w-[150px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.status') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedStatus"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allStatuses') }}</option>
-                                <option value="todo">{{ t('kanban.todo') }}</option>
-                                <option value="in_progress">{{ t('kanban.inProgress') }}</option>
-                                <option value="done">{{ t('kanban.done') }}</option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Priority Filter -->
-                    <div class="flex-1 min-w-[140px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.priority') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedPriority"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allPriorities') }}</option>
-                                <option value="low">{{ t('kanban.low') }}</option>
-                                <option value="medium">{{ t('kanban.medium') }}</option>
-                                <option value="high">{{ t('kanban.high') }}</option>
-                                <option value="urgent">{{ t('kanban.urgent') }}</option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Label Filter -->
-                    <div class="flex-1 min-w-[150px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.label') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedLabel"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allLabels') }}</option>
-                                <option v-for="label in availableLabels" :key="label.name" :value="label.name">{{
-                                    label.name }}</option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Group Filter -->
-                    <div class="flex-1 min-w-[150px]">
-                        <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ t('kanban.group') }}</label>
-                        <div class="relative">
-                            <select v-model="selectedGroup"
-                                class="w-full appearance-none bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-2 px-3 pr-8 rounded-lg text-sm focus:outline-none focus:border-brand-500">
-                                <option :value="null">{{ t('kanban.allGroups') }}</option>
-                                <option v-for="group in taskGroups" :key="group.id" :value="group.id">
-                                    {{ group.name }}
-                                </option>
-                            </select>
-                            <ChevronDownIcon
-                                class="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        </div>
-                    </div>
-
-                    <!-- Clear Filters Button -->
-                    <button v-if="activeFiltersCount > 0" @click="clearFilters"
-                        class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition flex items-center gap-1">
-                        <XIcon class="w-4 h-4" />
-                        <span>{{ t('common.clear') }}</span>
-                    </button>
-                </div>
-
-                <!-- Active Filters Summary -->
-                <div v-if="activeFiltersCount > 0" class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    <div class="flex flex-wrap items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                        <span>{{ t('kanban.showingTasksFor') }}</span>
-                        <span v-if="authStore.isPtbAdmin && selectedDepartment"
-                            class="inline-flex items-center px-2 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-full text-xs">
-                            {{sortedDepartments.find(d => d.id === selectedDepartment)?.name}}
-                            <button @click="selectedDepartment = null" class="ml-1 hover:text-purple-900">×</button>
-                        </span>
-                        <span v-if="authStore.isPtbAdmin && selectedEmployee"
-                            class="inline-flex items-center px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-xs">
-                            {{filteredEmployees.find(e => e.id === selectedEmployee)?.name || sortedEmployees.find(e =>
-                                e.id === selectedEmployee)?.name}}
-                            <button @click="selectedEmployee = null" class="ml-1 hover:text-blue-900">×</button>
-                        </span>
-                        <span v-if="selectedProject"
-                            class="inline-flex items-center px-2 py-0.5 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-full text-xs">
-                            {{sortedProjects.find(p => p.id === selectedProject)?.name}}
-                            <button @click="selectedProject = null" class="ml-1 hover:text-green-900">×</button>
-                        </span>
-                        <span v-if="selectedStatus"
-                            class="inline-flex items-center px-2 py-0.5 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 rounded-full text-xs">
-                            {{ selectedStatus === 'todo' ? t('kanban.todo') : selectedStatus === 'in_progress' ? t('kanban.inProgress') :
-                                t('kanban.done') }}
-                            <button @click="selectedStatus = null" class="ml-1 hover:text-orange-900">×</button>
-                        </span>
-                        <span v-if="selectedPriority"
-                            class="inline-flex items-center px-2 py-0.5 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-full text-xs">
-                            {{ getPriorityConfig(selectedPriority)?.icon }} {{
-                                getPriorityConfig(selectedPriority)?.label }}
-                            <button @click="selectedPriority = null" class="ml-1 hover:text-red-900">×</button>
-                        </span>
-                        <span v-if="selectedLabel"
-                            :class="['inline-flex items-center px-2 py-0.5 rounded-full text-xs', getLabelColor(selectedLabel)]">
-                            {{ selectedLabel }}
-                            <button @click="selectedLabel = null" class="ml-1 hover:opacity-75">×</button>
-                        </span>
-                        <span v-if="selectedGroup" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs"
-                            :style="{ backgroundColor: getSelectedGroupColor() + '20', color: getSelectedGroupColor(), borderColor: getSelectedGroupColor() }"
-                            style="border-width: 1px;">
-                            {{taskGroups.find(g => g.id === selectedGroup)?.name}}
-                            <button @click="selectedGroup = null" class="ml-1 hover:opacity-75">×</button>
-                        </span>
-                    </div>
-                </div>
-            </div>
+            <!-- Filter Panel -->
+            <KanbanFilterPanel :show-filters="showFilters" :is-ptb-admin="authStore.isPtbAdmin"
+                :selected-department="selectedDepartment" :selected-employee="selectedEmployee"
+                :selected-project="selectedProject" :selected-status="selectedStatus"
+                :selected-priority="selectedPriority" :selected-label="selectedLabel" :selected-group="selectedGroup"
+                :filter-project-search="filterProjectSearch" :show-filter-project-dropdown="showFilterProjectDropdown"
+                :active-filters-count="activeFiltersCount" :sorted-departments="sortedDepartments"
+                :sorted-employees="sortedEmployees" :filtered-employees="filteredEmployees"
+                :sorted-projects="sortedProjects" :filtered-filter-projects="filteredFilterProjects"
+                :task-groups="taskGroups" :get-selected-group-color="getSelectedGroupColor"
+                @update:selected-department="selectedDepartment = $event"
+                @update:selected-employee="selectedEmployee = $event"
+                @update:selected-project="selectedProject = $event" @update:selected-status="selectedStatus = $event"
+                @update:selected-priority="handleSelectedPriorityUpdate" @update:selected-label="selectedLabel = $event"
+                @update:selected-group="selectedGroup = $event"
+                @update:filter-project-search="filterProjectSearch = $event"
+                @update:show-filter-project-dropdown="showFilterProjectDropdown = $event"
+                @filter-project-blur="handleFilterProjectBlur" @clear-filters="clearFilters" />
 
             <!-- Loading State -->
             <div v-if="loading" class="flex-1 flex items-center justify-center">
@@ -279,8 +104,7 @@
                                     <!-- Someone editing indicator -->
                                     <div v-if="isTaskBeingEdited(task.id)"
                                         class="absolute -top-2 -right-2 flex items-center gap-0.5 z-10">
-                                        <div v-for="editor in getTaskEditors(task.id).slice(0, 3)"
-                                            :key="editor.user_id"
+                                        <div v-for="editor in getTaskEditors(task.id).slice(0, 3)" :key="editor.user_id"
                                             class="w-6 h-6 rounded-full bg-yellow-400 text-yellow-900 text-[10px] font-medium flex items-center justify-center ring-2 ring-white dark:ring-gray-800 shadow-sm -ml-1 first:ml-0"
                                             :title="editor.user_name + ' ' + t('kanban.isEditing')">
                                             {{ getInitials(editor.user_name || 'U') }}
@@ -415,7 +239,7 @@
                                                 <ClockIcon class="w-3.5 h-3.5" />
                                                 <span v-if="task.estimated_hours && task.actual_hours">
                                                     {{ formatHours(task.actual_hours) }}/{{
-                                                    formatHours(task.estimated_hours) }}h
+                                                        formatHours(task.estimated_hours) }}h
                                                 </span>
                                                 <span v-else-if="task.estimated_hours">
                                                     {{ formatHours(task.estimated_hours) }}{{ t('kanban.hEst') }}
@@ -430,9 +254,13 @@
                                                 :title="task.status !== 'done' && isOverdue(task.end) ? t('kanban.overdue') : task.status !== 'done' && isDueSoon(task.end) ? t('kanban.dueSoon') : ''">
                                                 {{ formatDate(task.end) }} - {{ formatTime(task.end) }}
                                                 <span v-if="task.status !== 'done' && isOverdue(task.end)"
-                                                    class="ml-1 inline-flex items-center"><WarningIcon class="w-3.5 h-3.5" /></span>
+                                                    class="ml-1 inline-flex items-center">
+                                                    <WarningIcon class="w-3.5 h-3.5" />
+                                                </span>
                                                 <span v-else-if="task.status !== 'done' && isDueSoon(task.end)"
-                                                    class="ml-1 inline-flex items-center"><AlarmIcon class="w-3.5 h-3.5" /></span>
+                                                    class="ml-1 inline-flex items-center">
+                                                    <AlarmIcon class="w-3.5 h-3.5" />
+                                                </span>
                                             </span>
                                         </div>
 
@@ -470,7 +298,8 @@
         <!-- Create/Edit Modal -->
         <div v-if="showModal" class="fixed inset-0 bg-black/50 z-[100000] flex items-center justify-center p-4"
             @click.self="closeModal">
-            <div role="dialog" aria-modal="true" aria-labelledby="kanban-task-modal-title" class="bg-white dark:bg-gray-800 w-full max-w-lg max-h-[90vh] rounded-xl shadow-xl flex flex-col">
+            <div role="dialog" aria-modal="true" aria-labelledby="kanban-task-modal-title"
+                class="bg-white dark:bg-gray-800 w-full max-w-lg max-h-[90vh] rounded-xl shadow-xl flex flex-col">
                 <h3 id="kanban-task-modal-title"
                     class="text-lg font-bold text-gray-900 dark:text-white p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
                     {{ isEditing ? t('kanban.editTask') : t('kanban.newTask') }}
@@ -478,22 +307,25 @@
 
                 <form @submit.prevent="saveTask" class="flex-1 overflow-y-auto p-6 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.title') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                            t('kanban.title')
+                            }}</label>
                         <input v-model="form.title" type="text" required
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white" />
                     </div>
 
                     <div>
-                        <label
-                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.description') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                            t('kanban.description') }}</label>
                         <textarea v-model="form.description" rows="3"
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"></textarea>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.status') }}</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                                t('kanban.status')
+                                }}</label>
                             <select v-model="form.status"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                                 <option value="todo">{{ t('kanban.todo') }}</option>
@@ -503,8 +335,8 @@
                         </div>
 
                         <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.priority') }}</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                                t('kanban.priority') }}</label>
                             <select v-model="form.priority"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
                                 <option value="low">{{ t('kanban.low') }}</option>
@@ -517,14 +349,16 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.dueDate') }}</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                                t('kanban.dueDate') }}</label>
                             <flat-pickr v-model="form.end" :config="datePickerConfig"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white cursor-pointer"
                                 :placeholder="t('kanban.selectDueDate')" required />
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.dueTime') }}</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                                t('kanban.dueTime') }}</label>
                             <flat-pickr v-model="form.end_time" :config="timePickerConfig"
                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white cursor-pointer"
                                 :placeholder="t('kanban.selectTime')" />
@@ -532,7 +366,9 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.project') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{
+                            t('kanban.project')
+                            }}</label>
                         <!-- Selected Project Badge -->
                         <div v-if="form.project && !projectDropdownFocused" class="mb-2">
                             <span
@@ -574,7 +410,9 @@
 
                     <!-- Labels Selection -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('kanban.labels') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{
+                            t('kanban.labels')
+                            }}</label>
                         <div class="flex flex-wrap gap-2">
                             <button v-for="label in availableLabels" :key="label.name" type="button"
                                 @click="toggleLabel(label.name)" :class="[
@@ -590,7 +428,9 @@
 
                     <!-- Group Selection -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('kanban.group') }}</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{
+                            t('kanban.group')
+                            }}</label>
                         <select v-model="form.group"
                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
                             <option :value="null">{{ t('kanban.noGroup') }}</option>
@@ -603,7 +443,9 @@
                     <!-- Estimated Hours (Optional) -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {{ t('kanban.estimatedHours') }} <span class="text-gray-400 font-normal">({{ t('common.optional') }})</span>
+                            {{ t('kanban.estimatedHours') }} <span class="text-gray-400 font-normal">({{
+                                t('common.optional')
+                                }})</span>
                         </label>
                         <div class="flex items-center gap-2">
                             <input v-model.number="form.estimated_hours" type="number" min="0" step="0.5"
@@ -619,7 +461,9 @@
                     <!-- Assignees Selection -->
                     <div>
                         <div class="flex items-center justify-between mb-2">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('kanban.assignTo') }}</label>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{
+                                t('kanban.assignTo')
+                                }}</label>
                             <div class="flex gap-2">
                                 <button type="button" @click="selectAllAssignees"
                                     class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
@@ -662,7 +506,8 @@
                             </button>
                             <p v-if="filteredModalEmployees.length === 0"
                                 class="text-center text-gray-400 text-sm py-2">
-                                {{ assigneeModalSearch ? t('kanban.noEmployeesFound') : t('kanban.noEmployeesAvailable') }}
+                                {{ assigneeModalSearch ? t('kanban.noEmployeesFound') : t('kanban.noEmployeesAvailable')
+                                }}
                             </p>
                         </div>
                         <p v-if="form.assigned_to.length > 0" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -674,9 +519,10 @@
                 <!-- Modal Footer (Outside scrollable area) -->
                 <div class="flex justify-end gap-3 p-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button type="button" @click="closeModal"
-                        class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">{{ t('common.cancel') }}</button>
-                    <button @click="saveTask"
-                        class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">{{ t('kanban.saveTask') }}</button>
+                        class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">{{
+                            t('common.cancel') }}</button>
+                    <button @click="saveTask" class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">{{
+                        t('kanban.saveTask') }}</button>
                 </div>
             </div>
         </div>
@@ -684,8 +530,7 @@
         <!-- Delete Confirmation Modal -->
         <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
             <div class="absolute inset-0 bg-black/50" @click="cancelDelete"></div>
-            <div
-                role="dialog" aria-modal="true" aria-labelledby="kanban-delete-modal-title"
+            <div role="dialog" aria-modal="true" aria-labelledby="kanban-delete-modal-title"
                 class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-800 dark:bg-gray-900 relative z-10">
                 <h2 id="kanban-delete-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                     {{ t('kanban.confirmDelete') }}
@@ -706,371 +551,17 @@
             </div>
         </div>
 
-        <!-- Create Group Modal -->
-        <div v-if="showGroupModal" class="fixed inset-0 bg-black/50 z-[100000] flex items-center justify-center p-4"
-            @click.self="closeGroupModal">
-            <div
-                role="dialog" aria-modal="true" aria-labelledby="kanban-group-modal-title"
-                class="bg-white dark:bg-gray-900 rounded-xl w-full max-w-lg border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
-                <!-- Modal Header -->
-                <div class="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 id="kanban-group-modal-title" class="text-xl font-bold text-gray-900 dark:text-white">{{ t('kanban.createNewGroup') }}</h2>
-                </div>
-
-                <!-- Modal Body (Scrollable) -->
-                <form @submit.prevent="saveGroup" class="flex-1 overflow-y-auto p-6 pt-4 space-y-4">
-                    <!-- Group Name -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.groupNameRequired') }}</label>
-                        <input v-model="groupForm.name" type="text" required
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                            :placeholder="t('kanban.enterGroupName')" />
-                    </div>
-
-                    <!-- Group Description -->
-                    <div>
-                        <label
-                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.description') }}</label>
-                        <textarea v-model="groupForm.description" rows="2"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                            :placeholder="t('kanban.enterGroupDesc')"></textarea>
-                    </div>
-
-                    <!-- Group Color with Templates -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('kanban.color') }}</label>
-                        <!-- Color Templates -->
-                        <div class="grid grid-cols-9 gap-2 mb-3">
-                            <button v-for="template in colorTemplates" :key="template.color" type="button"
-                                @click="groupForm.color = template.color" :class="[
-                                    'w-8 h-8 rounded-lg border-2 transition-[border-color,transform,box-shadow]',
-                                    groupForm.color === template.color
-                                        ? 'border-gray-900 dark:border-white scale-110 shadow-md'
-                                        : 'border-transparent hover:scale-105'
-                                ]" :style="{ backgroundColor: template.color }" :title="template.name">
-                            </button>
-                        </div>
-                        <!-- Custom Color Picker -->
-                        <div class="flex items-center gap-2">
-                            <input v-model="groupForm.color" type="color"
-                                class="w-10 h-10 border border-gray-300 dark:border-gray-600 rounded cursor-pointer" />
-                            <input v-model="groupForm.color" type="text"
-                                class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-                                placeholder="#6366F1" />
-                            <span class="text-xs text-gray-500">{{ t('kanban.custom') }}</span>
-                        </div>
-                        <!-- Preview -->
-                        <div class="mt-3 p-3 rounded-lg border-l-4" :style="{
-                            backgroundColor: groupForm.color + '15',
-                            borderLeftColor: groupForm.color
-                        }">
-                            <span class="text-sm font-medium" :style="{ color: groupForm.color }">
-                                {{ groupForm.name || t('kanban.groupPreview') }}
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Group Members -->
-                    <div>
-                        <div class="flex items-center justify-between mb-2">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('kanban.members') }}</label>
-                            <div class="flex gap-2">
-                                <button type="button" @click="selectAllGroupMembers"
-                                    class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
-                                    {{ t('common.selectAll') }}
-                                </button>
-                                <span class="text-gray-300 dark:text-gray-600">|</span>
-                                <button type="button" @click="deselectAllGroupMembers"
-                                    class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                                    {{ t('common.deselectAll') }}
-                                </button>
-                            </div>
-                        </div>
-                        <!-- Member Search -->
-                        <input v-model="groupMemberSearch" type="text" :placeholder="t('kanban.searchEmployees')"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white mb-2 text-sm" />
-                        <div
-                            class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-2 space-y-1">
-                            <button v-for="emp in filteredGroupMembers" :key="emp.id" type="button"
-                                @click="toggleGroupMember(emp.id)" :class="[
-                                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors',
-                                    groupForm.members.includes(emp.id)
-                                        ? 'bg-brand-50 dark:bg-brand-900/30 border border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300'
-                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                                ]">
-                                <div :class="[
-                                    'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
-                                    groupForm.members.includes(emp.id)
-                                        ? 'bg-brand-200 dark:bg-brand-800 text-brand-700 dark:text-brand-300'
-                                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                                ]">
-                                    {{ getInitials(emp.name) }}
-                                </div>
-                                <span class="flex-1 truncate">{{ emp.name }}</span>
-                                <span
-                                    class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">{{
-                                    getDepartmentCode(emp.department) }}</span>
-                                <svg v-if="groupForm.members.includes(emp.id)" xmlns="http://www.w3.org/2000/svg"
-                                    class="w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24"
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 13l4 4L19 7" />
-                                </svg>
-                            </button>
-                            <p v-if="filteredGroupMembers.length === 0" class="text-center text-gray-400 text-sm py-2">
-                                {{ groupMemberSearch ? t('kanban.noEmployeesFound') : t('kanban.noEmployeesAvailable') }}
-                            </p>
-                        </div>
-                        <p v-if="groupForm.members.length > 0" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {{ groupForm.members.length }} {{ t('kanban.membersSelected') }}
-                        </p>
-                    </div>
-                </form>
-
-                <!-- Modal Footer -->
-                <div class="flex justify-end gap-3 p-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" @click="closeGroupModal"
-                        class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">{{ t('common.cancel') }}</button>
-                    <button @click="saveGroup"
-                        class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">{{ t('kanban.createGroup') }}</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- List Groups Modal -->
-        <div v-if="showListGroupsModal"
-            class="fixed inset-0 bg-black/50 z-[100000] flex items-center justify-center p-4"
-            @click.self="closeListGroupsModal">
-            <div
-                role="dialog" aria-modal="true" aria-labelledby="kanban-groups-list-title"
-                class="bg-white dark:bg-gray-900 rounded-xl w-full max-w-3xl border border-gray-200 dark:border-gray-700 flex flex-col max-h-[90vh]">
-                <!-- Modal Header -->
-                <div class="p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center justify-between">
-                        <h2 id="kanban-groups-list-title" class="text-xl font-bold text-gray-900 dark:text-white">{{ t('kanban.taskGroups') }}</h2>
-                        <div class="flex items-center gap-2">
-                            <button @click="syncDepartmentGroups" :disabled="syncingDepartments"
-                                class="px-3 py-1.5 text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition disabled:opacity-50 flex items-center gap-1.5"
-                                title="Create/update groups based on departments">
-                                <HourglassIcon v-if="syncingDepartments" class="w-4 h-4" />
-                                <RefreshIcon v-else class="w-4 h-4" />
-                                {{ t('kanban.syncDepartments') }}
-                            </button>
-                            <button @click="closeListGroupsModal"
-                                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
-                                <XIcon class="w-5 h-5 text-gray-500" />
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Tabs -->
-                    <div class="flex gap-2 mt-4">
-                        <button @click="listGroupsTab = 'all'" :class="[
-                            'px-4 py-2 rounded-lg text-sm font-medium transition',
-                            listGroupsTab === 'all'
-                                ? 'bg-brand-600 text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        ]">
-                            {{ t('kanban.allGroups') }} ({{ taskGroups.length }})
-                        </button>
-                        <button v-if="editingGroup" @click="listGroupsTab = 'edit'" :class="[
-                            'px-4 py-2 rounded-lg text-sm font-medium transition',
-                            listGroupsTab === 'edit'
-                                ? 'bg-brand-600 text-white'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        ]">
-                            {{ t('kanban.editGroup') }}
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Modal Body -->
-                <div class="flex-1 overflow-y-auto p-6">
-                    <!-- All Groups Tab -->
-                    <div v-if="listGroupsTab === 'all'" class="space-y-3">
-                        <div v-if="taskGroups.length === 0" class="text-center py-12 text-gray-400">
-                            <FolderIcon class="w-10 h-10 mx-auto mb-2 text-gray-400" />
-                            <p>{{ t('kanban.noGroupsYet') }}</p>
-                            <button @click="closeListGroupsModal(); openGroupModal()"
-                                class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">
-                                {{ t('kanban.createFirstGroup') }}
-                            </button>
-                        </div>
-
-                        <div v-for="group in taskGroups" :key="group.id"
-                            class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border-l-4 group hover:shadow-md transition"
-                            :style="{ borderLeftColor: group.color }">
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <div class="w-4 h-4 rounded-full" :style="{ backgroundColor: group.color }">
-                                        </div>
-                                        <h3 class="font-semibold text-gray-900 dark:text-white">{{ group.name }}</h3>
-                                        <span v-if="group.is_department_group"
-                                            class="px-2 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                                            {{ t('kanban.departmentBadge') }}
-                                        </span>
-                                    </div>
-                                    <p v-if="group.description" class="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                                        {{ group.description }}
-                                    </p>
-                                    <div
-                                        class="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span>{{ group.members?.length || 0 }} {{ t('kanban.members') }}</span>
-                                        <span>•</span>
-                                        <span>{{ group.task_count || 0 }} {{ t('kanban.tasks') }}</span>
-                                    </div>
-                                    <!-- Member Avatars Preview -->
-                                    <div v-if="group.members && group.members.length > 0" class="flex -space-x-2 mt-2">
-                                        <div v-for="memberId in group.members.slice(0, 5)" :key="memberId"
-                                            class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ring-2 ring-white dark:ring-gray-800"
-                                            :style="{ backgroundColor: group.color + '30', color: group.color }">
-                                            {{ getInitials(getEmployeeName(memberId)) }}
-                                        </div>
-                                        <div v-if="group.members.length > 5"
-                                            class="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium ring-2 ring-white dark:ring-gray-800">
-                                            +{{ group.members.length - 5 }}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                    <button v-if="!group.is_department_group" @click="startEditGroup(group)"
-                                        class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-brand-600"
-                                        title="Edit Group">
-                                        <PencilIcon class="w-4 h-4" />
-                                    </button>
-                                    <button v-if="!group.is_department_group" @click="deleteGroup(group.id)"
-                                        class="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-600"
-                                        title="Delete Group">
-                                        <TrashIcon class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Edit Group Tab -->
-                    <div v-if="listGroupsTab === 'edit' && editingGroup" class="space-y-4">
-                        <!-- Group Name -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.groupNameRequired') }}</label>
-                            <input v-model="editGroupForm.name" type="text" required
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                                :placeholder="t('kanban.enterGroupName')" />
-                        </div>
-
-                        <!-- Group Description -->
-                        <div>
-                            <label
-                                class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('kanban.description') }}</label>
-                            <textarea v-model="editGroupForm.description" rows="2"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                                :placeholder="t('kanban.enterGroupDesc')"></textarea>
-                        </div>
-
-                        <!-- Group Color with Templates -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{{ t('kanban.color') }}</label>
-                            <!-- Color Templates -->
-                            <div class="grid grid-cols-9 gap-2 mb-3">
-                                <button v-for="template in colorTemplates" :key="template.color" type="button"
-                                    @click="editGroupForm.color = template.color" :class="[
-                                        'w-8 h-8 rounded-lg border-2 transition-[border-color,transform,box-shadow]',
-                                        editGroupForm.color === template.color
-                                            ? 'border-gray-900 dark:border-white scale-110 shadow-md'
-                                            : 'border-transparent hover:scale-105'
-                                    ]" :style="{ backgroundColor: template.color }" :title="template.name">
-                                </button>
-                            </div>
-                            <!-- Custom Color Picker -->
-                            <div class="flex items-center gap-2">
-                                <input v-model="editGroupForm.color" type="color"
-                                    class="w-10 h-10 border border-gray-300 dark:border-gray-600 rounded cursor-pointer" />
-                                <input v-model="editGroupForm.color" type="text"
-                                    class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
-                                    placeholder="#6366F1" />
-                                <span class="text-xs text-gray-500">{{ t('kanban.custom') }}</span>
-                            </div>
-                            <!-- Preview -->
-                            <div class="mt-3 p-3 rounded-lg border-l-4" :style="{
-                                backgroundColor: editGroupForm.color + '15',
-                                borderLeftColor: editGroupForm.color
-                            }">
-                                <span class="text-sm font-medium" :style="{ color: editGroupForm.color }">
-                                    {{ editGroupForm.name || t('kanban.groupPreview') }}
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Group Members -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('kanban.members') }}</label>
-                                <div class="flex gap-2">
-                                    <button type="button"
-                                        @click="editGroupForm.members = sortedEmployees.map(e => e.id)"
-                                        class="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400">
-                                        {{ t('common.selectAll') }}
-                                    </button>
-                                    <span class="text-gray-300 dark:text-gray-600">|</span>
-                                    <button type="button" @click="editGroupForm.members = []"
-                                        class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400">
-                                        {{ t('common.deselectAll') }}
-                                    </button>
-                                </div>
-                            </div>
-                            <input v-model="groupMemberSearch" type="text" :placeholder="t('kanban.searchEmployees')"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white mb-2 text-sm" />
-                            <div
-                                class="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-2 space-y-1">
-                                <button v-for="emp in filteredGroupMembers" :key="emp.id" type="button"
-                                    @click="toggleEditGroupMember(emp.id)" :class="[
-                                        'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors',
-                                        editGroupForm.members.includes(emp.id)
-                                            ? 'bg-brand-50 dark:bg-brand-900/30 border border-brand-300 dark:border-brand-700 text-brand-700 dark:text-brand-300'
-                                            : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                                    ]">
-                                    <div :class="[
-                                        'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
-                                        editGroupForm.members.includes(emp.id)
-                                            ? 'bg-brand-200 dark:bg-brand-800 text-brand-700 dark:text-brand-300'
-                                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                                    ]">
-                                        {{ getInitials(emp.name) }}
-                                    </div>
-                                    <span class="flex-1 truncate">{{ emp.name }}</span>
-                                    <span
-                                        class="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
-                                        {{ getDepartmentCode(emp.department) }}
-                                    </span>
-                                    <svg v-if="editGroupForm.members.includes(emp.id)" class="w-4 h-4 text-brand-600"
-                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 13l4 4L19 7" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <p v-if="editGroupForm.members.length > 0"
-                                class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {{ editGroupForm.members.length }} {{ t('kanban.membersSelected') }}
-                            </p>
-                        </div>
-
-                        <!-- Edit Actions -->
-                        <div class="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <button type="button" @click="cancelEditGroup"
-                                class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg">
-                                {{ t('common.cancel') }}
-                            </button>
-                            <button @click="saveEditGroup" :disabled="!editGroupForm.name.trim()"
-                                class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50">
-                                {{ t('kanban.saveChanges') }}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Group Modals -->
+        <KanbanGroupModals :show-group-modal="showGroupModal" :show-list-groups-modal="showListGroupsModal"
+            :list-groups-tab="listGroupsTab" :editing-group="editingGroupTask" :syncing-departments="syncingDepartments"
+            :task-groups="taskGroups" :group-form="groupForm" :edit-group-form="editGroupForm"
+            :group-member-search="groupMemberSearch" :filtered-group-members="filteredGroupMembers"
+            :all-employees="sortedEmployees" :get-employee-name="getEmployeeName" @close-group-modal="closeGroupModal"
+            @save-group="saveGroup" @close-list-groups-modal="closeListGroupsModal" @open-group-modal="openGroupModal"
+            @sync-department-groups="syncDepartmentGroups" @start-edit-group="startEditGroup"
+            @delete-group="deleteGroup" @cancel-edit-group="cancelEditGroup" @save-edit-group="saveEditGroup"
+            @update:list-groups-tab="handleListGroupsTabUpdate"
+            @update:group-member-search="groupMemberSearch = $event" />
 
         <!-- Task Detail Drawer (Comments & Activity) -->
         <TaskDetailDrawer :task="selectedTask" :is-open="showTaskDetail" @close="closeTaskDetail" />
@@ -1078,16 +569,17 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
 import draggable from 'vuedraggable'
+import KanbanFilterPanel from '@/components/kanban/KanbanFilterPanel.vue'
+import KanbanGroupModals from '@/components/kanban/KanbanGroupModals.vue'
 import PresenceIndicator from '@/components/kanban/PresenceIndicator.vue'
 import TaskDetailDrawer from '@/components/kanban/TaskDetailDrawer.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import {
 	availableLabels,
-	colorTemplates,
 	columns,
 	formatDate,
 	formatHours,
@@ -1100,7 +592,6 @@ import {
 	getTimeTrackingTooltip,
 	isDueSoon,
 	isOverdue,
-	priorityConfig,
 	useKanbanFilters,
 	useKanbanGroups,
 	useKanbanTasks,
@@ -1111,22 +602,18 @@ import { usePagePermission } from '@/composables/usePagePermission'
 import {
 	AlarmIcon,
 	CheckIcon,
-	ChevronDownIcon,
 	ClockIcon,
 	FolderIcon,
 	FunnelIcon,
-	HourglassIcon,
 	LightbulbIcon,
-	LightningIcon,
-	PencilIcon,
 	PlusIcon,
-	RefreshIcon,
 	TrashIcon,
 	UserGroupIcon,
 	WarningIcon,
-	XIcon,
 } from '@/icons'
-import type { CalendarEvent, Project, TaskGroup } from '@/services/api'
+import type { CalendarEvent } from '@/services/api/calendar'
+import type { Project } from '@/services/api/project'
+import type { TaskGroup } from '@/services/api/task'
 import { useBoardWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentStore } from '@/stores/department'
@@ -1159,7 +646,6 @@ const {
 	selectedGroup,
 	filterProjectSearch,
 	showFilterProjectDropdown,
-	filterProjectDropdownRef,
 	currentUserEmployeeId,
 	userGroupIds,
 	sortedProjects,
@@ -1209,7 +695,6 @@ const {
 	handleProjectDropdownBlur,
 	closeProjectDropdown,
 	getEmployeeName,
-	getDepartmentCode,
 	getSelectedGroupColor,
 } = useKanbanTasks(
 	events,
@@ -1247,6 +732,10 @@ const {
 	syncDepartmentGroups,
 } = useKanbanGroups(taskGroups, sortedEmployees)
 
+const editingGroupTask = computed<TaskGroup | null>(() => {
+	return taskGroups.value.find((group) => group.id === editingGroup.value) ?? null
+})
+
 const {
 	setupWebSocket,
 	isTaskBeingEdited,
@@ -1254,6 +743,24 @@ const {
 	getTaskEditors,
 	getTaskEditingIndicator,
 } = useKanbanWebSocket(events, boardWs)
+
+const handleSelectedPriorityUpdate = (value: string | null) => {
+	if (
+		value === 'low' ||
+		value === 'medium' ||
+		value === 'high' ||
+		value === 'urgent' ||
+		value === null
+	) {
+		selectedPriority.value = value
+	}
+}
+
+const handleListGroupsTabUpdate = (value: string) => {
+	if (value === 'all' || value === 'edit') {
+		listGroupsTab.value = value
+	}
+}
 
 // ── Flatpickr Setup (UI-specific, stays in component) ───────────────
 const { flatpickrInstances, attachMonthScroll, attachTimeScroll, destroyFlatpickrs } =
@@ -1293,7 +800,7 @@ const timePickerConfig = {
 	},
 }
 
-// ── Lifecycle ────────────────────────────────────────────────────────
+// Lifecycle Hooks
 onMounted(async () => {
 	loading.value = true
 	// Start WebSocket connection immediately (don't wait for data loading)

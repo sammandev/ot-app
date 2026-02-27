@@ -5,7 +5,8 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-semibold text-brand-500">{{ t('pages.purchasingList.category') }}</p>
-                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.purchasingList.title') }}</h1>
+                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.purchasingList.title')
+                        }}</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.purchasingList.subtitle') }}</p>
                 </div>
                 <div class="flex gap-2">
@@ -19,9 +20,11 @@
                         <div v-if="showExportMenu"
                             class="absolute top-full right-0 mt-1 w-36 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900 z-50">
                             <button @click="exportData('csv')"
-                                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ t('common.csv') }}</button>
+                                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{
+                                t('common.csv') }}</button>
                             <button @click="exportData('xlsx')"
-                                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ t('common.xlsx') }}</button>
+                                class="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{
+                                t('common.xlsx') }}</button>
                         </div>
                     </button>
                     <router-link v-if="canCreate" to="/purchasing/request"
@@ -54,8 +57,8 @@
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200'
                     ]">
                         {{ t(tab.label) }}
-                        <span
-                            class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">{{ tab.count }}</span>
+                        <span class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">{{ tab.count
+                            }}</span>
                     </button>
                 </nav>
             </div>
@@ -67,7 +70,8 @@
             <div v-else-if="purchaseRequests.length === 0"
                 class="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-gray-500 dark:text-gray-400">{{ t('purchasing.noRequestsFound') }}</p>
-                <router-link to="/purchasing/request" class="mt-2 inline-block text-brand-600 hover:underline">{{ t('purchasing.createNewRequest') }}</router-link>
+                <router-link to="/purchasing/request" class="mt-2 inline-block text-brand-600 hover:underline">{{
+                    t('purchasing.createNewRequest') }}</router-link>
             </div>
 
             <!-- Purchase Requests Table -->
@@ -199,10 +203,12 @@
                 <div
                     class="flex-none flex flex-col gap-3 border-t border-gray-200 px-6 py-4 text-sm text-gray-700 dark:border-gray-800 dark:text-gray-300 sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex items-center gap-3">
-                        <p>{{ t('common.showing') }} {{ pageRangeStart }}-{{ pageRangeEnd }} {{ t('common.of') }} {{ totalCount }}</p>
+                        <p>{{ t('common.showing') }} {{ pageRangeStart }}-{{ pageRangeEnd }} {{ t('common.of') }} {{
+                            totalCount }}</p>
                         <select v-model.number="pageSize" @change="handleSearch"
                             class="h-9 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} / {{ t('common.page') }}</option>
+                            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} / {{
+                                t('common.page') }}</option>
                         </select>
                     </div>
                     <div class="flex items-center gap-2">
@@ -221,15 +227,18 @@
 
             <!-- View/Edit Modal -->
             <div v-if="showDetailModal || showEditModal"
-                class="fixed inset-0 z-[100000] flex items-center justify-center">
+                class="fixed inset-0 z-[100000] flex items-center justify-center" role="dialog" aria-modal="true"
+                aria-labelledby="purchase-detail-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="closeModals"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white w-full max-w-2xl max-h-[90vh] flex flex-col dark:border-gray-700 dark:bg-gray-900 relative z-10">
                     <!-- Sticky Header -->
                     <div
                         class="sticky top-0 z-10 flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-t-2xl">
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-                            {{ showEditModal ? t('purchasing.editPurchaseRequest') : t('purchasing.purchaseRequestDetails') }}
+                        <h2 id="purchase-detail-modal-title"
+                            class="text-xl font-semibold text-gray-900 dark:text-white">
+                            {{ showEditModal ? t('purchasing.editPurchaseRequest') :
+                                t('purchasing.purchaseRequestDetails') }}
                         </h2>
                         <button @click="closeModals" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
                             <XIcon class="w-6 h-6" />
@@ -241,99 +250,113 @@
                         <form v-if="showEditModal" @submit.prevent="saveRequest" class="space-y-4" id="editForm">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.requestDate') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.requestDate') }}</label>
                                     <input ref="requestDateInput" type="text" v-model="editForm.request_date"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.selectDate')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.owner') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.owner') }}</label>
                                     <input v-model="editForm.owner" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.ownerName')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.docId') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.docId') }}</label>
                                     <input v-model="editForm.doc_id" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.documentId')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.partNo') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.partNo') }}</label>
                                     <input v-model="editForm.part_no" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.partNumber')" />
                                 </div>
                                 <div class="space-y-2 md:col-span-2">
-                                    <label
-                                        class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.descriptionSpec') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.descriptionSpec') }}</label>
                                     <textarea v-model="editForm.description_spec" rows="2"
                                         class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('common.description')"></textarea>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.materialCategory') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.materialCategory') }}</label>
                                     <input v-model="editForm.material_category" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.materialCategory')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label
-                                        class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.purposeDesc') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.purposeDesc') }}</label>
                                     <input v-model="editForm.purpose_desc" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.purpose')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.qty') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.qty') }}</label>
                                     <input v-model.number="editForm.qty" type="number" min="1"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         placeholder="1" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.plant') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.plant') }}</label>
                                     <input v-model="editForm.plant" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.plant')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.projectCode') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.projectCode') }}</label>
                                     <input v-model="editForm.project_code" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.projectCode')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.prType') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.prType') }}</label>
                                     <input v-model="editForm.pr_type" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.prType')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.mrpid') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.mrpid') }}</label>
                                     <input v-model="editForm.mrp_id" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.mrpid')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.purchOrg') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.purchOrg') }}</label>
                                     <input v-model="editForm.purch_org" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.purchOrg')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.sourcerPrice') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.sourcerPrice') }}</label>
                                     <input v-model="editForm.sourcer_price" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.sourcerPrice')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.prNo') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.prNo') }}</label>
                                     <input v-model="editForm.pr_no" type="text"
                                         class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.prNo')" />
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.status') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.status') }}</label>
                                     <select v-model="editForm.status"
                                         class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                         <option value="pending">{{ t('purchasing.pending') }}</option>
@@ -342,8 +365,8 @@
                                     </select>
                                 </div>
                                 <div class="space-y-2 md:col-span-2">
-                                    <label
-                                        class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.remarks') }}</label>
+                                    <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                        t('purchasing.remarks') }}</label>
                                     <textarea v-model="editForm.remarks" rows="2"
                                         class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                         :placeholder="t('purchasing.remarks')"></textarea>
@@ -355,14 +378,16 @@
                         <div v-else class="space-y-4">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.requestDate') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.requestDate')
+                                        }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         formatDate(selectedRequest?.request_date ?? null) || '-' }}</p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.owner') }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
-                                        selectedRequest?.owner_employee_details?.name || selectedRequest?.owner || '-' }}
+                                        selectedRequest?.owner_employee_details?.name || selectedRequest?.owner || '-'
+                                        }}
                                     </p>
                                 </div>
                                 <div>
@@ -376,17 +401,20 @@
                                         selectedRequest?.part_no || '-' }}</p>
                                 </div>
                                 <div class="md:col-span-2">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.descriptionSpec') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{
+                                        t('purchasing.descriptionSpec') }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.description_spec || '-' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.materialCategory') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{
+                                        t('purchasing.materialCategory') }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.material_category || '-' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.purpose') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.purpose') }}
+                                    </p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.purpose_desc || '-' }}</p>
                                 </div>
@@ -401,7 +429,8 @@
                                         selectedRequest?.plant || '-' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.projectCode') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.projectCode')
+                                        }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.project_code || '-' }}</p>
                                 </div>
@@ -416,12 +445,14 @@
                                         selectedRequest?.mrp_id || '-' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.purchOrg') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.purchOrg') }}
+                                    </p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.purch_org || '-' }}</p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.sourcerPrice') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.sourcerPrice')
+                                        }}</p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.sourcer_price || '-' }}</p>
                                 </div>
@@ -438,7 +469,8 @@
                                     </span>
                                 </div>
                                 <div class="md:col-span-2">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.remarks') }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('purchasing.remarks') }}
+                                    </p>
                                     <p class="text-sm font-medium text-gray-900 dark:text-white">{{
                                         selectedRequest?.remarks || '-' }}</p>
                                 </div>
@@ -474,13 +506,16 @@
             </div>
 
             <!-- Import Modal -->
-            <div v-if="showImportModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showImportModal" class="fixed inset-0 z-[100000] flex items-center justify-center" role="dialog"
+                aria-modal="true" aria-labelledby="purchase-import-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="showImportModal = false"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white w-full max-w-md flex flex-col dark:border-gray-700 dark:bg-gray-900 relative z-10">
                     <!-- Header -->
                     <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ t('purchasing.importPurchaseRequests') }}</h2>
+                        <h2 id="purchase-import-modal-title"
+                            class="text-xl font-semibold text-gray-900 dark:text-white">{{
+                                t('purchasing.importPurchaseRequests') }}</h2>
                     </div>
                     <!-- Body -->
                     <div class="px-6 py-4">
@@ -501,7 +536,8 @@
                                     class="text-brand-600 dark:text-brand-400 hover:underline">
                                     {{ t('purchasing.clickToSelectFile') }}
                                 </button>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{ t('purchasing.supportsFormats') }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">{{
+                                    t('purchasing.supportsFormats') }}</p>
                                 <p v-if="importFile" class="text-sm text-gray-700 dark:text-gray-300 mt-2">
                                     {{ t('purchasing.selectedFile') }} {{ importFile.name }}
                                 </p>
@@ -523,11 +559,14 @@
             </div>
 
             <!-- Delete Confirmation Modal -->
-            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center" role="dialog"
+                aria-modal="true" aria-labelledby="purchase-delete-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="showDeleteModal = false"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-700 dark:bg-gray-900 relative z-10">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{ t('purchasing.deletePurchaseRequest') }}</h2>
+                    <h2 id="purchase-delete-modal-title"
+                        class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{
+                            t('purchasing.deletePurchaseRequest') }}</h2>
                     <p class="text-gray-600 dark:text-gray-300 mb-6">{{ t('purchasing.deleteRequestMsg') }}</p>
                     <div class="flex gap-3">
                         <button @click="showDeleteModal = false"
@@ -543,12 +582,18 @@
             </div>
 
             <!-- Bulk Delete Confirmation Modal -->
-            <div v-if="showBulkDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showBulkDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center"
+                role="dialog" aria-modal="true" aria-labelledby="purchase-bulk-delete-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="showBulkDeleteModal = false"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-700 dark:bg-gray-900 relative z-10">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{ t('purchasing.deleteSelected') }}</h2>
-                    <p class="text-gray-600 dark:text-gray-300 mb-6">{{ t('purchasing.deleteBulkMsg', { count: selectedIds.length }) }}</p>
+                    <h2 id="purchase-bulk-delete-modal-title"
+                        class="text-xl font-semibold text-gray-900 dark:text-white mb-4">{{
+                            t('purchasing.deleteSelected') }}</h2>
+                    <p class="text-gray-600 dark:text-gray-300 mb-6">{{ t('purchasing.deleteBulkMsg', {
+                        count:
+                        selectedIds.length })
+                        }}</p>
                     <div class="flex gap-3">
                         <button @click="showBulkDeleteModal = false"
                             class="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
@@ -575,7 +620,7 @@ import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
 import { XIcon } from '@/icons'
-import { type PurchaseRequest, purchaseRequestAPI } from '@/services/api'
+import { type PurchaseRequest, purchaseRequestAPI } from '@/services/api/purchase-request'
 
 const { showToast } = useToast()
 const { canCreate, canUpdate, canDelete } = usePagePermission('purchasing')

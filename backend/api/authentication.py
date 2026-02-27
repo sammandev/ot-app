@@ -43,13 +43,13 @@ class LocalJWTAuthentication(SimpleJWTAuthentication):
 
             if result is not None:
                 user, validated_token = result
-                logger.info(f"Local user authenticated via header: {user.username}")
+                logger.info("Local user authenticated via header: %s", user.username)
                 return (user, validated_token)
 
         except (InvalidToken, TokenError):
             pass  # Not a valid header token, try cookie fallback
         except Exception as e:
-            logger.error(f"Local header authentication error: {str(e)}")
+            logger.error("Local header authentication error: %s", e)
 
         # 2. Fallback: try httpOnly cookie
         raw_token = request.COOKIES.get(ACCESS_COOKIE_NAME)
@@ -57,12 +57,12 @@ class LocalJWTAuthentication(SimpleJWTAuthentication):
             try:
                 validated_token = self.get_validated_token(raw_token)
                 user = self.get_user(validated_token)
-                logger.info(f"Local user authenticated via cookie: {user.username}")
+                logger.info("Local user authenticated via cookie: %s", user.username)
                 return (user, validated_token)
             except (InvalidToken, TokenError):
                 return None
             except Exception as e:
-                logger.error(f"Local cookie authentication error: {str(e)}")
+                logger.error("Local cookie authentication error: %s", e)
                 return None
 
         return None
@@ -109,11 +109,11 @@ class ExternalJWTAuthentication(BaseAuthentication):
         try:
             # Try to find active session with this token
             try:
-                session = UserSession.objects.select_related("user").get(access_token=token, is_active=True)
+                session = UserSession.objects.select_related("user").get(token_hash=UserSession.hash_token(token), is_active=True)
 
                 # Check if token is expired
                 if session.is_token_expired():
-                    logger.info(f"Token expired for user: {session.user.username}")
+                    logger.info("Token expired for user: %s", session.user.username)
 
                     # Try to refresh token
                     if session.refresh_token:
@@ -124,9 +124,9 @@ class ExternalJWTAuthentication(BaseAuthentication):
                             payload = ExternalAuthService.decode_token_payload(new_access_token)
                             session.access_token = new_access_token
                             session.token_expires_at = datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.get_current_timezone())
-                            session.save(update_fields=["access_token", "token_expires_at"])
+                            session.save(update_fields=["access_token", "token_hash", "token_expires_at"])
 
-                            logger.info(f"Token refreshed for user: {session.user.username}")
+                            logger.info("Token refreshed for user: %s", session.user.username)
 
                         except AuthenticationFailed:
                             session.deactivate()
@@ -148,7 +148,7 @@ class ExternalJWTAuthentication(BaseAuthentication):
                         user_info = ExternalAuthService.get_user_info(token)
                         session.user.update_from_external_api(user_info)
                     except Exception as e:
-                        logger.warning(f"Failed to refresh user info: {str(e)}")
+                        logger.warning("Failed to refresh user info: %s", e)
 
                 return (session.user, token)
 
@@ -168,9 +168,10 @@ class ExternalJWTAuthentication(BaseAuthentication):
                 payload = ExternalAuthService.decode_token_payload(token)
                 try:
                     session, session_created = UserSession.objects.get_or_create(
-                        access_token=token,
+                        token_hash=UserSession.hash_token(token),
                         defaults={
                             "user": user,
+                            "access_token": token,
                             "token_issued_at": datetime.fromtimestamp(payload.get("iat", 0), tz=timezone.get_current_timezone()),
                             "token_expires_at": datetime.fromtimestamp(payload.get("exp", 0), tz=timezone.get_current_timezone()),
                             "ip_address": self.get_client_ip(request),
@@ -178,14 +179,14 @@ class ExternalJWTAuthentication(BaseAuthentication):
                         },
                     )
                     if session_created:
-                        logger.info(f"Created new session for user: {user.username}")
+                        logger.info("Created new session for user: %s", user.username)
                     else:
-                        logger.info(f"Found existing session for user: {user.username}")
+                        logger.info("Found existing session for user: %s", user.username)
                 except Exception as db_error:
                     # Handle any remaining race conditions by trying to get existing session
-                    logger.warning(f"Session creation conflict, retrying get: {str(db_error)}")
+                    logger.warning("Session creation conflict, retrying get: %s", db_error)
                     try:
-                        session = UserSession.objects.get(access_token=token)
+                        session = UserSession.objects.get(token_hash=UserSession.hash_token(token))
                     except UserSession.DoesNotExist:
                         raise AuthenticationFailed("Failed to create or retrieve session") from None
 
@@ -194,7 +195,7 @@ class ExternalJWTAuthentication(BaseAuthentication):
         except AuthenticationFailed:
             raise
         except Exception as e:
-            logger.error(f"Authentication error: {str(e)}", exc_info=True)
+            logger.error("Authentication error: %s", e, exc_info=True)
             raise AuthenticationFailed("Authentication failed") from e
 
     def authenticate_header(self, request):

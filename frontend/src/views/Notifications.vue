@@ -125,18 +125,13 @@
     </AdminLayout>
 </template>
 
-<script lang="ts">
-// Explicitly name the component with a multi-word name to satisfy ESLint rule
-export default {
-	name: 'NotificationsView',
-}
-</script>
-
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+defineOptions({ name: 'NotificationsView' })
+
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useNotificationStore } from '@/stores/notification'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import { useNotificationStore } from '@/stores/notification'
 import { formatFullLocalDateTime, timeAgo } from '@/utils/dateTime'
 
 const store = useNotificationStore()
@@ -146,108 +141,108 @@ const activeTab = ref<'all' | 'archived'>('all')
 let observer: IntersectionObserver | null = null
 
 const markAllRead = async () => {
-    await store.markAllAsRead()
+	await store.markAllAsRead()
 }
 
 const switchTab = async (tab: 'all' | 'archived') => {
-    if (activeTab.value === tab) return
-    activeTab.value = tab
-    store.resetPagination()
+	if (activeTab.value === tab) return
+	activeTab.value = tab
+	store.resetPagination()
 
-    if (observer) {
-        observer.disconnect()
-    }
+	if (observer) {
+		observer.disconnect()
+	}
 
-    await store.fetchPaginatedNotifications(1, 20, false, tab === 'archived')
+	await store.fetchPaginatedNotifications(1, 20, false, tab === 'archived')
 
-    await nextTick()
-    setupIntersectionObserver()
+	await nextTick()
+	setupIntersectionObserver()
 }
 
 const handleArchive = async (id: number) => {
-    await store.archiveNotification(id)
+	await store.archiveNotification(id)
 }
 
 const handleUnarchive = async (id: number) => {
-    await store.unarchiveNotification(id)
+	await store.unarchiveNotification(id)
 }
 
 const handleDelete = async (id: number) => {
-    await store.deleteNotification(id)
+	await store.deleteNotification(id)
 }
 
 const getEventTypeBadgeClass = (eventType?: string) => {
-    switch (eventType) {
-        case 'meeting':
-            return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-        case 'task':
-            return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-        case 'leave':
-            return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-        case 'holiday':
-            return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-        case 'purchase_request':
-            return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-        case 'task_mention':
-            return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
-        default:
-            return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-    }
+	switch (eventType) {
+		case 'meeting':
+			return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+		case 'task':
+			return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+		case 'leave':
+			return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+		case 'holiday':
+			return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+		case 'purchase_request':
+			return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+		case 'task_mention':
+			return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300'
+		default:
+			return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+	}
 }
 
 const getEventTypeLabel = (eventType?: string) => {
-    switch (eventType) {
-        case 'meeting':
-            return t('pages.notifications.eventType.meeting')
-        case 'task':
-            return t('pages.notifications.eventType.task')
-        case 'leave':
-            return t('pages.notifications.eventType.leave')
-        case 'holiday':
-            return t('pages.notifications.eventType.holiday')
-        case 'purchase_request':
-            return t('pages.notifications.eventType.purchase')
-        case 'task_mention':
-            return t('pages.notifications.eventType.mention')
-        default:
-            return t('pages.notifications.eventType.notification')
-    }
+	switch (eventType) {
+		case 'meeting':
+			return t('pages.notifications.eventType.meeting')
+		case 'task':
+			return t('pages.notifications.eventType.task')
+		case 'leave':
+			return t('pages.notifications.eventType.leave')
+		case 'holiday':
+			return t('pages.notifications.eventType.holiday')
+		case 'purchase_request':
+			return t('pages.notifications.eventType.purchase')
+		case 'task_mention':
+			return t('pages.notifications.eventType.mention')
+		default:
+			return t('pages.notifications.eventType.notification')
+	}
 }
 
 // Setup Intersection Observer for infinite scroll
 const setupIntersectionObserver = () => {
-    observer = new IntersectionObserver(
-        (entries) => {
-            const entry = entries[0]
-            if (entry && entry.isIntersecting && store.hasMore && !store.loadingMore) {
-                store.loadMore()
-            }
-        },
-        {
-            rootMargin: '100px', // Load more when within 100px of the sentinel
-            threshold: 0.1
-        }
-    )
+	observer = new IntersectionObserver(
+		(entries) => {
+			const entry = entries[0]
+			if (entry?.isIntersecting && store.hasMore && !store.loadingMore) {
+				store.loadMore()
+			}
+		},
+		{
+			rootMargin: '100px', // Load more when within 100px of the sentinel
+			threshold: 0.1,
+		},
+	)
 
-    if (loadMoreSentinel.value) {
-        observer.observe(loadMoreSentinel.value)
-    }
+	if (loadMoreSentinel.value) {
+		observer.observe(loadMoreSentinel.value)
+	}
 }
 
 onMounted(async () => {
-    // Reset pagination and fetch first page
-    store.resetPagination()
-    await store.fetchPaginatedNotifications(1, 20)
+	// Reset pagination and fetch first page
+	store.resetPagination()
+	await store.fetchPaginatedNotifications(1, 20)
 
-    // Setup infinite scroll observer after initial load
-    setupIntersectionObserver()
+	// Setup infinite scroll observer after initial load
+	setupIntersectionObserver()
 })
 
 onUnmounted(() => {
-    // Cleanup observer
-    if (observer) {
-        observer.disconnect()
-        observer = null
-    }
+	// Cleanup observer
+	if (observer) {
+		observer.disconnect()
+		observer = null
+	}
 })
 </script>

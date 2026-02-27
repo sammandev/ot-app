@@ -42,7 +42,7 @@ class ExternalUser(models.Model):
 
     # Worker info from external API
     worker_id = models.CharField(max_length=50, blank=True, null=True, db_index=True)
-    is_ptb_admin = models.BooleanField(default=False)
+    is_ptb_admin = models.BooleanField(default=False, db_index=True)
 
     # Status fields
     is_active = models.BooleanField(default=True)
@@ -192,8 +192,10 @@ class UserSession(models.Model):
 
     user = models.ForeignKey(ExternalUser, on_delete=models.CASCADE, related_name="sessions")
 
-    # Token fields
-    access_token = models.TextField(unique=True, db_index=True)
+    # Token fields — the raw token is stored for refresh operations,
+    # while token_hash (SHA-256) is used for efficient indexed lookups.
+    access_token = models.TextField()
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True, default="")
     refresh_token = models.TextField(blank=True, null=True)
 
     # Token metadata
@@ -221,6 +223,18 @@ class UserSession(models.Model):
 
     def __str__(self):
         return f"Session for {self.user.username} - {self.created_at}"
+
+    @staticmethod
+    def hash_token(token: str) -> str:
+        """Return SHA-256 hex digest of a raw token for indexed lookups."""
+        import hashlib
+
+        return hashlib.sha256(token.encode()).hexdigest()
+
+    def save(self, *args, **kwargs):
+        if self.access_token:
+            self.token_hash = self.hash_token(self.access_token)
+        super().save(*args, **kwargs)
 
     def is_token_expired(self):
         """Check if access token is expired"""
@@ -262,7 +276,7 @@ class Project(TimestampedModel):
 class Employee(TimestampedModel):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
-    emp_id = models.CharField(max_length=20, db_index=True)
+    emp_id = models.CharField(max_length=20, unique=True)
     department = models.ForeignKey(Department, on_delete=models.PROTECT, related_name="employees", null=True, blank=True)
     is_enabled = models.BooleanField(default=True)
     exclude_from_reports = models.BooleanField(default=False)
@@ -270,7 +284,6 @@ class Employee(TimestampedModel):
     class Meta:
         ordering = ["emp_id"]
         indexes = [
-            models.Index(fields=["emp_id"]),
             models.Index(fields=["department"]),
         ]
 
@@ -370,14 +383,14 @@ class CalendarEvent(TimestampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event_type", "start"]),
+            models.Index(fields=["created_by", "start"]),
+            models.Index(fields=["start", "end"]),
+        ]
 
     def __str__(self):
         return f"{self.event_type}: {self.title}"
-
-    def save(self, *args, **kwargs):
-        # Fields have default=timezone.now, so this override is only needed
-        # if start/end are explicitly set to None after initial creation.
-        super().save(*args, **kwargs)
 
 
 class Holiday(TimestampedModel):
@@ -478,6 +491,7 @@ class OvertimeRequest(TimestampedModel):
         indexes = [
             models.Index(fields=["request_date", "department"]),
             models.Index(fields=["department_code"]),
+            models.Index(fields=["employee", "request_date"]),
         ]
 
     def __str__(self):
@@ -489,7 +503,7 @@ class OvertimeRequest(TimestampedModel):
         Rejected requests are excluded from all reports."""
         try:
             # No need for select_for_update — this is a read-only export
-            daily_requests = list(cls.objects.filter(request_date=date).exclude(status="rejected").exclude(employee__exclude_from_reports=True).select_related("employee", "project").prefetch_related("breaks").order_by("time_start"))
+            daily_requests = list(cls.objects.filter(request_date=date).exclude(status="rejected").exclude(employee__exclude_from_reports=True).select_related("employee", "project", "department").prefetch_related("breaks").order_by("time_start"))
 
             # If no data exists, return None
             if not daily_requests:
@@ -522,13 +536,15 @@ class OvertimeRequest(TimestampedModel):
                     "is_holiday": request.is_holiday,
                     "created_at": timezone.localtime(request.created_at).strftime("%Y-%m-%d %H:%M:%S"),
                     "updated_at": timezone.localtime(request.updated_at).strftime("%Y-%m-%d %H:%M:%S"),
+                    "department_code": request.department.code if request.department else None,
+                    "department_name": request.department.name if request.department else None,
                 }
                 for request in daily_requests
             ]
 
             return export_data
         except Exception as e:
-            logger.error(f"Error exporting daily data: {str(e)}")
+            logger.error("Error exporting daily data: %s", e)
             raise
 
     @classmethod
@@ -542,7 +558,7 @@ class OvertimeRequest(TimestampedModel):
 
             next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
 
-            logger.debug(f"Exporting monthly data from {current_period_start} to {next_period_end}")
+            logger.debug("Exporting monthly data from %s to %s", current_period_start, next_period_end)
 
             # Get all requests in the period (rejected requests are excluded from reports)
             monthly_requests = (
@@ -552,13 +568,13 @@ class OvertimeRequest(TimestampedModel):
                 )
                 .exclude(status="rejected")
                 .exclude(employee__exclude_from_reports=True)
-                .select_related("employee", "project")
+                .select_related("employee", "project", "department")
                 .prefetch_related("breaks")
                 .order_by("request_date", "time_start")
             )
 
             if not monthly_requests.exists():
-                logger.debug(f"No monthly data found for period {current_period_start} to {next_period_end}")
+                logger.debug("No monthly data found for period %s to %s", current_period_start, next_period_end)
                 return None
 
             # Process monthly data
@@ -584,13 +600,15 @@ class OvertimeRequest(TimestampedModel):
                     "detail": request.detail,
                     "is_weekend": request.is_weekend,
                     "is_holiday": request.is_holiday,
+                    "department_code": request.department.code if request.department else None,
+                    "department_name": request.department.name if request.department else None,
                 }
                 for request in monthly_requests
             ]
 
             return monthly_data
         except Exception as e:
-            logger.error(f"Error exporting monthly data: {str(e)}")
+            logger.error("Error exporting monthly data: %s", e)
             raise
 
     @classmethod
@@ -603,24 +621,11 @@ class OvertimeRequest(TimestampedModel):
         if not data:
             return {}
 
-        # Build employee→department lookup in a single query instead of N+1
-        emp_ids = [record["employee_id"] for record in data]
-        dept_info = {}
-        if emp_ids:
-            qs = cls.objects.filter(request_date=date, employee__emp_id__in=emp_ids).exclude(status="rejected").select_related("department").only("employee__emp_id", "department__code", "department__name")
-            for req in qs:
-                if req.employee.emp_id not in dept_info and req.department:
-                    dept_info[req.employee.emp_id] = (req.department.code, req.department.name)
-
-        # Group by department
+        # Group by department using data already included from export_daily_data
         grouped = {}
         for record in data:
-            emp_id = record["employee_id"]
-            if emp_id in dept_info:
-                dept_key, dept_name = dept_info[emp_id]
-            else:
-                dept_key = ExcelGenerator.DEFAULT_DEPT_CODE
-                dept_name = ExcelGenerator.DEFAULT_DEPT_NAME
+            dept_key = record.get("department_code") or ExcelGenerator.DEFAULT_DEPT_CODE
+            dept_name = record.get("department_name") or ExcelGenerator.DEFAULT_DEPT_NAME
 
             if dept_key not in grouped:
                 grouped[dept_key] = {"dept_code": dept_key, "dept_name": dept_name, "data": []}
@@ -639,42 +644,11 @@ class OvertimeRequest(TimestampedModel):
         if not data:
             return {}
 
-        # Calculate period dates for queries
-        current_period_start = date.replace(day=26)
-        if date.day < 26:
-            current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(day=26)
-        next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
-
-        # Build employee→department lookup in a single query instead of N+1
-        emp_ids = [record["employee_id"] for record in data]
-        dept_info = {}
-        if emp_ids:
-            qs = (
-                cls.objects.filter(
-                    request_date__range=[current_period_start, next_period_end],
-                    employee__emp_id__in=emp_ids,
-                )
-                .exclude(status="rejected")
-                .select_related("department")
-                .only("employee__emp_id", "request_date", "department__code", "department__name")
-            )
-            for req in qs:
-                key = (req.employee.emp_id, req.request_date.strftime("%Y-%m-%d"))
-                if key not in dept_info and req.department:
-                    dept_info[key] = (req.department.code, req.department.name)
-
-        # Group by department
+        # Group by department using data already included from export_monthly_data
         grouped = {}
         for record in data:
-            emp_id = record["employee_id"]
-            req_date = record["request_date"]
-            lookup_key = (emp_id, req_date)
-
-            if lookup_key in dept_info:
-                dept_key, dept_name = dept_info[lookup_key]
-            else:
-                dept_key = ExcelGenerator.DEFAULT_DEPT_CODE
-                dept_name = ExcelGenerator.DEFAULT_DEPT_NAME
+            dept_key = record.get("department_code") or ExcelGenerator.DEFAULT_DEPT_CODE
+            dept_name = record.get("department_name") or ExcelGenerator.DEFAULT_DEPT_NAME
 
             if dept_key not in grouped:
                 grouped[dept_key] = {"dept_code": dept_key, "dept_name": dept_name, "data": []}
@@ -698,45 +672,20 @@ class OvertimeRequest(TimestampedModel):
             files_to_delete = [excel_file, summary_file]
             ExcelGenerator.delete_files_batch(files_to_delete)
 
-            logger.info(f"Excel files deleted for date {date}")
+            logger.info("Excel files deleted for date %s", date)
         except Exception as e:
-            logger.error(f"Error deleting files: {str(e)}")
+            logger.error("Error deleting files: %s", e)
 
     def delete(self, *args, **kwargs):
-        date = self.request_date
         result = super().delete(*args, **kwargs)
 
-        # Offload Excel regeneration to Celery async task
-        try:
-            from api.tasks import regenerate_excel_after_delete
-
-            regenerate_excel_after_delete.delay(date.isoformat())
-            logger.info(f"Queued async Excel regeneration after OT deletion for date {date}")
-        except Exception as e:
-            logger.warning(f"Failed to queue async Excel regeneration after delete for {date}: {e}. Falling back to synchronous regeneration.")
-            # Synchronous fallback when Celery is unavailable
-            try:
-                from api.utils.excel_generator import ExcelGenerator
-
-                daily_requests = OvertimeRequest.objects.filter(request_date=date).exclude(status="rejected")
-                if daily_requests.exists():
-                    export_data_grouped = OvertimeRequest.export_daily_data_by_department(date)
-                    monthly_data_grouped = OvertimeRequest.export_monthly_data_by_department(date)
-                    ExcelGenerator.generate_all_excel_files(
-                        export_data_grouped,
-                        monthly_data_grouped,
-                        date,
-                        upload=True,
-                        temp_only=ExcelGenerator.EXCEL_TEMP_ONLY,
-                    )
-                    logger.info(f"Synchronous Excel regeneration completed after deletion for {date}")
-            except Exception as sync_err:
-                logger.error(f"Synchronous Excel regeneration failed after delete for {date}: {sync_err}", exc_info=True)
+        # Excel regeneration + SMB upload is now handled by the
+        # post_delete signal in signals.py (invalidate_overtime_cache_on_delete).
 
         return result
 
     def save(self, *args, **kwargs):
-        logger.debug(f"Saving OvertimeRequest for date: {self.request_date}")
+        logger.debug("Saving OvertimeRequest for date: %s", self.request_date)
 
         if self.request_date:
             self.is_weekend = (
@@ -747,7 +696,7 @@ class OvertimeRequest(TimestampedModel):
                 )
                 >= 5
             )  # 5=Saturday, 6=Sunday
-            logger.debug(f"Calculated is_weekend: {self.is_weekend}")
+            logger.debug("Calculated is_weekend: %s", self.is_weekend)
 
         # Capture employee info - only populate denormalized fields
         # Don't modify employee_id as it's set by the serializer/form
@@ -767,7 +716,7 @@ class OvertimeRequest(TimestampedModel):
                         pass
         except (ValueError, TypeError, Employee.DoesNotExist, Department.DoesNotExist, AttributeError) as e:
             # Log the error but don't crash - the denormalized fields are optional
-            logger.warning(f"Could not populate denormalized fields from employee FK: {e}")
+            logger.warning("Could not populate denormalized fields from employee FK: %s", e)
             # Keep any existing values, don't overwrite with empty
             if not self.department_code:
                 self.department_code = ""
@@ -852,17 +801,30 @@ class OvertimeLimitConfig(TimestampedModel):
 
     max_weekly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=18, help_text="Maximum overtime hours per week (Mon-Sun)")
     max_monthly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=72, help_text="Maximum overtime hours per month (26th-25th cycle)")
-    recommended_weekly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=15, help_text="TPE weekly overtime warning threshold")
-    recommended_monthly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=60, help_text="TPE monthly overtime warning threshold")
+    advised_weekly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=15, help_text="Advised weekly overtime warning threshold")
+    advised_monthly_hours = models.DecimalField(max_digits=5, decimal_places=2, default=60, help_text="Advised monthly overtime warning threshold")
     is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Overtime Limit Configuration"
         verbose_name_plural = "Overtime Limit Configurations"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_active"],
+                condition=models.Q(is_active=True),
+                name="unique_active_overtime_limit_config",
+            ),
+        ]
 
     def __str__(self):
         return f"OT Limits: {self.max_weekly_hours}h/week, {self.max_monthly_hours}h/month"
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            # Deactivate any other active config before saving
+            OvertimeLimitConfig.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
 
     @classmethod
     def get_active(cls):
@@ -1061,6 +1023,7 @@ class UserActivityLog(models.Model):
             models.Index(fields=["-timestamp"]),
             models.Index(fields=["user", "-timestamp"]),
             models.Index(fields=["action", "-timestamp"]),
+            models.Index(fields=["resource"]),
         ]
 
     def __str__(self):
@@ -1552,17 +1515,8 @@ class Asset(TimestampedModel):
     elec_declaration_number = models.CharField(max_length=100, blank=True, null=True)
     national_inspection_certification = models.CharField(max_length=200, blank=True, null=True)
 
-    # Notes (10 note fields)
-    note1 = models.TextField(blank=True, null=True)
-    note2 = models.TextField(blank=True, null=True)
-    note3 = models.TextField(blank=True, null=True)
-    note4 = models.TextField(blank=True, null=True)
-    note5 = models.TextField(blank=True, null=True)
-    note6 = models.TextField(blank=True, null=True)
-    note7 = models.TextField(blank=True, null=True)
-    note8 = models.TextField(blank=True, null=True)
-    note9 = models.TextField(blank=True, null=True)
-    note10 = models.TextField(blank=True, null=True)
+    # Notes — consolidated into a single JSONField (keys: note1 … note10)
+    notes = models.JSONField(default=dict, blank=True)
 
     class Meta:
         db_table = "assets"

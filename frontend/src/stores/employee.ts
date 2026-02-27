@@ -5,13 +5,16 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { type Employee, employeeAPI, type PaginatedResponse } from '@/services/api'
+import type { PaginatedResponse } from '@/services/api/client'
+import { type Employee, employeeAPI } from '@/services/api/employee'
+import { extractApiError } from '@/utils/extractApiError'
 
 export const useEmployeeStore = defineStore('employee', () => {
 	// State
 	const employees = ref<Employee[]>([])
 	const currentEmployee = ref<Employee | null>(null)
-	const loading = ref(false)
+	const _loadingCount = ref(0)
+	const loading = computed(() => _loadingCount.value > 0)
 	const error = ref<string | null>(null)
 	const totalCount = ref(0)
 	const currentPage = ref(1)
@@ -43,34 +46,36 @@ export const useEmployeeStore = defineStore('employee', () => {
 		page_size?: number
 		search?: string
 		department_id?: number
+		ordering?: string
 	}) => {
 		// Use cache if valid and no specific params
 		if (!params && isCacheValid.value && employees.value.length > 0) {
 			return employees.value
 		}
 
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
-			// Fetch all employees by default (set high page_size)
-			const fetchParams = params || { page_size: 1000 }
+			// Fetch employees with a reasonable default page size
+			const fetchParams = params || { page_size: 200 }
 			const response: PaginatedResponse<Employee> = await employeeAPI.list(fetchParams)
 			employees.value = response.results
 			totalCount.value = response.count
+			currentPage.value = fetchParams.page || 1
+			pageSize.value = fetchParams.page_size || 50
 			lastFetched.value = Date.now()
 			return response.results
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to fetch employees'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to fetch employees')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
 	const fetchEmployeeById = async (id: number) => {
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
@@ -85,11 +90,10 @@ export const useEmployeeStore = defineStore('employee', () => {
 
 			return employee
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to fetch employee'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to fetch employee')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
@@ -100,7 +104,7 @@ export const useEmployeeStore = defineStore('employee', () => {
 		is_enabled?: boolean
 		exclude_from_reports?: boolean
 	}) => {
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
@@ -109,11 +113,10 @@ export const useEmployeeStore = defineStore('employee', () => {
 			totalCount.value += 1
 			return employee
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to create employee'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to create employee')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
@@ -127,7 +130,7 @@ export const useEmployeeStore = defineStore('employee', () => {
 			exclude_from_reports?: boolean
 		},
 	) => {
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
@@ -145,16 +148,15 @@ export const useEmployeeStore = defineStore('employee', () => {
 
 			return employee
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to update employee'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to update employee')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
 	const deleteEmployee = async (id: number) => {
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
@@ -171,16 +173,15 @@ export const useEmployeeStore = defineStore('employee', () => {
 				currentEmployee.value = null
 			}
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to delete employee'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to delete employee')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
 	const setEnabled = async (id: number, enabled: boolean) => {
-		loading.value = true
+		_loadingCount.value++
 		error.value = null
 
 		try {
@@ -194,11 +195,10 @@ export const useEmployeeStore = defineStore('employee', () => {
 
 			return employee
 		} catch (err: unknown) {
-			const errorMessage = err instanceof Error ? err.message : 'Failed to update employee status'
-			error.value = errorMessage
+			error.value = extractApiError(err, 'Failed to update employee status')
 			throw err
 		} finally {
-			loading.value = false
+			_loadingCount.value--
 		}
 	}
 
@@ -209,7 +209,7 @@ export const useEmployeeStore = defineStore('employee', () => {
 	const reset = () => {
 		employees.value = []
 		currentEmployee.value = null
-		loading.value = false
+		_loadingCount.value = 0
 		error.value = null
 		totalCount.value = 0
 		currentPage.value = 1

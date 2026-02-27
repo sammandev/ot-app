@@ -76,29 +76,32 @@ class BulkImportExportService:
             csv_file = io.StringIO(content)
             reader = csv.DictReader(csv_file)
 
-            rows = list(reader)
-            results["total_rows"] = len(rows)
-
-            if len(rows) > max_rows:
-                raise ValidationError(f"Too many rows. Maximum allowed: {max_rows}, provided: {len(rows)}")
+            # Stream rows instead of loading all into memory
+            # Pre-fetch the model class once for update_existing lookups
+            Model = None
+            if update_existing:
+                if not hasattr(serializer_class, "Meta") or not hasattr(serializer_class.Meta, "model"):
+                    raise ValidationError("Serializer must define Meta.model for update_existing mode")
+                Model = serializer_class.Meta.model
 
             # Process rows in transaction
             with transaction.atomic():
-                for row_num, row in enumerate(rows, start=2):  # Start at 2 (1 is header)
+                for row_num, row in enumerate(reader, start=2):  # Start at 2 (1 is header)
+                    results["total_rows"] += 1
+
+                    if results["total_rows"] > max_rows:
+                        raise ValidationError(f"Too many rows. Maximum allowed: {max_rows}, provided: more than {max_rows}")
+
                     try:
                         # Clean empty strings to None
                         cleaned_row = {k: (None if v == "" else v) for k, v in row.items()}
 
                         # Check if record exists
                         instance = None
-                        if update_existing and lookup_field in cleaned_row:
+                        if update_existing and Model and lookup_field in cleaned_row:
                             lookup_value = cleaned_row.get(lookup_field)
                             if lookup_value:
-                                try:
-                                    Model = serializer_class.Meta.model
-                                    instance = Model.objects.get(**{lookup_field: lookup_value})
-                                except Model.DoesNotExist:
-                                    pass
+                                instance = Model.objects.filter(**{lookup_field: lookup_value}).first()
 
                         # Create or update
                         serializer = serializer_class(instance=instance, data=cleaned_row, partial=update_existing)
@@ -113,16 +116,19 @@ class BulkImportExportService:
                             results["errors"].append({"row": row_num, "data": row, "errors": serializer.errors})
 
                     except Exception as e:
-                        logger.error(f"Error importing row {row_num}: {str(e)}")
+                        logger.error("Error importing row %d: %s", row_num, e)
                         results["errors"].append({"row": row_num, "data": row, "errors": str(e)})
 
-                # Rollback if there are too many errors
-                error_rate = len(results["errors"]) / results["total_rows"] if results["total_rows"] > 0 else 0
-                if error_rate > 0.1:  # More than 10% errors
-                    raise ValidationError(f"Import failed: {len(results['errors'])} errors out of {results['total_rows']} rows")
+                # Rollback if there are too many errors —
+                # reset created/updated counts since the atomic block will undo all writes.
+                total = results["total_rows"]
+                if total > 0 and len(results["errors"]) / total > 0.1:
+                    results["created"] = 0
+                    results["updated"] = 0
+                    raise ValidationError(f"Import failed: {len(results['errors'])} errors out of {total} rows")
 
         except Exception as e:
-            logger.error(f"CSV import failed: {str(e)}")
+            logger.error("CSV import failed: %s", e)
             raise
 
         return results
@@ -153,5 +159,5 @@ class BulkImportExportService:
             return {"valid": len(missing_fields) == 0, "headers": headers, "missing_fields": list(missing_fields), "extra_fields": list(extra_fields)}
 
         except Exception as e:
-            logger.error(f"CSV validation failed: {str(e)}")
+            logger.error("CSV validation failed: %s", e)
             return {"valid": False, "error": str(e)}

@@ -11,12 +11,9 @@
                     <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
                         You are logged in as: <strong>{{ authStore.user?.username }}</strong>
                         <span v-if="authStore.user?.worker_id"> ({{ authStore.user.worker_id }})</span>
-                        <span
-                            class="ml-2 text-xs px-2 py-0.5 rounded"
-                            :class="authStore.isDeveloper
-                                ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                                : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'"
-                        >
+                        <span class="ml-2 text-xs px-2 py-0.5 rounded" :class="authStore.isDeveloper
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                            : 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'">
                             {{ authStore.isDeveloper ? 'Developer' : 'Super Admin' }}
                         </span>
                     </p>
@@ -30,13 +27,23 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">PTB Admin Access</h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Users with <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_ptb_admin: true</code> can access:
+                    Users with <code
+                        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_ptb_admin: true</code> can
+                    access:
                 </p>
                 <ul class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>OT Regulations Management</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Departments Management</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Employees Management</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Projects Management</span></li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>OT Regulations Management</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Departments Management</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Employees Management</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-green-500 mt-0.5" /><span>Projects Management</span>
+                    </li>
                 </ul>
                 <div class="mt-4 p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
                     <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -50,18 +57,32 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Elevated Access Roles</h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Users with <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">role: developer</code>
-                    or <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">role: superadmin</code> can access this page.
+                    Users with <code
+                        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">role: developer</code>
+                    or <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">role: superadmin</code> can
+                    access this page.
                 </p>
                 <ul class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>All PTB Admin features</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>Access Control Management (this page)</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>System-wide configuration</span></li>
-                    <li class="flex items-start gap-2"><CheckIcon class="w-4 h-4 text-amber-500 mt-0.5" /><span>Role management <em class="text-xs text-gray-500">(Developer only)</em></span></li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>All PTB Admin features</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>Access Control Management (this
+                            page)</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-purple-500 mt-0.5" /><span>System-wide configuration</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <CheckIcon class="w-4 h-4 text-amber-500 mt-0.5" /><span>Role management <em
+                                class="text-xs text-gray-500">(Developer only)</em></span>
+                    </li>
                 </ul>
-                <div class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800">
+                <div
+                    class="mt-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800">
                     <p class="text-xs text-purple-700 dark:text-purple-300">
-                        <strong>Security:</strong> Developer role is hardcoded and cannot be granted through the UI. Only developers can change other users' roles.
+                        <strong>Security:</strong> Developer role is hardcoded and cannot be granted through the UI.
+                        Only developers can change other users' roles.
                     </p>
                 </div>
             </div>
@@ -70,11 +91,18 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Superuser Access</h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Users with <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_superuser: true</code> from external API:
+                    Users with <code
+                        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_superuser: true</code> from
+                    external API:
                 </p>
                 <ul class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    <li class="flex items-start gap-2"><InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Full API access permissions</span></li>
-                    <li class="flex items-start gap-2"><InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Bypass certain validation rules</span></li>
+                    <li class="flex items-start gap-2">
+                        <InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Full API access permissions</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Bypass certain validation
+                            rules</span>
+                    </li>
                 </ul>
             </div>
 
@@ -82,11 +110,19 @@
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Staff Access</h2>
                 <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Users with <code class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_staff: true</code> from external API:
+                    Users with <code
+                        class="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-xs">is_staff: true</code> from
+                    external API:
                 </p>
                 <ul class="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                    <li class="flex items-start gap-2"><InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Enhanced permissions for staff operations</span></li>
-                    <li class="flex items-start gap-2"><InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Access to staff-level features</span></li>
+                    <li class="flex items-start gap-2">
+                        <InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Enhanced permissions for staff
+                            operations</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <InfoCircleIcon class="w-4 h-4 text-blue-500 mt-0.5" /><span>Access to staff-level
+                            features</span>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -96,7 +132,8 @@
             <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">User Role Configuration</h2>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage user access levels and permissions</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage user access levels and permissions
+                    </p>
                 </div>
                 <button @click="showAddUser = true"
                     class="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition text-sm font-medium">
@@ -119,8 +156,10 @@
                 <div class="relative">
                     <input v-model="searchQuery" type="text" placeholder="Search by username or worker ID..."
                         class="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
-                    <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    <svg class="absolute left-3 top-3 w-4 h-4 text-gray-400" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                     </svg>
                 </div>
             </div>
@@ -130,22 +169,40 @@
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-900">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Username</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Worker ID</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">PTB Admin</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Superuser</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Staff</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Menu Access</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Username</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Worker ID</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                PTB Admin</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Superuser</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Staff</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Role</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Menu Access</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         <tr v-if="loading">
-                            <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">Loading users...</td>
+                            <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                Loading users...</td>
                         </tr>
                         <tr v-else-if="error">
-                            <td colspan="8" class="px-4 py-8 text-center text-sm text-red-600 dark:text-red-400">{{ error }}</td>
+                            <td colspan="8" class="px-4 py-8 text-center text-sm text-red-600 dark:text-red-400">{{
+                                error }}</td>
                         </tr>
                         <tr v-else-if="filteredUsers.length === 0">
                             <td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
@@ -159,41 +216,43 @@
                                 <span v-if="isDeveloper(user)"
                                     class="ml-2 text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">Developer</span>
                                 <span v-else-if="isSuperAdmin(user)"
-                                    class="ml-2 text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">Super Admin</span>
+                                    class="ml-2 text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">Super
+                                    Admin</span>
                             </td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ user.worker_id || '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{{ user.worker_id || '-' }}
+                            </td>
                             <td class="px-4 py-3 text-sm">
                                 <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" :checked="user.is_ptb_admin" @change="togglePtbAdmin(user)" :disabled="isDeveloper(user)"
+                                    <input type="checkbox" :checked="user.is_ptb_admin" @change="togglePtbAdmin(user)"
+                                        :disabled="isDeveloper(user)"
                                         class="w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <span class="sr-only">PTB Admin</span>
                                 </label>
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" :checked="user.is_superuser" @change="toggleSuperuser(user)" :disabled="isDeveloper(user)"
+                                    <input type="checkbox" :checked="user.is_superuser" @change="toggleSuperuser(user)"
+                                        :disabled="isDeveloper(user)"
                                         class="w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <span class="sr-only">Superuser</span>
                                 </label>
                             </td>
                             <td class="px-4 py-3 text-sm">
                                 <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" :checked="user.is_staff" @change="toggleStaff(user)" :disabled="isDeveloper(user)"
+                                    <input type="checkbox" :checked="user.is_staff" @change="toggleStaff(user)"
+                                        :disabled="isDeveloper(user)"
                                         class="w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
                                     <span class="sr-only">Staff</span>
                                 </label>
                             </td>
                             <td class="px-4 py-3 text-sm">
-                                <select
-                                    v-if="authStore.isDeveloper && !isDeveloper(user)"
-                                    :value="user.role || 'user'"
+                                <select v-if="authStore.isDeveloper && !isDeveloper(user)" :value="user.role || 'user'"
                                     @change="changeRole(user, ($event.target as HTMLSelectElement).value)"
                                     class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm py-1 px-2 focus:ring-brand-500 focus:border-brand-500">
                                     <option value="user">User</option>
                                     <option value="superadmin">Super Admin</option>
                                 </select>
-                                <span v-else
-                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                                <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                                     :class="isDeveloper(user)
                                         ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
                                         : user.role === 'superadmin'
@@ -222,19 +281,22 @@
             <!-- Info Box -->
             <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
                 <p class="text-xs text-blue-700 dark:text-blue-300">
-                    <strong>Important:</strong> Changes made here are saved permanently in the backend database. All access control settings persist across sessions and devices.
+                    <strong>Important:</strong> Changes made here are saved permanently in the backend database. All
+                    access control settings persist across sessions and devices.
                 </p>
             </div>
         </div>
 
         <!-- Menu Manager Modal -->
-        <div v-if="showMenuManager"
-            class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-4"
+        <div v-if="showMenuManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100000] p-4"
             @click.self="closeMenuManager">
-            <div role="dialog" aria-modal="true" aria-labelledby="menu-manager-modal-title" class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div role="dialog" aria-modal="true" aria-labelledby="menu-manager-modal-title"
+                class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
                 <!-- Sticky Header -->
-                <div class="sticky top-0 z-10 bg-white dark:bg-gray-800 px-6 pt-6 pb-4 rounded-t-lg border-b border-gray-200 dark:border-gray-700">
-                    <h3 id="menu-manager-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Manage Menu Permissions</h3>
+                <div
+                    class="sticky top-0 z-10 bg-white dark:bg-gray-800 px-6 pt-6 pb-4 rounded-t-lg border-b border-gray-200 dark:border-gray-700">
+                    <h3 id="menu-manager-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                        Manage Menu Permissions</h3>
                     <p class="text-sm text-gray-500">User: <strong>{{ selectedUser?.username }}</strong></p>
                 </div>
 
@@ -242,33 +304,43 @@
                 <div class="flex-1 overflow-y-auto px-6 py-4">
                     <div class="space-y-6">
                         <div v-for="(group, gIdx) in availableResourceGroups" :key="gIdx">
-                            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 pb-1 border-b">{{ group.title }}</h4>
+                            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 pb-1 border-b">{{
+                                group.title }}</h4>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                     <thead class="bg-gray-50 dark:bg-gray-900">
                                         <tr>
-                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Resource</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                                Resource</th>
                                             <th v-for="action in actions" :key="action.key"
-                                                class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase" :title="action.title">
+                                                class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase"
+                                                :title="action.title">
                                                 {{ action.label }}
                                             </th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Presets</th>
+                                            <th
+                                                class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                                Presets</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
                                         <tr v-for="item in group.items" :key="item.key">
                                             <td class="px-3 py-2 text-sm text-gray-900 dark:text-white font-medium">
                                                 {{ item.name }}
-                                                <div v-if="hasAnyAccess(item.key)" class="text-xs text-green-600 dark:text-green-400 font-normal">Active</div>
+                                                <div v-if="hasAnyAccess(item.key)"
+                                                    class="text-xs text-green-600 dark:text-green-400 font-normal">
+                                                    Active</div>
                                             </td>
-                                            <td v-for="action in actions" :key="action.key" class="px-3 py-2 text-center">
+                                            <td v-for="action in actions" :key="action.key"
+                                                class="px-3 py-2 text-center">
                                                 <input type="checkbox" :checked="hasAction(item.key, action.key)"
                                                     @change="toggleAction(item.key, action.key)"
                                                     class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer" />
                                             </td>
                                             <td class="px-3 py-2 text-right space-x-2">
-                                                <button @click="setFullAccess(item.key)" class="text-xs text-blue-600 hover:underline">Full</button>
-                                                <button @click="setNoAccess(item.key)" class="text-xs text-gray-500 hover:text-red-500 hover:underline">None</button>
+                                                <button @click="setFullAccess(item.key)"
+                                                    class="text-xs text-blue-600 hover:underline">Full</button>
+                                                <button @click="setNoAccess(item.key)"
+                                                    class="text-xs text-gray-500 hover:text-red-500 hover:underline">None</button>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -279,7 +351,8 @@
                 </div>
 
                 <!-- Sticky Footer -->
-                <div class="sticky bottom-0 z-10 bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 rounded-b-lg flex justify-between gap-3">
+                <div
+                    class="sticky bottom-0 z-10 bg-white dark:bg-gray-800 px-6 py-4 border-t border-gray-200 dark:border-gray-700 rounded-b-lg flex justify-between gap-3">
                     <button @click="resetDefaultAccess"
                         class="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 transition">
                         Reset Default Access
@@ -301,8 +374,10 @@
         <!-- Add User Modal -->
         <div v-if="showAddUser" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4"
             @click.self="showAddUser = false">
-            <div role="dialog" aria-modal="true" aria-labelledby="add-user-modal-title" class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-                <h3 id="add-user-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add User Access</h3>
+            <div role="dialog" aria-modal="true" aria-labelledby="add-user-modal-title"
+                class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+                <h3 id="add-user-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add User
+                    Access</h3>
                 <form @submit.prevent="addUser" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
@@ -321,7 +396,8 @@
                     <div class="flex items-center">
                         <input v-model="newUser.is_ptb_admin" type="checkbox" id="new-ptb-admin"
                             class="w-4 h-4 text-brand-600 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                        <label for="new-ptb-admin" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Grant PTB Admin access</label>
+                        <label for="new-ptb-admin" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Grant PTB Admin
+                            access</label>
                     </div>
                     <div class="flex gap-3 pt-4">
                         <button type="submit"
@@ -344,40 +420,53 @@
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead class="bg-gray-50 dark:bg-gray-900">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Identifier</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Access Level</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Role</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Identifier</th>
+                            <th
+                                class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Access Level</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Developer</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">role: developer</code></td>
-                            <td class="px-4 py-3 text-sm text-amber-600 dark:text-amber-400">Full System Access + Role Management</td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">role: developer</code></td>
+                            <td class="px-4 py-3 text-sm text-amber-600 dark:text-amber-400">Full System Access + Role
+                                Management</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Super Admin</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">role: superadmin</code></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">role: superadmin</code></td>
                             <td class="px-4 py-3 text-sm text-purple-600 dark:text-purple-400">Full System Access</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">PTB Admin</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">is_ptb_admin: true</code></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">is_ptb_admin: true</code></td>
                             <td class="px-4 py-3 text-sm text-green-600 dark:text-green-400">Admin Features</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Superuser</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">is_superuser: true</code></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">is_superuser: true</code></td>
                             <td class="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">Full API Access</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Staff</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">is_staff: true</code></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">is_staff: true</code></td>
                             <td class="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">Staff Features</td>
                         </tr>
                         <tr>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">Regular User</td>
-                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code class="text-xs">is_active: true</code></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400"><code
+                                    class="text-xs">is_active: true</code></td>
                             <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">Basic Features</td>
                         </tr>
                     </tbody>
@@ -391,9 +480,11 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import { SUCCESS_MESSAGE_TIMEOUT_MS } from '@/constants/ui'
 import { CheckIcon, InfoCircleIcon, SettingsIcon, XIcon } from '@/icons'
-import { type UserAccessControl, userAccessAPI } from '@/services/api'
+import { type UserAccessControl, userAccessAPI } from '@/services/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import { extractApiError } from '@/utils/extractApiError'
 
 type MenuPermissions = Record<string, string[]>
 
@@ -574,11 +665,10 @@ const saveMenuPermissions = async () => {
 		permissionSuccessMessage.value = `Permissions saved for ${userName}! Changes are applied in real-time.`
 		setTimeout(() => {
 			permissionSuccessMessage.value = ''
-		}, 8000)
+		}, SUCCESS_MESSAGE_TIMEOUT_MS)
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		console.error('Failed to update permissions:', e)
-		showToast(e.response?.data?.error || 'Failed to update permissions', 'error')
+		console.error('Failed to update permissions:', err)
+		showToast(extractApiError(err, 'Failed to update permissions'), 'error')
 	} finally {
 		loading.value = false
 	}
@@ -591,9 +681,8 @@ const loadUsers = async () => {
 		const res = await userAccessAPI.getAll()
 		users.value = res
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		console.error('Failed to load users:', e)
-		error.value = e.response?.data?.error || 'Failed to load users'
+		console.error('Failed to load users:', err)
+		error.value = extractApiError(err, 'Failed to load users')
 	} finally {
 		loading.value = false
 	}
@@ -633,8 +722,7 @@ const togglePtbAdmin = async (user: UserAccessControl) => {
 		const idx = users.value.findIndex((u) => u.id === userId)
 		if (idx !== -1) users.value[idx] = updated
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		showToast(e.response?.data?.error || 'Error', 'error')
+		showToast(extractApiError(err, 'Error'), 'error')
 	}
 }
 
@@ -658,12 +746,11 @@ const changeRole = async (user: UserAccessControl, newRole: string) => {
 		if (idx !== -1) users.value[idx] = updated
 		showToast(`Role updated to ${newRole} for ${user.username}`, 'success')
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
 		const idx = users.value.findIndex((u) => u.id === user.id)
 		if (idx !== -1) {
 			users.value[idx] = Object.assign({}, users.value[idx], { role: previousRole })
 		}
-		showToast(e.response?.data?.error || 'Failed to update role', 'error')
+		showToast(extractApiError(err, 'Failed to update role'), 'error')
 	}
 }
 
@@ -679,8 +766,7 @@ const toggleSuperuser = async (user: UserAccessControl) => {
 		const idx = users.value.findIndex((u) => u.id === userId)
 		if (idx !== -1) users.value[idx] = updated
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		showToast(e.response?.data?.error || 'Error', 'error')
+		showToast(extractApiError(err, 'Error'), 'error')
 	}
 }
 
@@ -696,8 +782,7 @@ const toggleStaff = async (user: UserAccessControl) => {
 		const idx = users.value.findIndex((u) => u.id === userId)
 		if (idx !== -1) users.value[idx] = updated
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		showToast(e.response?.data?.error || 'Error', 'error')
+		showToast(extractApiError(err, 'Error'), 'error')
 	}
 }
 
@@ -724,10 +809,9 @@ const deleteUser = async (user: UserAccessControl) => {
 		permissionSuccessMessage.value = `⚠️ User ${userName} has been deactivated and will be forced to logout.`
 		setTimeout(() => {
 			permissionSuccessMessage.value = ''
-		}, 8000)
+		}, SUCCESS_MESSAGE_TIMEOUT_MS)
 	} catch (err: unknown) {
-		const e = err as { response?: { data?: { error?: string } } }
-		showToast(e.response?.data?.error || 'Error', 'error')
+		showToast(extractApiError(err, 'Error'), 'error')
 	}
 }
 

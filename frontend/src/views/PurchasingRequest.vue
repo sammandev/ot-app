@@ -5,7 +5,8 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-semibold text-brand-500">{{ t('pages.purchasingRequest.category') }}</p>
-                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{ t('pages.purchasingRequest.title') }}</h1>
+                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">{{
+                        t('pages.purchasingRequest.title') }}</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.purchasingRequest.subtitle') }}</p>
                 </div>
                 <router-link to="/purchasing/list"
@@ -44,7 +45,8 @@
 
                         <!-- Doc ID -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.docId') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.docId')
+                                }}</label>
                             <input v-model="form.doc_id" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.documentId')" />
@@ -52,7 +54,8 @@
 
                         <!-- Part No. -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.partNo') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.partNo') }}</label>
                             <input v-model="form.part_no" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.partNumber')" />
@@ -60,7 +63,8 @@
 
                         <!-- Material Category -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.materialCategory') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.materialCategory') }}</label>
                             <input v-model="form.material_category" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.materialCategory')" />
@@ -68,7 +72,8 @@
 
                         <!-- Qty -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.qty') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.qty')
+                                }}</label>
                             <input v-model.number="form.qty" type="number" min="1"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 placeholder="1" />
@@ -76,7 +81,8 @@
 
                         <!-- Description-Spec (full width) -->
                         <div class="space-y-2 md:col-span-2 lg:col-span-3">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.descriptionSpec') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.descriptionSpec') }}</label>
                             <textarea v-model="form.description_spec" rows="3"
                                 class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.enterDescription')"></textarea>
@@ -84,7 +90,8 @@
 
                         <!-- Purpose/Desc. -->
                         <div class="space-y-2 md:col-span-2 lg:col-span-3">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.purposeDesc') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.purposeDesc') }}</label>
                             <textarea v-model="form.purpose_desc" rows="2"
                                 class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.enterPurpose')"></textarea>
@@ -92,7 +99,8 @@
 
                         <!-- Plant -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.plant') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.plant')
+                                }}</label>
                             <input v-model="form.plant" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.plant')" />
@@ -100,7 +108,8 @@
 
                         <!-- Project Code -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.projectCode') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.projectCode') }}</label>
                             <input v-model="form.project_code" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.projectCode')" />
@@ -108,7 +117,8 @@
 
                         <!-- PR Type -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.prType') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.prType') }}</label>
                             <input v-model="form.pr_type" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.prType')" />
@@ -116,7 +126,8 @@
 
                         <!-- MRPID -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.mrpid') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.mrpid')
+                                }}</label>
                             <input v-model="form.mrp_id" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.mrpid')" />
@@ -124,7 +135,8 @@
 
                         <!-- Purch. Org. -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.purchOrg') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.purchOrg') }}</label>
                             <input v-model="form.purch_org" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.purchOrg')" />
@@ -132,7 +144,8 @@
 
                         <!-- Sourcer Price -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.sourcerPrice') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.sourcerPrice') }}</label>
                             <input v-model="form.sourcer_price" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.sourcerPrice')" />
@@ -140,7 +153,8 @@
 
                         <!-- PR No. -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.prNo') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.prNo')
+                                }}</label>
                             <input v-model="form.pr_no" type="text"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.prNo')" />
@@ -148,7 +162,8 @@
 
                         <!-- Status -->
                         <div class="space-y-2">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.status') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.status') }}</label>
                             <select v-model="form.status"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                 <option value="pending">{{ t('purchasing.pending') }}</option>
@@ -159,7 +174,8 @@
 
                         <!-- Remarks (full width) -->
                         <div class="space-y-2 md:col-span-2 lg:col-span-3">
-                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ t('purchasing.remarks') }}</label>
+                            <label class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                                t('purchasing.remarks') }}</label>
                             <textarea v-model="form.remarks" rows="3"
                                 class="dark:bg-dark-900 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                                 :placeholder="t('purchasing.additionalRemarks')"></textarea>
@@ -191,7 +207,7 @@ import { useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
-import { purchaseRequestAPI } from '@/services/api'
+import { purchaseRequestAPI } from '@/services/api/purchase-request'
 
 const router = useRouter()
 const { t } = useI18n()

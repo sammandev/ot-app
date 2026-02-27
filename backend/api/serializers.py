@@ -62,9 +62,6 @@ class ProjectSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Project name cannot be empty")
         return value.strip()
 
-    def create(self, validated_data):
-        return super().create(validated_data)
-
 
 class EmployeeSerializer(serializers.ModelSerializer):
     department_id = serializers.IntegerField(source="department.id", read_only=True, allow_null=True)
@@ -103,12 +100,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 
 class CalendarEventSerializer(serializers.ModelSerializer):
-    assigned_to = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), required=False)
-    created_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
-    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all(), required=False, allow_null=True)
-    applied_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
-    agent = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all(), required=False, allow_null=True)
-    group = serializers.PrimaryKeyRelatedField(queryset=TaskGroup.objects.all(), required=False, allow_null=True)
+    assigned_to = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, required=False)
+    created_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
+    project = serializers.PrimaryKeyRelatedField(queryset=Project.objects.all, required=False, allow_null=True)
+    applied_by = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
+    agent = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.all, required=False, allow_null=True)
+    group = serializers.PrimaryKeyRelatedField(queryset=TaskGroup.objects.all, required=False, allow_null=True)
 
     # Frontend-compatible field aliases
     employee = serializers.IntegerField(source="created_by.id", read_only=True, allow_null=True)
@@ -123,16 +120,12 @@ class CalendarEventSerializer(serializers.ModelSerializer):
     subtask_completed = serializers.SerializerMethodField()
 
     def get_subtask_count(self, obj):
-        # Use annotated value from queryset if available, otherwise fall back to query
-        if hasattr(obj, "_subtask_count"):
-            return obj._subtask_count
-        return obj.subtasks.count() if hasattr(obj, "subtasks") else 0
+        # Use annotated value from queryset; no fallback query to avoid N+1
+        return getattr(obj, "_subtask_count", 0)
 
     def get_subtask_completed(self, obj):
-        # Use annotated value from queryset if available, otherwise fall back to query
-        if hasattr(obj, "_subtask_completed"):
-            return obj._subtask_completed
-        return obj.subtasks.filter(is_completed=True).count() if hasattr(obj, "subtasks") else 0
+        # Use annotated value from queryset; no fallback query to avoid N+1
+        return getattr(obj, "_subtask_completed", 0)
 
     def validate(self, data):
         """
@@ -333,14 +326,11 @@ class EmployeeLeaveSerializer(serializers.ModelSerializer):
 
 
 class OvertimeBreakSerializer(serializers.ModelSerializer):
-    # Map field names for frontend compatibility
-    break_start = serializers.TimeField(source="start_time")
-    break_end = serializers.TimeField(source="end_time")
     duration_minutes = serializers.SerializerMethodField()
 
     class Meta:
         model = OvertimeBreak
-        fields = ["id", "break_start", "break_end", "duration_minutes"]
+        fields = ["id", "start_time", "end_time", "duration_minutes"]
         read_only_fields = ["id", "duration_minutes"]
 
     def get_duration_minutes(self, obj):
@@ -350,13 +340,8 @@ class OvertimeBreakSerializer(serializers.ModelSerializer):
 
 class OvertimeSerializer(serializers.ModelSerializer):
     breaks = OvertimeBreakSerializer(many=True, required=False, read_only=True)
-    # Field aliases for frontend compatibility
-    ot_date = serializers.DateField(source="request_date", required=False)
-    time_in = serializers.TimeField(source="time_start", required=False)
-    time_out = serializers.TimeField(source="time_end", required=False)
-    work_description = serializers.CharField(source="detail", required=False, allow_blank=True)
 
-    # Computed fields for frontend compatibility
+    # Computed fields
     employee_name = serializers.CharField(source="employee.name", read_only=True, allow_null=True)
     employee_id = serializers.IntegerField(source="employee.id", read_only=True, allow_null=True)
     employee_emp_id = serializers.CharField(source="employee.emp_id", read_only=True, allow_null=True)
@@ -380,20 +365,16 @@ class OvertimeSerializer(serializers.ModelSerializer):
             "project",
             "project_name",
             "request_date",
-            "ot_date",  # Alias for request_date
             "time_start",
-            "time_in",  # Alias for time_start
             "time_end",
-            "time_out",  # Alias for time_end
             "total_hours",
             "has_break",
-            "breaks",  # New field for multiple breaks
-            "break_start",  # Kept for backward compatibility
-            "break_end",  # Kept for backward compatibility
-            "break_hours",  # Kept for backward compatibility
+            "breaks",
+            "break_start",
+            "break_end",
+            "break_hours",
             "reason",
             "detail",
-            "work_description",  # Alias for detail
             "is_holiday",
             "is_weekend",
             "status",
@@ -404,7 +385,7 @@ class OvertimeSerializer(serializers.ModelSerializer):
             "status_changed_by",
             "rejected_at",
         ]
-        read_only_fields = ["id", "employee_name", "employee_id", "employee_emp_id", "department_code", "department_name", "project_name", "ot_date", "time_in", "time_out", "work_description", "approver_name", "status_changed_by", "rejected_at"]
+        read_only_fields = ["id", "employee_name", "employee_id", "employee_emp_id", "department_code", "department_name", "project_name", "approver_name", "status_changed_by", "rejected_at"]
 
     def _populate_denormalized_fields(self, validated_data):
         """Ensure denormalized fields are kept in sync when saving."""
@@ -412,6 +393,10 @@ class OvertimeSerializer(serializers.ModelSerializer):
         project = validated_data.get("project")
 
         if employee:
+            # Ensure department is loaded to avoid extra query
+            if not hasattr(employee, "_department_cache") and employee.department_id:
+                employee = Employee.objects.select_related("department").get(pk=employee.pk)
+                validated_data["employee"] = employee
             validated_data["employee_name"] = getattr(employee, "name", "")
             # NOTE: Do NOT set employee_id here!
             # The 'employee' field is already the FK and Django handles employee_id automatically.
@@ -506,7 +491,7 @@ class OvertimeRegulationSerializer(serializers.ModelSerializer):
 class OvertimeLimitConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = OvertimeLimitConfig
-        fields = ["id", "max_weekly_hours", "max_monthly_hours", "recommended_weekly_hours", "recommended_monthly_hours", "is_active", "created_at", "updated_at"]
+        fields = ["id", "max_weekly_hours", "max_monthly_hours", "advised_weekly_hours", "advised_monthly_hours", "is_active", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate_max_weekly_hours(self, value):
@@ -552,24 +537,9 @@ class NotificationSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "recipient"]
 
     def get_time_ago(self, obj):
-        from django.utils import timezone
+        from .utils.time_helpers import format_time_ago
 
-        now = timezone.now()
-        diff = now - obj.created_at
-
-        seconds = diff.total_seconds()
-
-        if seconds < 60:
-            return "just now"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"{minutes} min ago"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours} hour{'s' if hours > 1 else ''} ago"
-        else:
-            days = int(seconds / 86400)
-            return f"{days} day{'s' if days > 1 else ''} ago"
+        return format_time_ago(obj.created_at)
 
     def get_computed_event_type(self, obj):
         """Return the event type - prefer stored value, fallback to linked event"""
@@ -630,7 +600,7 @@ class TaskCommentSerializer(serializers.ModelSerializer):
 
     author_name = serializers.CharField(source="author.name", read_only=True)
     author_id = serializers.IntegerField(source="author.id", read_only=True)
-    mentions = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), required=False)
+    mentions = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, required=False)
     reply_count = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
     time_ago = serializers.SerializerMethodField()
@@ -649,14 +619,22 @@ class TaskCommentSerializer(serializers.ModelSerializer):
         if not task:
             return attrs
 
+        # Single query to get allowed employee IDs for mention validation
+        mention_ids = {m.id for m in mentions}
         if task.group_id:
-            allowed_employee_ids = set(task.group.members.values_list("id", flat=True))
+            allowed_count = task.group.members.filter(id__in=mention_ids).count()
         else:
-            allowed_employee_ids = set(task.assigned_to.values_list("id", flat=True))
+            allowed_count = task.assigned_to.filter(id__in=mention_ids).count()
 
-        invalid_mentions = [m.name for m in mentions if m.id not in allowed_employee_ids]
-        if invalid_mentions:
-            raise serializers.ValidationError({"mentions": "Invalid mentions for this task context: " + ", ".join(invalid_mentions)})
+        if allowed_count != len(mention_ids):
+            # Only compute names for the error message if validation fails
+            if task.group_id:
+                allowed_employee_ids = set(task.group.members.filter(id__in=mention_ids).values_list("id", flat=True))
+            else:
+                allowed_employee_ids = set(task.assigned_to.filter(id__in=mention_ids).values_list("id", flat=True))
+            invalid_mentions = [m.name for m in mentions if m.id not in allowed_employee_ids]
+            if invalid_mentions:
+                raise serializers.ValidationError({"mentions": "Invalid mentions for this task context: " + ", ".join(invalid_mentions)})
 
         return attrs
 
@@ -667,35 +645,23 @@ class TaskCommentSerializer(serializers.ModelSerializer):
         return obj.replies.count()
 
     def get_replies(self, obj):
-        # Only include replies for top-level comments
-        if obj.parent is None:
-            # Allow configuring reply limit via context (default 20)
+        # Only include replies for top-level comments; prevent deep nesting
+        max_depth = self.context.get("max_reply_depth", 1)
+        current_depth = self.context.get("_reply_depth", 0)
+        if obj.parent is None and current_depth < max_depth:
             reply_limit = self.context.get("reply_limit", 20)
             if hasattr(obj, "_prefetched_objects_cache") and "replies" in obj._prefetched_objects_cache:
                 replies = obj._prefetched_objects_cache["replies"][:reply_limit]
             else:
                 replies = obj.replies.select_related("author").all()[:reply_limit]
-            return TaskCommentSerializer(replies, many=True, context=self.context).data
+            ctx = {**self.context, "_reply_depth": current_depth + 1}
+            return TaskCommentSerializer(replies, many=True, context=ctx).data
         return []
 
     def get_time_ago(self, obj):
-        now = timezone.now()
-        diff = now - obj.created_at
-        seconds = diff.total_seconds()
+        from .utils.time_helpers import format_time_ago
 
-        if seconds < 60:
-            return "just now"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"{minutes}m ago"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours}h ago"
-        elif seconds < 604800:  # 7 days
-            days = int(seconds / 86400)
-            return f"{days}d ago"
-        else:
-            return obj.created_at.strftime("%b %d, %Y")
+        return format_time_ago(obj.created_at, compact=True)
 
     def create(self, validated_data):
         mentions = validated_data.pop("mentions", [])
@@ -776,23 +742,9 @@ class TaskActivitySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def get_time_ago(self, obj):
-        now = timezone.now()
-        diff = now - obj.created_at
-        seconds = diff.total_seconds()
+        from .utils.time_helpers import format_time_ago
 
-        if seconds < 60:
-            return "just now"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"{minutes}m ago"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"{hours}h ago"
-        elif seconds < 604800:
-            days = int(seconds / 86400)
-            return f"{days}d ago"
-        else:
-            return obj.created_at.strftime("%b %d, %Y")
+        return format_time_ago(obj.created_at, compact=True)
 
 
 class BoardPresenceSerializer(serializers.ModelSerializer):
@@ -829,7 +781,7 @@ class TaskGroupSerializer(serializers.ModelSerializer):
     """Serializer for task groups"""
 
     created_by_username = serializers.CharField(source="created_by.username", read_only=True)
-    member_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all(), source="members", required=False)
+    member_ids = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.all, source="members", required=False)
     member_names = serializers.SerializerMethodField()
     task_count = serializers.SerializerMethodField()
     department_name = serializers.CharField(source="department.name", read_only=True, allow_null=True)
@@ -1014,16 +966,7 @@ class AssetSerializer(serializers.ModelSerializer):
             "itc_end_date",
             "elec_declaration_number",
             "national_inspection_certification",
-            "note1",
-            "note2",
-            "note3",
-            "note4",
-            "note5",
-            "note6",
-            "note7",
-            "note8",
-            "note9",
-            "note10",
+            "notes",
             "created_at",
             "updated_at",
         ]

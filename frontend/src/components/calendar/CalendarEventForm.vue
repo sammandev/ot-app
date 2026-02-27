@@ -259,7 +259,8 @@ import type { DateSelectData, EventApi } from '@fullcalendar/core'
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
-import type { Employee, Project } from '@/services/api'
+import type { Employee } from '@/services/api/employee'
+import type { Project } from '@/services/api/project'
 import type { CalendarEventPayload, CalendarEventType } from '@/types/calendar'
 
 interface CalendarEventFormState {

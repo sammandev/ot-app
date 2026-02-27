@@ -5,6 +5,7 @@ import multiMonthPlugin from '@fullcalendar/multimonth'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import type { Ref } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { STORAGE_KEY_CALENDAR_VIEW } from '@/constants/storage'
 import type { CalendarEventInput } from '@/types/calendar'
 
 export const useCalendarOptions = (
@@ -29,7 +30,7 @@ export const useCalendarOptions = (
 
 	const baseOptions = computed(() => ({
 		plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin, multiMonthPlugin, listPlugin],
-		initialView: localStorage.getItem('calendarView') || 'multiMonthYear',
+		initialView: localStorage.getItem(STORAGE_KEY_CALENDAR_VIEW) || 'multiMonthYear',
 		editable: true,
 		selectable: true,
 		eventStartEditable: true,

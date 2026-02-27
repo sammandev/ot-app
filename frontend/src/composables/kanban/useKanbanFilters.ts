@@ -1,6 +1,8 @@
 import { computed, type Ref, ref, shallowReactive, watch } from 'vue'
 
-import type { CalendarEvent, Project, TaskGroup } from '@/services/api'
+import type { CalendarEvent } from '@/services/api/calendar'
+import type { Project } from '@/services/api/project'
+import type { TaskGroup } from '@/services/api/task'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentStore } from '@/stores/department'
 import { useEmployeeStore } from '@/stores/employee'

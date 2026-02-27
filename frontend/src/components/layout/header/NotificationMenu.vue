@@ -118,7 +118,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
-import type { Notification } from '@/services/api'
+import type { Notification } from '@/services/api/notification'
 import { useNotificationStore } from '@/stores/notification'
 import { formatFullLocalDateTime, timeAgo } from '@/utils/dateTime'
 

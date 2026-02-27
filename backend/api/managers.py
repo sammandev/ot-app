@@ -11,8 +11,14 @@ class SoftDeleteQuerySet(models.QuerySet):
     """Custom QuerySet that excludes soft-deleted objects."""
 
     def delete(self):
-        """Soft delete all objects in the queryset."""
-        return self.update(is_deleted=True, deleted_at=timezone.now())
+        """Soft delete all objects in the queryset.
+
+        Uses bulk update() for performance. Individual model save()
+        methods and post_save signals will NOT fire. Use model-level
+        delete() for single-object soft deletes that need signals.
+        """
+        count = self.update(is_deleted=True, deleted_at=timezone.now())
+        return (count, {self.model._meta.label: count})
 
     def hard_delete(self):
         """Permanently delete all objects in the queryset."""
@@ -61,10 +67,16 @@ class SoftDeleteMixin(models.Model):
         abstract = True
 
     def delete(self, using=None, keep_parents=False):
-        """Soft delete the object."""
+        """Soft delete the object.
+
+        Calls save(), which emits post_save (not post_delete) signals.
+        Signal handlers that need to react to soft deletes should
+        listen for post_save and check the is_deleted field.
+        """
         self.is_deleted = True
         self.deleted_at = timezone.now()
-        self.save(using=using)
+        self.save(using=using, update_fields=["is_deleted", "deleted_at"])
+        return (1, {self._meta.label: 1})
 
     def hard_delete(self, using=None, keep_parents=False):
         """Permanently delete the object."""

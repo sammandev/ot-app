@@ -1,4 +1,4 @@
-import type { CalendarEvent } from '@/services/api'
+import type { CalendarEvent } from '@/services/api/calendar'
 
 // ── Types ───────────────────────────────────────────────────────────────
 export type PriorityLevel = 'low' | 'medium' | 'high' | 'urgent'

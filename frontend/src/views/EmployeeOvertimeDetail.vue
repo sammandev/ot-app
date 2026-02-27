@@ -265,8 +265,8 @@
                   <th @click="ehToggleSort('project_name')" class="px-3 py-2 cursor-pointer select-none">
                     {{ t('detail.project') }}<span class="text-gray-400">{{ ehGetSortIcon('project_name') }}</span>
                   </th>
-                  <th @click="ehToggleSort('time_in')" class="px-3 py-2 cursor-pointer select-none">
-                    {{ t('detail.time') }}<span class="text-gray-400">{{ ehGetSortIcon('time_in') }}</span></th>
+                  <th @click="ehToggleSort('time_start')" class="px-3 py-2 cursor-pointer select-none">
+                    {{ t('detail.time') }}<span class="text-gray-400">{{ ehGetSortIcon('time_start') }}</span></th>
                   <th @click="ehToggleSort('type')" class="px-3 py-2 cursor-pointer select-none">
                     {{ t('detail.type') }}<span class="text-gray-400">{{ ehGetSortIcon('type') }}</span></th>
                   <th @click="ehToggleSort('reason')" class="px-3 py-2 cursor-pointer select-none">
@@ -292,7 +292,7 @@
                     ehFormatDate(req.request_date) }}</td>
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">{{ req.project_name }}</td>
                   <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
-                    <div>{{ formatTime(req.time_in) }} - {{ formatTime(req.time_out) }}</div>
+                    <div>{{ formatTime(req.time_start) }} - {{ formatTime(req.time_end) }}</div>
                     <div class="text-xs text-gray-500">({{ displayHours(req.total_hours) }}h)
                     </div>
                   </td>
@@ -362,7 +362,7 @@ import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
-import type { OvertimeRequest } from '@/services/api'
+import type { OvertimeRequest } from '@/services/api/overtime'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
 import { useOvertimeStore } from '@/stores/overtime'
@@ -1201,7 +1201,7 @@ const ehFilteredByDateRange = computed(() => filteredRequests.value)
 import { getSortIcon as _getSortIcon } from '@/utils/getSortIcon'
 
 const ehSortBy = ref<
-	'request_date' | 'project_name' | 'time_in' | 'type' | 'reason' | 'status' | null
+	'request_date' | 'project_name' | 'time_start' | 'type' | 'reason' | 'status' | null
 >(null)
 const ehSortOrder = ref<'asc' | 'desc'>('asc')
 const ehPageSizeOptions = [5, 10, 20, 50]
@@ -1211,15 +1211,15 @@ const ehTypeOf = (r: OvertimeRequest) =>
 	r.is_holiday ? 'Holiday' : r.is_weekend ? 'Weekend' : 'Weekday'
 const ehFieldOf = (
 	r: OvertimeRequest,
-	key: 'request_date' | 'project_name' | 'time_in' | 'reason' | 'status',
+	key: 'request_date' | 'project_name' | 'time_start' | 'reason' | 'status',
 ): string => {
 	switch (key) {
 		case 'request_date':
 			return r.request_date
 		case 'project_name':
 			return r.project_name || ''
-		case 'time_in':
-			return r.time_in
+		case 'time_start':
+			return r.time_start
 		case 'reason':
 			return r.reason || ''
 		case 'status':
@@ -1262,7 +1262,7 @@ const ehPageRangeEnd = computed(() =>
 	Math.min(ehSortedRequests.value.length, ehCurrentPage.value * ehPageSize.value),
 )
 const ehToggleSort = (
-	field: 'request_date' | 'project_name' | 'time_in' | 'type' | 'reason' | 'status',
+	field: 'request_date' | 'project_name' | 'time_start' | 'type' | 'reason' | 'status',
 ) => {
 	if (ehSortBy.value === field) {
 		if (ehSortOrder.value === 'asc') ehSortOrder.value = 'desc'
@@ -1273,7 +1273,7 @@ const ehToggleSort = (
 	}
 }
 const ehGetSortIcon = (
-	field: 'request_date' | 'project_name' | 'time_in' | 'type' | 'reason' | 'status',
+	field: 'request_date' | 'project_name' | 'time_start' | 'type' | 'reason' | 'status',
 ) => _getSortIcon(field, ehSortBy, ehSortOrder)
 const ehGoToPage = (page: number) => {
 	if (page < 1 || page > ehTotalPages.value) return

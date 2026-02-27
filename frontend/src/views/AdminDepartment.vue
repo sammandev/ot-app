@@ -122,11 +122,12 @@
 
             <!-- Create/Edit Modal -->
             <div v-if="showCreateModal || showEditModal"
-                class="fixed inset-0 z-[100000] flex items-center justify-center">
+                class="fixed inset-0 z-[100000] flex items-center justify-center"
+                role="dialog" aria-modal="true" aria-labelledby="dept-form-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="showCreateModal = false; showEditModal = false"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-800 dark:bg-gray-900 relative z-10">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    <h2 id="dept-form-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                         {{ editingDept ? t('admin.dept.editDepartment') : t('admin.dept.addDepartmentTitle') }}
                     </h2>
                     <form @submit.prevent="handleSave" class="space-y-4">
@@ -178,11 +179,12 @@
             </div>
 
             <!-- Delete Confirmation Modal -->
-            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showDeleteModal" class="fixed inset-0 z-[100000] flex items-center justify-center"
+                role="dialog" aria-modal="true" aria-labelledby="dept-delete-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="cancelDelete"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-800 dark:bg-gray-900 relative z-10">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    <h2 id="dept-delete-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                         {{ t('admin.confirmDelete') }}
                     </h2>
                     <p class="text-gray-700 dark:text-gray-300 mb-6">
@@ -202,14 +204,15 @@
             </div>
 
             <!-- Employees Modal -->
-            <div v-if="showEmployeesModal" class="fixed inset-0 z-[100000] flex items-center justify-center">
+            <div v-if="showEmployeesModal" class="fixed inset-0 z-[100000] flex items-center justify-center"
+                role="dialog" aria-modal="true" aria-labelledby="dept-employees-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="closeEmployeesModal"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white w-full max-w-2xl max-h-[80vh] flex flex-col dark:border-gray-800 dark:bg-gray-900 relative z-10">
                     <!-- Sticky Header -->
                     <div class="sticky top-0 z-10 flex items-center justify-between px-6 pt-5 pb-4 bg-white dark:bg-gray-900 rounded-t-2xl border-b border-gray-200 dark:border-gray-800">
                         <div>
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                            <h2 id="dept-employees-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">
                                 {{ t('admin.dept.departmentEmployees') }}
                             </h2>
                             <p class="text-sm text-gray-500 dark:text-gray-400">
@@ -287,11 +290,12 @@
             </div>
 
             <!-- Remove Employee Confirmation -->
-            <div v-if="showRemoveConfirmModal" class="fixed inset-0 z-[100001] flex items-center justify-center">
+            <div v-if="showRemoveConfirmModal" class="fixed inset-0 z-[100001] flex items-center justify-center"
+                role="dialog" aria-modal="true" aria-labelledby="dept-remove-emp-modal-title">
                 <div class="absolute inset-0 bg-black/50" @click="cancelRemoveEmployee"></div>
                 <div
                     class="rounded-2xl border border-gray-200 bg-white p-6 w-full max-w-md dark:border-gray-800 dark:bg-gray-900 relative z-10">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    <h2 id="dept-remove-emp-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                         {{ t('admin.dept.removeEmployeeTitle') }}
                     </h2>
                     <p class="text-gray-700 dark:text-gray-300 mb-6">
@@ -318,12 +322,14 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
-import { departmentAPI } from '@/services/api'
+import { useToast } from '@/composables/useToast'
+import { departmentAPI } from '@/services/api/department'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentStore } from '@/stores/department'
 import type { Department } from '@/types/admin'
 
 const { t } = useI18n()
+const { showToast } = useToast()
 
 interface DepartmentEmployee {
 	id: number
@@ -483,6 +489,7 @@ const confirmDelete = async () => {
 			deletingDeptId.value = null
 		} catch (error) {
 			console.error('Failed to delete department:', error)
+			showToast(t('admin.dept.deleteFailed', 'Failed to delete department'), 'error')
 		}
 	}
 }
@@ -497,6 +504,7 @@ const handleToggleEnabled = async (id: number, currentStatus: boolean) => {
 		await departmentStore.updateDepartment(id, { is_enabled: !currentStatus })
 	} catch (error) {
 		console.error('Failed to toggle status:', error)
+		showToast(t('admin.dept.toggleFailed', 'Failed to toggle status'), 'error')
 	}
 }
 
@@ -600,7 +608,7 @@ const executeRemoveEmployee = async () => {
 		employeeToRemove.value = null
 	} catch (error) {
 		console.error('Failed to remove employee:', error)
-		alert(t('admin.dept.removeEmployeeFailed'))
+		showToast(t('admin.dept.removeEmployeeFailed'), 'error')
 	} finally {
 		isRemoving.value = false
 	}

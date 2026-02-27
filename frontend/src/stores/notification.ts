@@ -1,22 +1,32 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { type Notification, notificationAPI, type PaginatedNotifications } from '@/services/api'
+import {
+	type Notification,
+	notificationAPI,
+	type PaginatedNotifications,
+} from '@/services/api/notification'
 import { useAuthStore } from '@/stores/auth'
 
-// Debounce utility function
+// Debounce utility function that preserves return values for async functions
 function debounce<T extends (...args: Parameters<T>) => void>(
 	fn: T,
 	delay: number,
-): (...args: Parameters<T>) => void {
+): (...args: Parameters<T>) => Promise<void> {
 	let timeoutId: ReturnType<typeof setTimeout> | null = null
 	return (...args: Parameters<T>) => {
-		if (timeoutId) {
-			clearTimeout(timeoutId)
-		}
-		timeoutId = setTimeout(() => {
-			fn(...args)
-			timeoutId = null
-		}, delay)
+		return new Promise<void>((resolve) => {
+			if (timeoutId) {
+				clearTimeout(timeoutId)
+			}
+			timeoutId = setTimeout(async () => {
+				try {
+					await fn(...args)
+				} finally {
+					timeoutId = null
+					resolve()
+				}
+			}, delay)
+		})
 	}
 }
 
@@ -84,7 +94,7 @@ export const useNotificationStore = defineStore('notification', () => {
 				is_read: notification.is_read,
 				created_at: notification.created_at,
 				time_ago: 'Just now',
-				recipient: 0, // Will be filled by backend on next fetch
+				recipient: useAuthStore().user?.id ?? 0,
 				event: notification.event_id ?? null,
 				computed_event_type: notification.event_type,
 			}

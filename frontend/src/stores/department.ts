@@ -5,7 +5,8 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { type Department, departmentAPI, type PaginatedResponse } from '@/services/api'
+import type { PaginatedResponse } from '@/services/api/client'
+import { type Department, departmentAPI } from '@/services/api/department'
 import { extractApiError } from '@/utils/extractApiError'
 
 export const useDepartmentStore = defineStore('department', () => {
@@ -14,6 +15,7 @@ export const useDepartmentStore = defineStore('department', () => {
 	const loading = ref(false)
 	const error = ref<string | null>(null)
 	const lastFetch = ref<number | null>(null)
+	const totalCount = ref(0)
 
 	// Cache duration: 2 minutes — departments rarely change
 	const CACHE_DURATION = 2 * 60 * 1000
@@ -41,9 +43,10 @@ export const useDepartmentStore = defineStore('department', () => {
 
 		try {
 			const response: PaginatedResponse<Department> = await departmentAPI.list({
-				page_size: 1000,
+				page_size: 200,
 			})
 			departments.value = response.results
+			totalCount.value = response.count ?? response.results.length
 			lastFetch.value = Date.now()
 			return response.results
 		} catch (err: unknown) {
@@ -116,11 +119,20 @@ export const useDepartmentStore = defineStore('department', () => {
 		lastFetch.value = null
 	}
 
+	function reset() {
+		departments.value = []
+		loading.value = false
+		error.value = null
+		lastFetch.value = null
+		totalCount.value = 0
+	}
+
 	return {
 		// State
 		departments,
 		loading,
 		error,
+		totalCount,
 
 		// Computed
 		enabledDepartments,
@@ -134,5 +146,6 @@ export const useDepartmentStore = defineStore('department', () => {
 		deleteDepartment,
 		setEnabled,
 		clearCache,
+		reset,
 	}
 })

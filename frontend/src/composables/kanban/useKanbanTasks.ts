@@ -1,7 +1,9 @@
 import { type ComputedRef, computed, type Ref, ref, watch } from 'vue'
 
-import type { CalendarEvent, Employee, Project, TaskGroup } from '@/services/api'
-import { calendarAPI, projectAPI, taskGroupAPI } from '@/services/api'
+import { type CalendarEvent, calendarAPI } from '@/services/api/calendar'
+import type { Employee } from '@/services/api/employee'
+import { type Project, projectAPI } from '@/services/api/project'
+import { type TaskGroup, taskGroupAPI } from '@/services/api/task'
 import type { BoardWebSocket } from '@/services/websocket'
 import { useDepartmentStore } from '@/stores/department'
 import { useEmployeeStore } from '@/stores/employee'

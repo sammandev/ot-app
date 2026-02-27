@@ -227,8 +227,15 @@ import MonthView from '@/components/ptb-calendar/MonthView.vue'
 import WeekView from '@/components/ptb-calendar/WeekView.vue'
 import YearView from '@/components/ptb-calendar/YearView.vue'
 import { useToast } from '@/composables/useToast'
+import { STORAGE_KEY_PTB_CALENDAR_VIEW_MODE } from '@/constants/storage'
+import { DEBOUNCE_FETCH_MS } from '@/constants/ui'
 import { ChevronLeftIcon, ChevronRightIcon } from '@/icons'
-import { type EmployeeLeave, employeeLeaveAPI, type Holiday, holidayAPI } from '@/services/api'
+import {
+	type EmployeeLeave,
+	employeeLeaveAPI,
+	type Holiday,
+	holidayAPI,
+} from '@/services/api/holiday'
 import { disconnectCalendarWebSocket, useCalendarWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
@@ -247,7 +254,7 @@ const viewModes = computed(() => [
 ])
 
 // Load view mode from localStorage or default to 'month'
-const savedViewMode = localStorage.getItem('ptb-calendar-view-mode') as
+const savedViewMode = localStorage.getItem(STORAGE_KEY_PTB_CALENDAR_VIEW_MODE) as
 	| 'week'
 	| 'month'
 	| 'year'
@@ -317,15 +324,15 @@ const currentPeriodLabel = computed(() => {
 	} else if (viewMode.value === 'week') {
 		const endDate = new Date(weekStartDate.value)
 		endDate.setDate(endDate.getDate() + 6)
-		const startMonth = t(monthKeys[weekStartDate.value.getMonth()]!)
-		const endMonth = t(monthKeys[endDate.getMonth()]!)
+		const startMonth = t(monthKeys[weekStartDate.value.getMonth()] ?? '')
+		const endMonth = t(monthKeys[endDate.getMonth()] ?? '')
 		const weekNum = getWeekNumber(weekStartDate.value)
 		if (startMonth === endMonth) {
 			return `${startMonth} ${weekStartDate.value.getDate()} - ${endDate.getDate()}, ${currentYear.value} (Week ${weekNum})`
 		}
 		return `${startMonth} ${weekStartDate.value.getDate()} - ${endMonth} ${endDate.getDate()}, ${currentYear.value} (Week ${weekNum})`
 	}
-	return `${t(monthKeys[currentMonth.value]!)} ${currentYear.value}`
+	return `${t(monthKeys[currentMonth.value] ?? '')} ${currentYear.value}`
 })
 
 const weekStartDate = computed(() => {
@@ -440,7 +447,7 @@ const formatDateForHeader = (dateStr: string): string => {
 		'months.november',
 		'months.december',
 	]
-	return `${t(dayKeys[date.getDay()]!)}, ${t(monthKeys[date.getMonth()]!)} ${date.getDate()}, ${date.getFullYear()}`
+	return `${t(dayKeys[date.getDay()] ?? '')}, ${t(monthKeys[date.getMonth()] ?? '')} ${date.getDate()}, ${date.getFullYear()}`
 }
 
 const navigatePrev = () => {
@@ -543,17 +550,19 @@ const closeCombinedModal = () => {
 
 const saveCombinedHoliday = async (data: Partial<Holiday> & { dates?: string[] }) => {
 	try {
-		// Create a holiday for each date in the range
+		// Create holidays for all dates in parallel
 		const dates = data.dates && data.dates.length > 0 ? data.dates : data.date ? [data.date] : []
-		for (const date of dates) {
-			await holidayAPI.create({
-				title: data.title,
-				date: date,
-				description: data.description,
-				color: data.color,
-				is_recurring: data.is_recurring,
-			} as Omit<Holiday, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'created_by_username'>)
-		}
+		await Promise.all(
+			dates.map((date) =>
+				holidayAPI.create({
+					title: data.title,
+					date: date,
+					description: data.description,
+					color: data.color,
+					is_recurring: data.is_recurring,
+				} as Omit<Holiday, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'created_by_username'>),
+			),
+		)
 		closeCombinedModal()
 		await fetchData()
 	} catch (err) {
@@ -571,17 +580,19 @@ const saveCombinedLeave = async (data: {
 	agent_names?: string
 }) => {
 	try {
-		// Create a leave for each date in the range
+		// Create leaves for all dates in parallel
 		const dates = data.dates && data.dates.length > 0 ? data.dates : [data.date]
-		for (const date of dates) {
-			await employeeLeaveAPI.create({
-				employee: data.employee,
-				date: date,
-				notes: data.notes,
-				agents: data.agents,
-				agent_names: data.agent_names,
-			})
-		}
+		await Promise.all(
+			dates.map((date) =>
+				employeeLeaveAPI.create({
+					employee: data.employee,
+					date: date,
+					notes: data.notes,
+					agents: data.agents,
+					agent_names: data.agent_names,
+				}),
+			),
+		)
 		closeCombinedModal()
 		await fetchData()
 	} catch (err) {
@@ -760,12 +771,12 @@ watch([viewMode, currentYear, currentMonth, currentWeekStart], () => {
 	if (fetchDebounceTimer) clearTimeout(fetchDebounceTimer)
 	fetchDebounceTimer = setTimeout(() => {
 		void fetchData()
-	}, 50)
+	}, DEBOUNCE_FETCH_MS)
 })
 
 // Save view mode to localStorage when it changes
 watch(viewMode, (newMode) => {
-	localStorage.setItem('ptb-calendar-view-mode', newMode)
+	localStorage.setItem(STORAGE_KEY_PTB_CALENDAR_VIEW_MODE, newMode)
 })
 
 // Lifecycle

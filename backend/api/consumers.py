@@ -67,16 +67,14 @@ class _TokenAuthMixin:
         from api.models import UserSession
 
         try:
-            session = UserSession.objects.select_related("user").get(
-                access_token=token, is_active=True
-            )
+            session = UserSession.objects.select_related("user").get(token_hash=UserSession.hash_token(token), is_active=True)
             if not session.is_token_expired():
                 return session.user
         except UserSession.DoesNotExist:
             pass
         except Exception as e:
             consumer_name = type(self).__name__
-            logger.error(f"{consumer_name} auth error: {e}")
+            logger.error("%s auth error: %s", consumer_name, e)
         return None
 
     async def get_employee(self):
@@ -105,6 +103,8 @@ def send_notification_to_user(user_id: int, notification_data: dict):
     channel_layer = get_channel_layer()
     if channel_layer:
         async_to_sync(channel_layer.group_send)(f"notifications_{user_id}", {"type": "notification_message", **notification_data})
+    else:
+        logger.warning("No channel layer configured — notification to user %s was not sent", user_id)
 
 
 def send_permission_update_to_user(user_id: int, user_data: dict):
@@ -118,7 +118,7 @@ def send_permission_update_to_user(user_id: int, user_data: dict):
     """
     channel_layer = get_channel_layer()
     if channel_layer:
-        logger.info(f"Sending permission update to user {user_id}")
+        logger.info("Sending permission update to user %s", user_id)
         async_to_sync(channel_layer.group_send)(f"notifications_{user_id}", {"type": "permission_update", "user": user_data})
 
 
@@ -176,35 +176,20 @@ def broadcast_task_deleted(task_id: int, deleted_by: str = "Unknown"):
 
 def send_notification_to_ptb_admins(notification_data: dict):
     """
-    Send a notification to all PTB admin users.
+    Send a notification to all PTB admin users via the shared 'role_ptb_admins' group.
     """
-    from .models import ExternalUser
-
     channel_layer = get_channel_layer()
     if channel_layer:
-        # Get all PTB admin user IDs
-        ptb_admin_ids = ExternalUser.objects.filter(is_ptb_admin=True, is_active=True).values_list("id", flat=True)
-
-        for user_id in ptb_admin_ids:
-            async_to_sync(channel_layer.group_send)(f"notifications_{user_id}", {"type": "notification_message", **notification_data})
+        async_to_sync(channel_layer.group_send)("role_ptb_admins", {"type": "notification_message", **notification_data})
 
 
 def send_notification_to_superadmins(notification_data: dict):
     """
-    Send a notification to all super admin users via WebSocket.
-    Super admin is identified by the 'role' field on ExternalUser.
+    Send a notification to all super admin users via the shared 'role_superadmins' group.
     """
-    from .models import ExternalUser
-
     channel_layer = get_channel_layer()
     if channel_layer:
-        superadmin_ids = ExternalUser.objects.filter(
-            is_active=True,
-            role__in=("developer", "superadmin"),
-        ).values_list("id", flat=True)
-
-        for user_id in superadmin_ids:
-            async_to_sync(channel_layer.group_send)(f"notifications_{user_id}", {"type": "notification_message", **notification_data})
+        async_to_sync(channel_layer.group_send)("role_superadmins", {"type": "notification_message", **notification_data})
 
 
 # ── PTB Calendar broadcast helpers ──────────────────────────────────────────
@@ -265,13 +250,23 @@ class NotificationConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketC
             self._is_accepted = True
 
     async def _setup_authenticated_user(self):
-        """Set up an authenticated user's notification group."""
+        """Set up an authenticated user's notification group and role-based groups."""
         self.user_id = self.user.id
         self.notification_group = f"notifications_{self.user_id}"
         self._authenticated = True
+        self._role_groups = []
 
         # Join the user's notification group
         await self.channel_layer.group_add(self.notification_group, self.channel_name)
+
+        # Join role-based groups for efficient broadcast
+        if getattr(self.user, "is_ptb_admin", False):
+            self._role_groups.append("role_ptb_admins")
+            await self.channel_layer.group_add("role_ptb_admins", self.channel_name)
+        role = getattr(self.user, "role", "") or ""
+        if role in ("developer", "superadmin"):
+            self._role_groups.append("role_superadmins")
+            await self.channel_layer.group_add("role_superadmins", self.channel_name)
 
         if not self._is_accepted:
             await self.accept()
@@ -285,6 +280,8 @@ class NotificationConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketC
         """Called when WebSocket disconnects."""
         if hasattr(self, "notification_group") and self.notification_group:
             await self.channel_layer.group_discard(self.notification_group, self.channel_name)
+        for group in getattr(self, "_role_groups", []):
+            await self.channel_layer.group_discard(group, self.channel_name)
 
     async def receive_json(self, content):
         """Handle incoming WebSocket messages."""
@@ -391,6 +388,33 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
     Authentication: Cookie auth (preferred), first-message auth (fallback),
     or legacy query-string auth via TokenAuthMiddleware.
     """
+
+    # Allowed fields for task_data broadcast to prevent client-injected arbitrary fields
+    _ALLOWED_TASK_FIELDS = frozenset(
+        {
+            "id",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "due_date",
+            "assigned_to",
+            "group",
+            "group_id",
+            "order",
+            "labels",
+            "is_completed",
+            "subtask_count",
+            "subtask_completed_count",
+        }
+    )
+
+    @staticmethod
+    def _sanitize_task_data(raw_data):
+        """Strip unknown fields from client-provided task data before broadcast."""
+        if not isinstance(raw_data, dict):
+            return None
+        return {k: v for k, v in raw_data.items() if k in BoardConsumer._ALLOWED_TASK_FIELDS}
 
     async def connect(self):
         """Called when WebSocket connects."""
@@ -501,15 +525,16 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
             if not await self._task_exists(task_id):
                 return
             employee = await self.get_employee()
+            sanitized_data = self._sanitize_task_data(content.get("task_data"))
             await self.channel_layer.group_send(
                 self.board_group,
-                {"type": "task_updated", "task_id": task_id, "task_data": content.get("task_data") if isinstance(content.get("task_data"), dict) else None, "updated_by": employee.name if employee else "Unknown", "timestamp": timezone.now().isoformat()},
+                {"type": "task_updated", "task_id": task_id, "task_data": sanitized_data, "updated_by": employee.name if employee else "Unknown", "timestamp": timezone.now().isoformat()},
             )
 
         elif message_type == "task_created":
             employee = await self.get_employee()
-            task_data = content.get("task_data")
-            await self.channel_layer.group_send(self.board_group, {"type": "task_created", "task_data": task_data if isinstance(task_data, dict) else None, "created_by": employee.name if employee else "Unknown", "timestamp": timezone.now().isoformat()})
+            sanitized_data = self._sanitize_task_data(content.get("task_data"))
+            await self.channel_layer.group_send(self.board_group, {"type": "task_created", "task_data": sanitized_data, "created_by": employee.name if employee else "Unknown", "timestamp": timezone.now().isoformat()})
 
         elif message_type == "task_deleted":
             task_id = content.get("task_id")

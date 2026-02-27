@@ -48,9 +48,9 @@ def custom_exception_handler(exc, context):
     method = request.method if request else "Unknown"
     path = request.path if request else "Unknown"
 
-    logger.error(f"Unhandled exception in {view_name} [{method} {path}]: {exc}")
-    logger.error(f"Exception type: {type(exc).__name__}")
-    logger.error(f"Traceback:\n{traceback.format_exc()}")
+    logger.error("Unhandled exception in %s [%s %s]: %s", view_name, method, path, exc)
+    logger.error("Exception type: %s", type(exc).__name__)
+    logger.error("Traceback:\n%s", traceback.format_exc())
 
     return Response(
         _build_error_payload("server_error", f"An unexpected error occurred: {str(exc)}", None),

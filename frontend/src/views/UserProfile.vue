@@ -1,5 +1,5 @@
 <template>
-  <admin-layout>
+  <AdminLayout>
     <div class="space-y-6">
       <!-- Page Header -->
       <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -20,7 +20,13 @@
       </div>
 
       <!-- Profile Card -->
-      <div class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div v-if="!user" class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div class="flex items-center justify-center py-16">
+          <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+          <span class="ml-3 text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</span>
+        </div>
+      </div>
+      <div v-else class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
         <div class="flex flex-col gap-8 lg:flex-row lg:gap-12">
           <!-- Left: Avatar -->
           <div class="w-full lg:w-1/3">
@@ -208,7 +214,7 @@
         </div>
       </div>
     </div>
-  </admin-layout>
+  </AdminLayout>
 </template>
 
 <script setup lang="ts">
@@ -216,7 +222,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import { type SupportedLocale, setLocale, supportedLocales } from '@/i18n'
-import { authAPI } from '@/services/api'
+import { authAPI } from '@/services/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { formatLocalDateTime } from '@/utils/dateTime'
 

@@ -5,7 +5,8 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-sm font-semibold text-brand-500">{{ t('pages.personalNotes.category') }}</p>
-                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">📝 {{ t('pages.personalNotes.title') }}</h1>
+                    <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">📝 {{
+                        t('pages.personalNotes.title') }}</h1>
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.personalNotes.subtitle') }}</p>
                 </div>
 
@@ -195,7 +196,8 @@
             <!-- Create/Edit Modal -->
             <Teleport to="body">
                 <Transition name="fade">
-                    <div v-if="showModal" class="fixed inset-0 z-[100000] flex items-center justify-center p-4">
+                    <div v-if="showModal" class="fixed inset-0 z-[100000] flex items-center justify-center p-4"
+                        role="dialog" aria-modal="true" aria-labelledby="personal-note-modal-title">
                         <!-- Backdrop -->
                         <div class="absolute inset-0 bg-black/50" @click="closeModal"></div>
 
@@ -205,7 +207,8 @@
                             <!-- Header -->
                             <div
                                 class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                                <h3 id="personal-note-modal-title"
+                                    class="text-lg font-semibold text-gray-900 dark:text-white">
                                     {{ editingNote ? 'Edit Note' : 'New Note' }}
                                 </h3>
                                 <button @click="closeModal"
@@ -278,7 +281,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
-import { type PersonalNote, personalNoteAPI } from '@/services/api'
+import { type PersonalNote, personalNoteAPI } from '@/services/api/personal-notes'
 
 // State
 const { t } = useI18n()

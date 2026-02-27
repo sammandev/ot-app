@@ -130,8 +130,9 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
+import { MAX_ICON_FILE_SIZE_BYTES } from '@/constants/ui'
 import { InfoCircleIcon, SettingsIcon } from '@/icons'
-import { apiClient } from '@/services/api'
+import { apiClient } from '@/services/api/client'
 import { useConfigStore } from '@/stores/config'
 
 const configStore = useConfigStore()
@@ -158,7 +159,7 @@ const handleTabIconSelect = (event: Event) => {
 		return
 	}
 
-	if (file.size > 512 * 1024) {
+	if (file.size > MAX_ICON_FILE_SIZE_BYTES) {
 		showToast('File size must be under 512KB', 'error')
 		return
 	}

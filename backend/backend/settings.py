@@ -18,9 +18,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-import backend.celery as celery_app
-
-__all__ = ("celery_app",)
+# Note: Celery app is imported in backend/__init__.py (the standard pattern).
+# Avoid importing it here to prevent import-ordering side effects.
 
 # Determine environment
 ENVIRONMENT = os.environ.get("DJANGO_ENV", "development")
@@ -40,8 +39,10 @@ elif ENVIRONMENT == "development":
 if env_file.exists():
     load_dotenv(env_file, override=True)
 else:
-    # Fallback to .env file
-    load_dotenv(BASE_DIR / ".env.staging", override=True)
+    # Fallback to generic .env file (never silently load staging credentials)
+    fallback = BASE_DIR / ".env"
+    if fallback.exists():
+        load_dotenv(fallback, override=True)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY")
@@ -56,6 +57,7 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split()
 # Feature toggles
 THROTTLING_ENABLED = os.environ.get("THROTTLING_ENABLED", "false").lower() == "true"
 EXPORT_THROTTLE_RATE = os.environ.get("EXPORT_THROTTLE_RATE", "5/min")
+QUERY_MONITORING = os.environ.get("QUERY_MONITORING", str(DEBUG)).lower() == "true"
 
 # Silence security warnings for HTTP-only deployment (staging/development)
 # These warnings are only relevant for HTTPS/SSL production deployments
@@ -83,6 +85,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_yasg",
     "channels",
@@ -148,7 +151,7 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-CORS_ORIGIN_ALLOW_ALL = DEBUG  # Only allow all origins in development
+CORS_ORIGIN_ALLOW_ALL = False  # Never allow all origins; use CORS_ALLOWED_ORIGINS whitelist
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
@@ -194,10 +197,10 @@ EXTERNAL_API_TIMEOUT = int(os.environ.get("EXTERNAL_API_TIMEOUT", "5"))
 
 # Simple JWT Settings for local authentication
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=24),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
@@ -448,7 +451,7 @@ LOGGING = {
         },
         "api": {
             "handlers": ["console", "file"],
-            "level": "DEBUG",
+            "level": LOG_LEVEL,
             "propagate": False,
         },
         "celery": {
@@ -521,17 +524,20 @@ SMB_POOL_SIZE = {
 ASGI_APPLICATION = "backend.asgi.application"
 
 # Channel Layers - Use Redis for production, in-memory for development
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [os.environ.get("REDIS_CHANNELS_URL", "redis://localhost:6379/3")],
-            "capacity": 1500,  # Maximum messages per channel
-            "expiry": 10,  # Message expiry in seconds
-        },
+if os.environ.get("USE_REDIS_CHANNELS", "false").lower() == "true":
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [os.environ.get("REDIS_CHANNELS_URL", "redis://localhost:6379/3")],
+                "capacity": 1500,
+                "expiry": 10,
+            },
+        }
     }
-    if os.environ.get("USE_REDIS_CHANNELS", "false").lower() == "true"
-    else {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
     }
-}

@@ -189,11 +189,13 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useProjectStore } from '@/stores/project'
 import type { Project } from '@/types/admin'
 
 const { t } = useI18n()
+const { showToast } = useToast()
 
 // Auth Store for permission checks
 const authStore = useAuthStore()
@@ -333,6 +335,7 @@ const confirmDelete = async () => {
 			deletingProjId.value = null
 		} catch (error) {
 			console.error('Failed to delete project:', error)
+			showToast(t('admin.proj.deleteFailed', 'Failed to delete project'), 'error')
 		}
 	}
 }
@@ -347,6 +350,7 @@ const handleToggleEnabled = async (id: number, currentStatus: boolean) => {
 		await projectStore.updateProject(id, { is_enabled: !currentStatus })
 	} catch (error) {
 		console.error('Failed to toggle status:', error)
+		showToast(t('admin.proj.toggleFailed', 'Failed to toggle status'), 'error')
 	}
 }
 

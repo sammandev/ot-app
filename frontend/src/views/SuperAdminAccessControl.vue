@@ -22,12 +22,12 @@
             </div>
 
             <!-- Tab Panels -->
-            <AccessControlTab v-show="activeTab === 'access'" v-model:users="users" />
-            <SystemSettingsTab v-show="activeTab === 'settings'" ref="settingsTabRef" />
-            <ActivityLogsTab v-show="activeTab === 'activity'" />
-            <EventRemindersTab v-show="activeTab === 'reminders'" :users="users" ref="remindersTabRef" />
-            <SmbConfigTab v-show="activeTab === 'smb'" ref="smbTabRef" />
-            <UserReportsTab v-show="activeTab === 'reports'" ref="reportsTabRef" />
+            <AccessControlTab v-if="activeTab === 'access'" v-model:users="users" />
+            <SystemSettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
+            <ActivityLogsTab v-if="activeTab === 'activity'" />
+            <EventRemindersTab v-if="activeTab === 'reminders'" :users="users" ref="remindersTabRef" />
+            <SmbConfigTab v-if="activeTab === 'smb'" ref="smbTabRef" />
+            <UserReportsTab v-if="activeTab === 'reports'" ref="reportsTabRef" />
 
         </div>
     </AdminLayout>
@@ -43,13 +43,14 @@ import type EventRemindersTab from '@/components/super-admin/EventRemindersTab.v
 import type SmbConfigTab from '@/components/super-admin/SmbConfigTab.vue'
 import type SystemSettingsTab from '@/components/super-admin/SystemSettingsTab.vue'
 import type UserReportsTab from '@/components/super-admin/UserReportsTab.vue'
-import type { UserAccessControl } from '@/services/api'
+import { STORAGE_KEY_SUPERADMIN_TAB } from '@/constants/storage'
+import type { UserAccessControl } from '@/services/api/auth'
 import { useConfigStore } from '@/stores/config'
 
 const { t } = useI18n()
 const configStore = useConfigStore()
 
-const activeTab = ref(localStorage.getItem('superadmin_tab') || 'access')
+const activeTab = ref(localStorage.getItem(STORAGE_KEY_SUPERADMIN_TAB) || 'access')
 const users = ref<UserAccessControl[]>([])
 
 const settingsTabRef = ref<InstanceType<typeof SystemSettingsTab> | null>(null)
@@ -78,6 +79,6 @@ onMounted(async () => {
 })
 
 watch(activeTab, (tab) => {
-	localStorage.setItem('superadmin_tab', tab)
+	localStorage.setItem(STORAGE_KEY_SUPERADMIN_TAB, tab)
 })
 </script>

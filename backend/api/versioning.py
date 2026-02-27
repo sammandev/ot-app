@@ -65,7 +65,7 @@ class APIVersioning(AcceptHeaderVersioning):
                 if "version=" in part:
                     version = part.split("version=")[1].strip()
                     if version in self.valid_versions:
-                        logger.debug(f"API version {version} requested")
+                        logger.debug("API version %s requested", version)
                         return version
         except (IndexError, AttributeError):
             pass
@@ -73,11 +73,11 @@ class APIVersioning(AcceptHeaderVersioning):
         # Check query parameter as fallback
         version = request.query_params.get(self.version_param)
         if version and version in self.valid_versions:
-            logger.debug(f"API version {version} from query parameter")
+            logger.debug("API version %s from query parameter", version)
             return version
 
         # Return default version
-        logger.debug(f"Using default API version {self.default_version}")
+        logger.debug("Using default API version %s", self.default_version)
         return self.default_version
 
     def reverse(self, viewname, args=None, kwargs=None, request=None, format=None, **extra):
@@ -130,7 +130,7 @@ class VersionedRouter:
             "viewset": viewset,
             "basename": basename,
         }
-        logger.debug(f"Registered {prefix} for API v1")
+        logger.debug("Registered %s for API v1", prefix)
 
     def register_v2(self, prefix, viewset, basename=None):
         """
@@ -147,7 +147,7 @@ class VersionedRouter:
             "viewset": viewset,
             "basename": basename,
         }
-        logger.debug(f"Registered {prefix} for API v2")
+        logger.debug("Registered %s for API v2", prefix)
 
     def register_all(self, prefix, viewset, basename=None):
         """
@@ -160,7 +160,7 @@ class VersionedRouter:
         """
         self.register_v1(prefix, viewset, basename)
         self.register_v2(prefix, viewset, basename)
-        logger.debug(f"Registered {prefix} for all API versions")
+        logger.debug("Registered %s for all API versions", prefix)
 
     def get_v1_routes(self):
         """Get all v1 routes."""

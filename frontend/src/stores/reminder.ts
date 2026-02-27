@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
-import { type CalendarEvent, calendarAPI } from '@/services/api'
+import { computed, onScopeDispose, ref } from 'vue'
+import { type CalendarEvent, calendarAPI } from '@/services/api/calendar'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 
@@ -60,30 +60,26 @@ export const useReminderStore = defineStore('reminder', () => {
 		// This is a simple cleanup - in production you might want more sophisticated logic
 		const today = new Date()
 		today.setHours(0, 0, 0, 0)
-		const todayStr = today.toISOString().split('T')[0]
+		const todayStr = today.toISOString().split('T')[0] ?? ''
 		const storedDate = localStorage.getItem('dismissed_reminders_date')
 
-		if (storedDate !== todayStr) {
+		if (todayStr && storedDate !== todayStr) {
 			dismissedEventIds.value.clear()
 			snoozeSettings.value.clear()
-			localStorage.setItem('dismissed_reminders_date', todayStr!)
+			localStorage.setItem('dismissed_reminders_date', todayStr)
 			saveDismissedToStorage()
 		}
 	}
 
-	// Hoist store references outside polling loop to avoid repeated store lookups
-	let _authStore: ReturnType<typeof useAuthStore> | null = null
-	let _configStore: ReturnType<typeof useConfigStore> | null = null
-	const getAuthStore = () => {
-		if (!_authStore) _authStore = useAuthStore()
-		return _authStore
-	}
-	const getConfigStore = () => {
-		if (!_configStore) _configStore = useConfigStore()
-		return _configStore
-	}
+	// Lazy store accessors — called inside actions so they're always fresh
+	const getAuthStore = () => useAuthStore()
+	const getConfigStore = () => useConfigStore()
+
+	let _pollInProgress = false
 
 	const checkTodayEvents = async () => {
+		if (_pollInProgress) return
+		_pollInProgress = true
 		try {
 			// Check if user is authenticated before making API call
 			const authStore = getAuthStore()
@@ -104,17 +100,14 @@ export const useReminderStore = defineStore('reminder', () => {
 			// Check if user's role is disabled
 			const user = authStore.user
 			if (user && configStore.eventRemindersDisabledRoles.length > 0) {
-				const userRole = authStore.isDeveloper
-					? 'developer'
-					: authStore.isSuperAdmin
-						? 'superadmin'
-						: user.is_superuser
-							? 'superuser'
-							: authStore.isPtbAdmin
-								? 'ptb_admin'
-								: user.is_staff
-									? 'staff'
-									: 'regular'
+				let userRole: string
+				if (authStore.isDeveloper) userRole = 'developer'
+				else if (authStore.isSuperAdmin) userRole = 'superadmin'
+				else if (user.is_superuser) userRole = 'superuser'
+				else if (authStore.isPtbAdmin) userRole = 'ptb_admin'
+				else if (user.is_staff) userRole = 'staff'
+				else userRole = 'regular'
+
 				if (configStore.eventRemindersDisabledRoles.includes(userRole)) {
 					return
 				}
@@ -215,6 +208,8 @@ export const useReminderStore = defineStore('reminder', () => {
 			}
 		} catch (e) {
 			console.error('Failed to check today events', e)
+		} finally {
+			_pollInProgress = false
 		}
 	}
 
@@ -286,6 +281,8 @@ export const useReminderStore = defineStore('reminder', () => {
 			pollingInterval.value = null
 		}
 	}
+
+	onScopeDispose(() => stopPolling())
 
 	return {
 		reminders,

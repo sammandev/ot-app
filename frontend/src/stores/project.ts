@@ -5,7 +5,8 @@
 
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { type PaginatedResponse, type Project, projectAPI } from '@/services/api'
+import type { PaginatedResponse } from '@/services/api/client'
+import { type Project, projectAPI } from '@/services/api/project'
 
 export const useProjectStore = defineStore('project', () => {
 	// State
@@ -48,11 +49,13 @@ export const useProjectStore = defineStore('project', () => {
 		error.value = null
 
 		try {
-			// Fetch all projects by default (set high page_size)
-			const fetchParams = params || { page_size: 1000 }
+			// Fetch projects with a reasonable default page size
+			const fetchParams = params || { page_size: 200 }
 			const response: PaginatedResponse<Project> = await projectAPI.list(fetchParams)
 			projects.value = response.results
 			totalCount.value = response.count
+			currentPage.value = fetchParams.page || 1
+			pageSize.value = fetchParams.page_size || 30
 			lastFetched.value = Date.now()
 			return response.results
 		} catch (err: unknown) {

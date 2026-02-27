@@ -126,7 +126,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronRightIcon } from '@/icons'
-import type { EmployeeLeave, Holiday } from '@/services/api'
+import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
 
 interface Props {
 	year: number

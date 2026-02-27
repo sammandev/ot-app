@@ -97,8 +97,8 @@ class CalendarEventPagination(DRFPageNumberPagination):
     """
     Pagination for calendar event list endpoint.
 
-    - Default: 30 events per page
-    - Max: 100 events per page
+    - Default: 100 events per page
+    - Max: 500 events per page
     """
 
     page_size = 100
@@ -182,6 +182,7 @@ class DynamicPagination(DRFPageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 100
     threshold = 50  # Paginate if more than 50 results
+    max_threshold = 500  # Upper limit for user-supplied threshold
 
     def paginate_queryset(self, queryset, request, view=None):
         """
@@ -195,19 +196,23 @@ class DynamicPagination(DRFPageNumberPagination):
         Returns:
             Paginated results or unpaginated list
         """
-        # Get threshold from request or use default
-        threshold = int(request.query_params.get("threshold", self.threshold))
+        # Get threshold from request or use default, clamped to safe range
+        try:
+            threshold = int(request.query_params.get("threshold", self.threshold))
+        except (ValueError, TypeError):
+            threshold = self.threshold
+        threshold = max(1, min(threshold, self.max_threshold))
 
         # Count results
         count = queryset.count()
 
         # If below threshold, return all without pagination
         if count <= threshold:
-            logger.debug(f"Result count {count} <= threshold {threshold}, skipping pagination")
+            logger.debug("Result count %s <= threshold %s, skipping pagination", count, threshold)
             return list(queryset)
 
         # Otherwise, use normal pagination
-        logger.debug(f"Result count {count} > threshold {threshold}, applying pagination")
+        logger.debug("Result count %s > threshold %s, applying pagination", count, threshold)
         return super().paginate_queryset(queryset, request, view)
 
     def get_paginated_response(self, data):
@@ -283,37 +288,3 @@ class PaginationMetadata(DRFPageNumberPagination):
                 "results": data,
             }
         )
-
-
-def get_pagination_class(view_name, result_size="standard"):
-    """
-    Get appropriate pagination class for a view.
-
-    Args:
-        view_name: Name of the view (e.g., 'employees', 'projects')
-        result_size: Size category ('small', 'standard', 'large', 'dynamic')
-
-    Returns:
-        Pagination class
-    """
-    pagination_map = {
-        "employees": EmployeePagination,
-        "projects": ProjectPagination,
-        "overtime-requests": OvertimeRequestPagination,
-        "calendar-events": CalendarEventPagination,
-    }
-
-    size_map = {
-        "small": SmallResultSetPagination,
-        "standard": StandardPageNumberPagination,
-        "large": LargeResultSetPagination,
-        "dynamic": DynamicPagination,
-        "cursor": CursorBasedPagination,
-    }
-
-    # Try view-specific pagination first
-    if view_name in pagination_map:
-        return pagination_map[view_name]
-
-    # Fall back to size-based
-    return size_map.get(result_size, StandardPageNumberPagination)
