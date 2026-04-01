@@ -6,6 +6,7 @@ from django.db import models
 from django.utils.dateparse import parse_datetime
 from rest_framework import status, viewsets
 from rest_framework.exceptions import APIException
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -374,6 +375,14 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id", "start", "end", "created_at"]
     ordering = ["-start"]
 
+    def _can_delete_task(self, user, instance):
+        if instance.event_type != "task":
+            return True
+        if is_ptb_admin(user) or is_superadmin_user(user):
+            return True
+        employee = get_employee_for_user(user, raise_if_not_found=False)
+        return employee is not None and instance.created_by_id == employee.id
+
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return CalendarEvent.objects.none()
@@ -533,6 +542,8 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
         return super().perform_update(serializer)
 
     def perform_destroy(self, instance):
+        if not self._can_delete_task(self.request.user, instance):
+            raise PermissionDenied("Only the task creator, PTB Admin, Super Admin, or Developer can delete this task.")
         return super().perform_destroy(instance)
 
     def create(self, request, *args, **kwargs):

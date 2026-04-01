@@ -94,6 +94,15 @@ const router = createRouter({
 			},
 		},
 		{
+			path: '/leave-preview',
+			name: 'LeavePreview',
+			component: () => import('../views/LeavePreview.vue'),
+			meta: {
+				title: 'Leave Preview',
+				requiresAuth: false,
+			},
+		},
+		{
 			path: '/kanban',
 			name: 'KanbanBoard',
 			component: () => import('../views/KanbanBoard.vue'),
@@ -179,6 +188,15 @@ const router = createRouter({
 			meta: {
 				title: 'Assets',
 				resource: 'assets',
+			},
+		},
+		{
+			path: '/documents',
+			name: 'Documents',
+			component: () => import('../views/Documents.vue'),
+			meta: {
+				title: 'Documents',
+				resource: 'documents',
 			},
 		},
 		{

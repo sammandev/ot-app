@@ -9,7 +9,7 @@
                     ? 'border-brand-500 text-brand-600 dark:text-brand-400'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             ]">
-                {{ tab.label }} ({{ tab.value === 'holidays' ? holidays.length : leaves.length }})
+                {{ tab.label }} ({{ tab.value === 'holidays' ? holidays.length : leaveEmployeeCount }})
             </button>
         </div>
 
@@ -67,25 +67,25 @@
 
         <!-- Leaves List -->
         <div v-if="activeTab === 'leaves'" class="divide-y divide-gray-200 dark:divide-gray-700">
-            <div v-if="sortedLeaves.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
+            <div v-if="leaveSummaries.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
                 {{ t('calendar.noLeavesForPeriod') }}
             </div>
-            <div v-for="leave in sortedLeaves" :key="leave.id" @click="$emit('leave-click', leave)" :class="[
+            <div v-for="summary in leaveSummaries" :key="summary.employeeId" @click="$emit('leave-click', summary.representativeLeave)" :class="[
                 'p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition',
-                isToday(leave.date) && 'bg-brand-50/30 dark:bg-brand-900/10'
+                summary.dates.some((date) => isToday(date)) && 'bg-brand-50/30 dark:bg-brand-900/10'
             ]">
                 <div class="flex items-start gap-4">
                     <!-- Date Badge -->
                     <div class="flex-shrink-0 text-center">
                         <div class="w-14 h-14 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex flex-col items-center justify-center">
                             <span class="text-lg font-bold text-blue-700 dark:text-blue-300">
-                                {{ formatDay(leave.date) }}
+                                {{ summary.leaveDays }}
                             </span>
-                            <span class="text-xs text-blue-600 dark:text-blue-400">
-                                {{ formatMonth(leave.date) }}
+                            <span class="text-xs font-bold text-blue-600 dark:text-blue-400">
+                                {{ t('calendar.daysLabel') }}
                             </span>
                         </div>
-                        <span v-if="isToday(leave.date)"
+                        <span v-if="summary.dates.some((date) => isToday(date))"
                             class="text-xs font-medium text-brand-600 dark:text-brand-400 mt-1 block">
                             {{ t('calendar.today') }}
                         </span>
@@ -96,21 +96,20 @@
                         <!-- Employee Name with ID inline -->
                         <div class="flex flex-wrap items-baseline gap-x-2">
                             <h4 class="text-base font-bold text-gray-900 dark:text-white">
-                                {{ leave.employee_name }}
+                                {{ summary.employeeName }}
                             </h4>
-                            <span v-if="leave.employee_emp_id" class="text-base text-gray-500 dark:text-gray-400">
-                                ({{ leave.employee_emp_id }})
+                            <span v-if="summary.employeeEmpId" class="text-base text-gray-500 dark:text-gray-400">
+                                ({{ summary.employeeEmpId }})
                             </span>
                         </div>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            {{ formatFullDate(leave.date) }}
+                            {{ formatSummaryDates(summary.dates) }}
                         </p>
-                        <p v-if="getAgentDisplayWithDetails(leave)" 
-                           class="text-sm text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                            {{ t('calendar.agent') }} {{ getAgentDisplayWithDetails(leave) }}
+                        <p class="text-sm text-blue-600 dark:text-blue-400 mt-1 font-medium">
+							{{ t('calendar.agent') }} <span class="font-bold">{{ summary.agentDisplay }}</span>
                         </p>
-                        <p v-if="leave.notes" class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                            {{ leave.notes }}
+                        <p v-if="summary.representativeLeave.notes" class="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
+                            {{ summary.representativeLeave.notes }}
                         </p>
                     </div>
 
@@ -127,6 +126,11 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronRightIcon } from '@/icons'
 import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
+import {
+    formatLeaveSummaryDates,
+    LEAVE_AGENT_FALLBACK,
+    summarizeLeavesByEmployee,
+} from './leaveSummary'
 
 interface Props {
 	year: number
@@ -148,11 +152,11 @@ defineEmits<{
 }>()
 
 const tabs = computed(() => [
-	{ value: 'holidays' as const, label: t('calendar.holidays') },
-	{ value: 'leaves' as const, label: t('calendar.leaves') },
+    { value: 'leaves' as const, label: t('calendar.leaves') },
+    { value: 'holidays' as const, label: t('calendar.holidays') },
 ])
 
-const activeTab = ref<'holidays' | 'leaves'>('holidays')
+const activeTab = ref<'holidays' | 'leaves'>('leaves')
 
 const monthNames = computed(() => [
 	t('calendar.janShort'),
@@ -168,14 +172,14 @@ const monthNames = computed(() => [
 	t('calendar.novShort'),
 	t('calendar.decShort'),
 ])
-const dayNames = computed(() => [
-	t('calendar.daySunFull'),
-	t('calendar.dayMonFull'),
-	t('calendar.dayTueFull'),
-	t('calendar.dayWedFull'),
-	t('calendar.dayThuFull'),
-	t('calendar.dayFriFull'),
-	t('calendar.daySatFull'),
+const dateWeekdayLabels = computed(() => [
+    t('calendar.daySun'),
+    t('calendar.dayMon'),
+    t('calendar.dayTue'),
+    t('calendar.dayWed'),
+    t('calendar.dayThu'),
+    t('calendar.dayFri'),
+    t('calendar.daySat'),
 ])
 
 const sortedHolidays = computed(() => {
@@ -185,6 +189,9 @@ const sortedHolidays = computed(() => {
 const sortedLeaves = computed(() => {
 	return [...props.leaves].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 })
+
+const leaveSummaries = computed(() => summarizeLeavesByEmployee(sortedLeaves.value, LEAVE_AGENT_FALLBACK))
+const leaveEmployeeCount = computed(() => leaveSummaries.value.length)
 
 // Format date string to local date (fixes timezone issue)
 const formatDateStr = (date: Date): string => {
@@ -213,35 +220,16 @@ const formatMonth = (dateStr: string): string => {
 }
 
 const formatFullDate = (dateStr: string): string => {
-	const date = new Date(dateStr)
-	const dayName = dayNames.value[date.getDay()] ?? ''
-	const day = date.getDate()
-	const month = monthNames.value[date.getMonth()] ?? ''
-	const year = date.getFullYear()
-	return `${dayName}, ${month} ${day}, ${year}`
+    return new Date(dateStr).toLocaleDateString('en-US', {
+        weekday: 'short',
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    })
 }
 
-// Get agent display with full details (name, emp_id)
-const getAgentDisplayWithDetails = (leave: EmployeeLeave): string => {
-	const parts: string[] = []
-
-	// Add agent details with emp_id
-	if (leave.agent_details && leave.agent_details.length > 0) {
-		parts.push(
-			...leave.agent_details.map((a) => {
-				let display = a.name
-				if (a.emp_id) display += ` (${a.emp_id})`
-				return display
-			}),
-		)
-	}
-
-	// Add custom agent names
-	if (leave.agent_names) {
-		parts.push(leave.agent_names)
-	}
-
-	return parts.join('; ')
+const formatSummaryDates = (dates: string[]): string => {
+    return formatLeaveSummaryDates(dates, dateWeekdayLabels.value, 4)
 }
 
 const getContrastColor = (hexColor: string): string => {

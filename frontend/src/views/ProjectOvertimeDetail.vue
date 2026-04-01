@@ -407,6 +407,7 @@ import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
 import type { OvertimeRequest } from '@/services/api/overtime'
+import type { Project } from '@/services/api/project'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
 import { useOvertimeStore } from '@/stores/overtime'
@@ -570,89 +571,100 @@ const filteredProjectOptions = computed(() => {
 	return [...projects].sort((a, b) => a.name.localeCompare(b.name))
 })
 
+const initialSelectedProjectId = computed(
+	() => String(route.params.id || (filteredProjectOptions.value[0]?.id ?? '')),
+)
+
 // Compute projectsData from API data instead of mock data
-const projectsData = computed<ProjectData[]>(() => {
-	const projects = projectStore.projects
-	const employees = employeeStore.employees
-	const requests = overtimeStore.requests
-	const range = calculateDateRange()
+const employeeNameMap = computed(() => {
+	const map = new Map<number, string>()
+	for (const employee of employeeStore.employees) {
+		map.set(employee.id, employee.name)
+	}
+	return map
+})
 
-	return projects.map((proj) => {
-		// Filter requests for this project within the date range
-		const projRequests = requests.filter((req) => {
-			if (req.project !== proj.id) return false
-			if (req.status === 'rejected') return false
-			if (!req.request_date) return false
-			if (!range) return true
-			return isWithinRange(req.request_date, range)
+const selectedProjectMeta = computed<Project | null>(() => {
+	const selectedId = Number(selectedProjectId.value)
+	if (!selectedId) return null
+	return projectStore.projects.find((project) => project.id === selectedId) || null
+})
+
+const projectRequests = computed<OvertimeRequest[]>(() => {
+	const projectId = selectedProjectMeta.value?.id
+	if (!projectId) return []
+	return overtimeStore.requests.filter((req) => req.project === projectId && req.status !== 'rejected')
+})
+
+const projectEmployees = computed<ProjectData['employees']>(() => {
+	const employeeMap = new Map<number, { id: string; name: string; hours: number; requests: number }>()
+	for (const req of projectRequests.value) {
+		if (!req.employee) continue
+		const hours = normalizeHours(req.total_hours)
+		const existing = employeeMap.get(req.employee)
+		if (existing) {
+			existing.hours += hours
+			existing.requests += 1
+			continue
+		}
+		employeeMap.set(req.employee, {
+			id: String(req.employee),
+			name:
+				employeeNameMap.value.get(req.employee) ||
+				req.employee_name ||
+				`Employee ${req.employee}`,
+			hours,
+			requests: 1,
 		})
+	}
+	return Array.from(employeeMap.values()).sort((a, b) => b.hours - a.hours)
+})
 
-		// Calculate employee breakdown
-		const employeeMap = new Map<
-			number,
-			{ id: string; name: string; hours: number; requests: number }
-		>()
-		projRequests.forEach((req) => {
-			if (req.employee) {
-				const existing = employeeMap.get(req.employee)
-				const hours = normalizeHours(req.total_hours)
-
-				if (existing) {
-					existing.hours += hours
-					existing.requests += 1
-				} else {
-					const emp = employees.find((e) => e.id === req.employee)
-					employeeMap.set(req.employee, {
-						id: String(req.employee),
-						name: emp?.name || req.employee_name || `Employee ${req.employee}`,
-						hours,
-						requests: 1,
-					})
+const projectTrend = computed<number[]>(() => {
+	const range = calculateDateRange()
+	const trend: number[] = []
+	if (range) {
+		const periodBuckets = generatePeriodBuckets(range.start, range.end)
+		for (const bucket of periodBuckets) {
+			let periodHours = 0
+			for (const req of projectRequests.value) {
+				const reqPeriod = getPeriodForDate(new Date(req.request_date))
+				if (reqPeriod.month === bucket.month && reqPeriod.year === bucket.year) {
+					periodHours += normalizeHours(req.total_hours)
 				}
 			}
-		})
+			trend.push(periodHours)
+		}
+		return trend
+	}
 
-		// Calculate trend based on selected date range (group by period: 26th-25th)
-		const trend: number[] = []
-		if (range) {
-			// Generate period buckets based on actual period boundaries
-			const periodBuckets = generatePeriodBuckets(range.start, range.end)
-
-			for (const bucket of periodBuckets) {
-				const periodRequests = projRequests.filter((req) => {
-					const reqPeriod = getPeriodForDate(new Date(req.request_date))
-					return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
-				})
-				const periodHours = periodRequests.reduce(
-					(sum, req) => sum + normalizeHours(req.total_hours),
-					0,
-				)
-				trend.push(periodHours)
-			}
-		} else {
-			// Fallback: last 6 periods from now
-			const now = new Date()
-			for (let i = 5; i >= 0; i--) {
-				const targetPeriod = getPeriodForDate(new Date(now.getFullYear(), now.getMonth() - i, 15))
-				const periodRequests = projRequests.filter((req) => {
-					const reqPeriod = getPeriodForDate(new Date(req.request_date))
-					return reqPeriod.month === targetPeriod.month && reqPeriod.year === targetPeriod.year
-				})
-				const periodHours = periodRequests.reduce(
-					(sum, req) => sum + normalizeHours(req.total_hours),
-					0,
-				)
-				trend.push(periodHours)
+	const now = new Date()
+	for (let i = 5; i >= 0; i--) {
+		const targetPeriod = getPeriodForDate(new Date(now.getFullYear(), now.getMonth() - i, 15))
+		let periodHours = 0
+		for (const req of projectRequests.value) {
+			const reqPeriod = getPeriodForDate(new Date(req.request_date))
+			if (reqPeriod.month === targetPeriod.month && reqPeriod.year === targetPeriod.year) {
+				periodHours += normalizeHours(req.total_hours)
 			}
 		}
+		trend.push(periodHours)
+	}
+	return trend
+})
 
-		return {
-			id: String(proj.id),
-			name: proj.name,
-			employees: Array.from(employeeMap.values()).sort((a, b) => b.hours - a.hours),
-			trend,
-		}
-	})
+const projectsData = computed<ProjectData[]>(() => {
+	const project = selectedProjectMeta.value
+	if (!project) return []
+
+	return [
+		{
+			id: String(project.id),
+			name: project.name,
+			employees: projectEmployees.value,
+			trend: projectTrend.value,
+		},
+	]
 })
 
 const toSlug = (name: string) =>
@@ -702,7 +714,7 @@ const datePickerOptions = {
 // Control flatpickr mounting to prevent "Element not found" error
 const flatpickrReady = ref(false)
 
-const selectedProjectId = ref<string>(String(route.params.id || (projectsData.value[0]?.id ?? '')))
+const selectedProjectId = ref<string>(initialSelectedProjectId.value)
 // Initialize date filter from UI store (persisted state)
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
 const selectedYear = ref(uiStore.dateFilter.selectedYear)
@@ -731,7 +743,7 @@ const toggleFilterSticky = () => {
 }
 
 const selectedProject = computed<ProjectData>(() => {
-	const found = projectsData.value.find((proj) => proj.id === selectedProjectId.value)
+	const found = projectsData.value.find((proj: ProjectData) => proj.id === selectedProjectId.value)
 	if (found) return found
 	if (projectsData.value.length > 0) return projectsData.value[0]!
 	// Return a default empty project to prevent undefined errors
@@ -744,7 +756,7 @@ const selectedProject = computed<ProjectData>(() => {
 })
 
 watch(selectedProjectId, async (newId) => {
-	const proj = projectsData.value.find((p) => p.id === newId)
+	const proj = projectsData.value.find((p: ProjectData) => p.id === newId)
 	if (proj && (route.params.id !== proj.id || route.params.slug !== toSlug(proj.name))) {
 		const scrollY = window.scrollY
 		router
@@ -847,7 +859,7 @@ const resetToCurrentPeriod = () => {
 const fetchOvertimeData = async () => {
 	const range = calculateDateRange() || getCurrentPeriodRange()
 	const projId = Number(selectedProjectId.value)
-	await overtimeStore.fetchRequests(
+	await overtimeStore.fetchAllRequests(
 		{
 			start_date: formatYMD(range.start),
 			end_date: formatYMD(range.end),
@@ -855,7 +867,6 @@ const fetchOvertimeData = async () => {
 			ordering: '-request_date',
 			...(projId ? { project: projId } : {}),
 		},
-		true,
 	)
 }
 

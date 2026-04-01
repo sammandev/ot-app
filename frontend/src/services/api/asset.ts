@@ -11,6 +11,8 @@ import { apiClient } from './client'
 
 export interface Asset {
 	id: number
+	created_by?: number | null
+	created_by_username?: string | null
 	asset_id: string
 	company_code: string | null
 	fixed_asset_id: string | null
@@ -78,6 +80,8 @@ export interface Asset {
 
 export interface AssetSummary {
 	id: number
+	created_by?: number | null
+	created_by_username?: string | null
 	asset_id: string
 	part_number: string | null
 	product_name: string | null

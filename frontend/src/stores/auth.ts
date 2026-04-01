@@ -12,6 +12,7 @@ import {
 	disconnectPermissionWebSocket,
 	usePermissionWebSocket,
 } from '@/services/websocket'
+import { useNotificationStore } from '@/stores/notification'
 import { getCookie } from '@/utils/cookies'
 import { extractApiError } from '@/utils/extractApiError'
 
@@ -35,6 +36,7 @@ const PERMISSION_KEY_ALIASES: Record<string, string[]> = {
 	admin_employees: ['employees', 'admin_employees'],
 	regulations: ['regulations', 'admin_regulations'],
 	admin_regulations: ['regulations', 'admin_regulations'],
+	documents: ['documents'],
 }
 
 /**
@@ -57,6 +59,7 @@ const DEFAULT_PERMISSION_POLICY: Record<string, 'all' | 'read'> = {
 	purchasing: 'all',
 	request_purchase: 'all',
 	assets: 'all',
+	documents: 'read',
 	report: 'all',
 	release_notes: 'read',
 	personal_notes: 'all',
@@ -353,6 +356,7 @@ export const useAuthStore = defineStore('auth', () => {
 	}
 
 	function clearAuth() {
+		useNotificationStore().clearNotifications()
 		user.value = null
 		// Clear persisted user from both storages
 		removeFromStorage('user')

@@ -5,6 +5,7 @@ from datetime import datetime
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db import transaction
+from django.db.utils import IntegrityError
 from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -185,40 +186,30 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "Request in progress. Please wait."}, status=409)
 
             with transaction.atomic():
-                # Check existing inside transaction
-                # Be defensive: if record exists but has corrupted data, skip it
-                existing = None
-                try:
-                    existing = (
-                        OvertimeRequest.objects.select_for_update()
-                        .filter(
-                            employee_id=request.data.get("employee"),
-                            project_id=request.data.get("project"),
-                            request_date=request.data.get("request_date"),
-                        )
-                        .first()
-                    )
-
-                    # Verify the existing record is valid
-                    if existing and not existing.employee_id:
-                        logger.warning("Found existing record %s but employee FK is null", existing.id)
-                        existing = None
-                except Exception as query_error:
-                    logger.warning("Error querying for existing record: %s", query_error)
-                    existing = None
-
-                if existing:
-                    logger.info("Existing OvertimeRequest found: %s, returning 409", existing.id)
-                    return Response(
-                        {"detail": "An overtime request already exists for this employee, project, and date.", "existing_id": existing.id},
-                        status=status.HTTP_409_CONFLICT,
-                    )
-
                 serializer = self.get_serializer(data=request.data)
                 serializer.is_valid(raise_exception=True)
                 self.perform_create(serializer)
                 logger.info("OvertimeRequest created successfully: %s", serializer.data.get("id"))
                 return Response(serializer.data, status=201)
+        except IntegrityError as exc:
+            if "unique_overtime_employee_project_date" in str(exc):
+                existing = (
+                    OvertimeRequest.objects.filter(
+                        employee_id=request.data.get("employee"),
+                        project_id=request.data.get("project"),
+                        request_date=request.data.get("request_date"),
+                    )
+                    .order_by("id")
+                    .first()
+                )
+                return Response(
+                    {
+                        "detail": "An overtime request already exists for this employee, project, and date.",
+                        "existing_id": existing.id if existing else None,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
         except APIException:
             raise
         except Exception as e:
@@ -293,6 +284,13 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
                 response = super().update(request, *args, **kwargs)
                 logger.info("OvertimeRequest %s updated successfully", kwargs["pk"])
                 return response
+        except IntegrityError as exc:
+            if "unique_overtime_employee_project_date" in str(exc):
+                return Response(
+                    {"detail": "An overtime request already exists for this employee, project, and date."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
         except APIException:
             raise
         except Exception as e:

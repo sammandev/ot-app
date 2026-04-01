@@ -6,9 +6,9 @@
             <!-- Day Headers with Week Numbers -->
             <div class="grid grid-cols-[28px_repeat(7,1fr)] border-b border-gray-200 dark:border-gray-700">
                 <!-- Week Number Header -->
-                <div
-                    class="p-1 text-center text-[9px] font-semibold text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/50">
-                    {{ t('calendar.wk') }}
+				<div
+					class="flex items-center justify-center p-1 text-center text-[9px] font-semibold text-gray-500 dark:text-gray-500 bg-gray-50 dark:bg-gray-900/50">
+					WW
                 </div>
                 <div v-for="day in weekDays" :key="day"
                     class="p-3 text-center text-sm font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/50">
@@ -26,8 +26,8 @@
                             ? 'bg-brand-100 dark:bg-brand-900/40 hover:bg-brand-200 dark:hover:bg-brand-900/60'
                             : 'bg-gray-50/50 dark:bg-gray-900/30 hover:bg-brand-50 dark:hover:bg-brand-900/20'
                     ]" title="Click to view this week">
-                        <span :class="[
-                            'text-[9px] font-medium',
+						<span :class="[
+							'block w-full text-center text-[9px] font-medium',
                             week.isCurrentWeek
                                 ? 'text-brand-700 dark:text-brand-300 font-bold'
                                 : 'text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400'
@@ -70,13 +70,17 @@
 
                         <!-- Leave entries for each day -->
                         <div v-for="leave in getDayLeaves(day)" :key="'l-' + leave.id"
-                            @click.stop="$emit('leave-click', leave)" draggable="true" @mousedown.stop @mouseup.stop
+							@click.stop="$emit('leave-click', leave)" :draggable="props.canManageLeave(leave)" @mousedown.stop @mouseup.stop
                             @dragstart="handleDragStart($event, leave)"
-                            class="text-xs p-1 mb-1 rounded cursor-move bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/60 transition min-w-0">
+							:class="[
+								'text-xs p-1 mb-1 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 transition min-w-0',
+								props.canManageLeave(leave)
+									? 'cursor-move hover:bg-blue-200 dark:hover:bg-blue-900/60'
+									: 'cursor-pointer opacity-90'
+							]">
                             <div class="truncate font-semibold">{{ leave.employee_name }}</div>
-                            <div v-if="getAgentDisplay(leave)"
-                                class="text-[10px] text-blue-500 dark:text-blue-400 truncate font-medium">
-                                {{ t('calendar.agent') }} {{ getAgentDisplay(leave) }}
+                            <div class="text-[10px] text-blue-500 dark:text-blue-400 truncate font-medium">
+								{{ t('calendar.agent') }} <span class="font-bold">{{ getAgentDisplay(leave) }}</span>
                             </div>
                         </div>
                     </div>
@@ -117,26 +121,26 @@
                 class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
                 <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                    {{ t('calendar.leavesThisMonth', { count: currentMonthLeaves.length }) }}
+					{{ t('calendar.leavesThisMonth', { count: t('calendar.employeeCountLabel', { count: currentMonthLeaveSummaries.length }) }) }}
                 </h3>
                 <div class="space-y-2 max-h-48 overflow-y-auto">
-                    <div v-for="leave in currentMonthLeaves" :key="leave.id" @click="$emit('leave-click', leave)"
+					<div v-for="summary in currentMonthLeaveSummaries" :key="summary.employeeId" @click="$emit('leave-click', summary.representativeLeave)"
                         class="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition">
                         <div class="w-10 text-center flex-shrink-0">
-                            <div class="text-lg font-bold text-gray-900 dark:text-white">{{ formatDay(leave.date) }}
-                            </div>
-                            <div class="text-xs text-gray-500">{{ formatDayNameShort(leave.date) }}</div>
+							<div class="text-lg font-bold text-gray-900 dark:text-white">{{ summary.leaveDays }}</div>
+							<div class="text-xs font-bold text-gray-500">{{ t('calendar.daysLabel') }}</div>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                {{ leave.employee_name }}
-                                <span v-if="leave.employee_emp_id"
-                                    class="text-sm text-gray-500 dark:text-gray-400 font-normal ml-1">({{
-                                    leave.employee_emp_id }})</span>
+								{{ summary.employeeName }}
+								<span v-if="summary.employeeEmpId"
+									class="text-sm text-gray-500 dark:text-gray-400 font-normal ml-1">({{ summary.employeeEmpId }})</span>
                             </div>
-                            <div v-if="getAgentDisplayWithDetails(leave)"
-                                class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
-                                {{ t('calendar.agent') }} {{ getAgentDisplayWithDetails(leave) }}
+							<div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+								{{ formatSummaryDates(summary.dates) }}
+							</div>
+							<div class="text-xs text-blue-600 dark:text-blue-400 mt-0.5 truncate">
+								{{ t('calendar.agent') }} <span class="font-bold">{{ summary.agentDisplay }}</span>
                             </div>
                         </div>
                     </div>
@@ -150,6 +154,12 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
+import {
+	formatLeaveSummaryDates,
+	getLeaveAgentDisplay,
+	LEAVE_AGENT_FALLBACK,
+	summarizeLeavesByEmployee,
+} from './leaveSummary'
 
 interface Props {
 	year: number
@@ -157,10 +167,12 @@ interface Props {
 	holidays: Holiday[]
 	leaves: EmployeeLeave[]
 	holidayColor?: string
+	canManageLeave?: (leave: EmployeeLeave) => boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	holidayColor: '#FFB6C1',
+	canManageLeave: () => true,
 })
 
 const emit = defineEmits<{
@@ -205,6 +217,15 @@ const dayNamesShort = computed(() => [
 	t('calendar.dayFri'),
 	t('calendar.daySat'),
 	t('calendar.daySun'),
+])
+const dateWeekdayLabels = computed(() => [
+	t('calendar.daySun'),
+	t('calendar.dayMon'),
+	t('calendar.dayTue'),
+	t('calendar.dayWed'),
+	t('calendar.dayThu'),
+	t('calendar.dayFri'),
+	t('calendar.daySat'),
 ])
 
 interface CalendarDay {
@@ -337,6 +358,10 @@ const currentMonthLeaves = computed(() => {
 		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 })
 
+const currentMonthLeaveSummaries = computed(() =>
+	summarizeLeavesByEmployee(currentMonthLeaves.value, LEAVE_AGENT_FALLBACK),
+)
+
 const getDayHolidays = (day: CalendarDay): Holiday[] => {
 	return props.holidays.filter((h) => h.date === day.fullDate)
 }
@@ -372,42 +397,11 @@ const formatDayNameShort = (dateStr: string): string => {
 
 // Get agent display text for a leave (names only - for calendar cell)
 const getAgentDisplay = (leave: EmployeeLeave): string => {
-	const parts: string[] = []
-
-	// Add agent details (from selected employees)
-	if (leave.agent_details && leave.agent_details.length > 0) {
-		parts.push(...leave.agent_details.map((a) => a.name))
-	}
-
-	// Add custom agent names
-	if (leave.agent_names) {
-		parts.push(leave.agent_names)
-	}
-
-	return parts.join(', ')
+	return getLeaveAgentDisplay(leave, LEAVE_AGENT_FALLBACK)
 }
 
-// Get agent display with full details (name, emp_id, dept_code) - for list section
-const getAgentDisplayWithDetails = (leave: EmployeeLeave): string => {
-	const parts: string[] = []
-
-	// Add agent details with emp_id and dept_code
-	if (leave.agent_details && leave.agent_details.length > 0) {
-		parts.push(
-			...leave.agent_details.map((a) => {
-				let display = a.name
-				if (a.emp_id) display += ` (${a.emp_id})`
-				return display
-			}),
-		)
-	}
-
-	// Add custom agent names
-	if (leave.agent_names) {
-		parts.push(leave.agent_names)
-	}
-
-	return parts.join('; ')
+const formatSummaryDates = (dates: string[]): string => {
+	return formatLeaveSummaryDates(dates, dateWeekdayLabels.value, 4)
 }
 
 // Multi-day leave span logic remove due to non-usage
@@ -521,6 +515,10 @@ const handleWeekClick = (week: CalendarWeek) => {
 let draggedLeave: EmployeeLeave | null = null
 
 const handleDragStart = (event: DragEvent, leave: EmployeeLeave) => {
+	if (!props.canManageLeave(leave)) {
+		draggedLeave = null
+		return
+	}
 	draggedLeave = leave
 	if (event.dataTransfer) {
 		event.dataTransfer.effectAllowed = 'move'

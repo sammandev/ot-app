@@ -1,4 +1,8 @@
+from collections import OrderedDict
+
+from django.conf import settings
 from django.db import models
+from django.db.utils import IntegrityError
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -7,6 +11,7 @@ from .models import (
     BoardPresence,
     CalendarEvent,
     Department,
+    Document,
     Employee,
     EmployeeLeave,
     Holiday,
@@ -32,6 +37,200 @@ from .models import (
     UserActivityLog,
     UserReport,
 )
+from .services.leave_notification_service import (
+    ALLOWED_LEAVE_NOTIFICATION_TEMPLATE_VARIABLES,
+    find_unsupported_template_variables,
+)
+
+
+def normalize_external_leave_agents(value):
+    if value in (None, ""):
+        return []
+
+    if not isinstance(value, list):
+        raise serializers.ValidationError("External agents must be provided as an array.")
+
+    normalized = []
+    seen = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise serializers.ValidationError("Each external agent must be an object.")
+
+        username = str(item.get("username") or "").strip()
+        email = str(item.get("email") or "").strip().lower()
+        worker_id = str(item.get("worker_id") or "").strip()
+        site = str(item.get("site") or "").strip()
+        source = str(item.get("source") or "external_lookup").strip() or "external_lookup"
+
+        if not email:
+            raise serializers.ValidationError("Each external agent must include an email address.")
+        if not worker_id and not email:
+            raise serializers.ValidationError("Each external agent must include a worker_id or email.")
+
+        if not username:
+            username = email or worker_id
+
+        dedupe_key = worker_id.lower() if worker_id else email
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+
+        normalized.append(
+            {
+                "username": username,
+                "email": email,
+                "worker_id": worker_id,
+                "site": site,
+                "source": source,
+            }
+        )
+
+    return normalized
+
+
+def normalize_manual_leave_agent_names(value):
+    if value in (None, ""):
+        return []
+
+    if isinstance(value, str):
+        raw_items = value.split(",")
+    elif isinstance(value, list):
+        raw_items = value
+    else:
+        raise serializers.ValidationError("Manual agents must be provided as a comma-separated string or array.")
+
+    normalized = []
+    seen = set()
+    for item in raw_items:
+        name = str(item or "").strip()
+        if not name:
+            continue
+        dedupe_key = " ".join(name.lower().split())
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        normalized.append(name)
+
+    return normalized
+
+
+def format_manual_leave_agent_names(value):
+    normalized = normalize_manual_leave_agent_names(value)
+    return ", ".join(normalized) if normalized else None
+
+
+def uses_unified_leave_agents_payload(value):
+    return isinstance(value, list) and any(isinstance(item, dict) for item in value)
+
+
+def normalize_unified_leave_agents(value):
+    if value in (None, ""):
+        return {"employees": [], "external_agents": [], "manual_names": []}
+
+    if not isinstance(value, list):
+        raise serializers.ValidationError("Agents must be provided as an array.")
+
+    employee_ids = []
+    seen_employee_ids = set()
+    external_candidates = []
+    manual_names = []
+
+    for item in value:
+        if isinstance(item, bool):
+            raise serializers.ValidationError("Boolean values are not valid agents.")
+
+        if isinstance(item, int):
+            if item <= 0:
+                raise serializers.ValidationError("Employee agent ids must be positive integers.")
+            if item not in seen_employee_ids:
+                seen_employee_ids.add(item)
+                employee_ids.append(item)
+            continue
+
+        if not isinstance(item, dict):
+            raise serializers.ValidationError("Each agent must be an object.")
+
+        agent_type = str(item.get("type") or "").strip().lower()
+        if not agent_type:
+            if item.get("employee_id") is not None or item.get("id") is not None:
+                agent_type = "employee"
+            elif item.get("email") or item.get("worker_id") or item.get("source") == "external_lookup":
+                agent_type = "external"
+            elif item.get("name"):
+                agent_type = "manual"
+
+        if agent_type == "employee":
+            raw_employee_id = item.get("employee_id", item.get("id"))
+            if isinstance(raw_employee_id, bool):
+                raise serializers.ValidationError("Employee agent ids must be positive integers.")
+            try:
+                employee_id = int(raw_employee_id)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError("Employee agents must include a valid employee_id.")
+            if employee_id <= 0:
+                raise serializers.ValidationError("Employee agent ids must be positive integers.")
+            if employee_id not in seen_employee_ids:
+                seen_employee_ids.add(employee_id)
+                employee_ids.append(employee_id)
+            continue
+
+        if agent_type == "external":
+            external_candidates.append(item)
+            continue
+
+        if agent_type == "manual":
+            manual_names.append(str(item.get("name") or "").strip())
+            continue
+
+        raise serializers.ValidationError("Each agent must use type employee, external, or manual.")
+
+    employee_lookup = {
+        employee.id: employee
+        for employee in Employee.objects.filter(id__in=employee_ids, is_enabled=True).select_related("department")
+    }
+    missing_employee_ids = [employee_id for employee_id in employee_ids if employee_id not in employee_lookup]
+    if missing_employee_ids:
+        raise serializers.ValidationError(
+            f"Unknown or disabled employee agent ids: {', '.join(str(employee_id) for employee_id in missing_employee_ids)}."
+        )
+
+    return {
+        "employees": [employee_lookup[employee_id] for employee_id in employee_ids],
+        "external_agents": normalize_external_leave_agents(external_candidates),
+        "manual_names": normalize_manual_leave_agent_names(manual_names),
+    }
+
+
+def build_unified_leave_agents(employee_agents, external_agents, manual_agent_names):
+    unified_agents = []
+
+    for employee in employee_agents:
+        unified_agents.append(
+            {
+                "type": "employee",
+                "employee_id": employee.id,
+                "name": employee.name,
+                "emp_id": employee.emp_id,
+                "dept_code": employee.department.code if employee.department else None,
+            }
+        )
+
+    for agent in normalize_external_leave_agents(external_agents):
+        unified_agents.append(
+            {
+                "type": "external",
+                "username": agent["username"],
+                "email": agent["email"],
+                "worker_id": agent["worker_id"],
+                "site": agent["site"],
+                "source": agent["source"],
+            }
+        )
+
+    for name in normalize_manual_leave_agent_names(manual_agent_names):
+        unified_agents.append({"type": "manual", "name": name})
+
+    return unified_agents
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -273,11 +472,13 @@ class EmployeeLeaveSerializer(serializers.ModelSerializer):
     employee_emp_id = serializers.CharField(source="employee.emp_id", read_only=True)
     employee_dept_code = serializers.CharField(source="employee.department.code", read_only=True, allow_null=True)
     created_by_username = serializers.CharField(source="created_by.username", read_only=True, allow_null=True)
+    batch_key = serializers.UUIDField(read_only=True, allow_null=True)
 
-    # Agents - can be IDs or names
-    agents = serializers.PrimaryKeyRelatedField(many=True, queryset=Employee.objects.filter(is_enabled=True), required=False)
+    agents = serializers.JSONField(required=False, write_only=True)
     agent_ids = serializers.SerializerMethodField()
     agent_details = serializers.SerializerMethodField()
+    external_agents = serializers.JSONField(required=False, write_only=True)
+    agent_names = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
 
     class Meta:
         model = EmployeeLeave
@@ -288,17 +489,61 @@ class EmployeeLeaveSerializer(serializers.ModelSerializer):
             "employee_emp_id",
             "employee_dept_code",
             "date",
+            "batch_key",
             "notes",
             "agents",
             "agent_ids",
             "agent_details",
+            "external_agents",
             "agent_names",
             "created_by",
             "created_by_username",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "employee_name", "employee_emp_id", "employee_dept_code", "agent_ids", "agent_details", "created_by", "created_by_username", "created_at", "updated_at"]
+        read_only_fields = ["id", "employee_name", "employee_emp_id", "employee_dept_code", "batch_key", "agent_ids", "agent_details", "created_by", "created_by_username", "created_at", "updated_at"]
+
+    def validate_agents(self, value):
+        return normalize_unified_leave_agents(value)
+
+    def validate_external_agents(self, value):
+        return normalize_external_leave_agents(value)
+
+    def validate_agent_names(self, value):
+        return format_manual_leave_agent_names(value)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        raw_agents = getattr(self, "initial_data", {}).get("agents", serializers.empty)
+        parsed_agents = attrs.get("agents", serializers.empty)
+        legacy_external_agents = attrs.get("external_agents", serializers.empty)
+        legacy_agent_names = attrs.get("agent_names", serializers.empty)
+
+        if parsed_agents is not serializers.empty:
+            if not uses_unified_leave_agents_payload(raw_agents):
+                external_candidates = [*parsed_agents["external_agents"]]
+                if legacy_external_agents is not serializers.empty:
+                    external_candidates.extend(legacy_external_agents)
+                manual_candidates = [*parsed_agents["manual_names"]]
+                if legacy_agent_names is not serializers.empty:
+                    manual_candidates.extend(normalize_manual_leave_agent_names(legacy_agent_names))
+                parsed_agents = {
+                    **parsed_agents,
+                    "external_agents": normalize_external_leave_agents(external_candidates),
+                    "manual_names": normalize_manual_leave_agent_names(manual_candidates),
+                }
+
+            attrs["agents"] = parsed_agents["employees"]
+            attrs["external_agents"] = parsed_agents["external_agents"]
+            attrs["agent_names"] = format_manual_leave_agent_names(parsed_agents["manual_names"])
+        else:
+            if legacy_external_agents is not serializers.empty:
+                attrs["external_agents"] = normalize_external_leave_agents(legacy_external_agents)
+            if legacy_agent_names is not serializers.empty:
+                attrs["agent_names"] = format_manual_leave_agent_names(legacy_agent_names)
+
+        return attrs
 
     def get_agent_ids(self, obj):
         # Use prefetched agents to avoid extra query
@@ -307,6 +552,11 @@ class EmployeeLeaveSerializer(serializers.ModelSerializer):
     def get_agent_details(self, obj):
         # Use prefetched agents (with select_related department) to avoid N+1
         return [{"id": a.id, "name": a.name, "emp_id": a.emp_id, "dept_code": a.department.code if a.department else None} for a in obj.agents.all()]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["agents"] = build_unified_leave_agents(instance.agents.all(), instance.external_agents, instance.agent_names)
+        return data
 
     def create(self, validated_data):
         agents = validated_data.pop("agents", [])
@@ -323,6 +573,149 @@ class EmployeeLeaveSerializer(serializers.ModelSerializer):
         if agents is not None:
             instance.agents.set(agents)
         return instance
+
+
+class EmployeeLeaveBatchCreateSerializer(serializers.Serializer):
+    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.filter(is_enabled=True))
+    dates = serializers.ListField(child=serializers.DateField(), allow_empty=False)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    agents = serializers.JSONField(required=False)
+    external_agents = serializers.JSONField(required=False)
+    agent_names = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_agents(self, value):
+        return normalize_unified_leave_agents(value)
+
+    def validate_external_agents(self, value):
+        return normalize_external_leave_agents(value)
+
+    def validate_agent_names(self, value):
+        return format_manual_leave_agent_names(value)
+
+    def validate_dates(self, value):
+        unique_dates = list(OrderedDict((date_value, True) for date_value in value).keys())
+        if not unique_dates:
+            raise serializers.ValidationError("At least one leave date is required.")
+        return unique_dates
+
+    def validate(self, attrs):
+        raw_agents = getattr(self, "initial_data", {}).get("agents", serializers.empty)
+        parsed_agents = attrs.get("agents", serializers.empty)
+        legacy_external_agents = attrs.get("external_agents", serializers.empty)
+        legacy_agent_names = attrs.get("agent_names", serializers.empty)
+
+        if parsed_agents is not serializers.empty:
+            if not uses_unified_leave_agents_payload(raw_agents):
+                external_candidates = [*parsed_agents["external_agents"]]
+                if legacy_external_agents is not serializers.empty:
+                    external_candidates.extend(legacy_external_agents)
+                manual_candidates = [*parsed_agents["manual_names"]]
+                if legacy_agent_names is not serializers.empty:
+                    manual_candidates.extend(normalize_manual_leave_agent_names(legacy_agent_names))
+                parsed_agents = {
+                    **parsed_agents,
+                    "external_agents": normalize_external_leave_agents(external_candidates),
+                    "manual_names": normalize_manual_leave_agent_names(manual_candidates),
+                }
+
+            attrs["agents"] = parsed_agents["employees"]
+            attrs["external_agents"] = parsed_agents["external_agents"]
+            attrs["agent_names"] = format_manual_leave_agent_names(parsed_agents["manual_names"])
+        else:
+            attrs["agents"] = []
+            attrs["external_agents"] = normalize_external_leave_agents(legacy_external_agents) if legacy_external_agents is not serializers.empty else []
+            attrs["agent_names"] = (
+                format_manual_leave_agent_names(legacy_agent_names)
+                if legacy_agent_names is not serializers.empty
+                else None
+            )
+
+        employee = attrs["employee"]
+        dates = attrs["dates"]
+        existing_dates = list(
+            EmployeeLeave.objects.filter(employee=employee, date__in=dates)
+            .order_by("date")
+            .values_list("date", flat=True)
+        )
+        if existing_dates:
+            formatted_dates = ", ".join(date_value.isoformat() for date_value in existing_dates)
+            raise serializers.ValidationError({"dates": f"Leave already exists for {employee.name} on: {formatted_dates}."})
+        return attrs
+
+
+class EmployeeLeaveBatchUpdateSerializer(serializers.Serializer):
+    leave_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+    employee = serializers.PrimaryKeyRelatedField(queryset=Employee.objects.filter(is_enabled=True))
+    dates = serializers.ListField(child=serializers.DateField(), allow_empty=False)
+    notes = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    agents = serializers.JSONField(required=False)
+    external_agents = serializers.JSONField(required=False)
+    agent_names = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_agents(self, value):
+        return normalize_unified_leave_agents(value)
+
+    def validate_external_agents(self, value):
+        return normalize_external_leave_agents(value)
+
+    def validate_agent_names(self, value):
+        return format_manual_leave_agent_names(value)
+
+    def validate_leave_ids(self, value):
+        unique_ids = list(OrderedDict((leave_id, True) for leave_id in value).keys())
+        if not unique_ids:
+            raise serializers.ValidationError("At least one leave record is required for batch update.")
+        return unique_ids
+
+    def validate_dates(self, value):
+        unique_dates = list(OrderedDict((date_value, True) for date_value in value).keys())
+        if not unique_dates:
+            raise serializers.ValidationError("At least one leave date is required.")
+        return unique_dates
+
+    def validate(self, attrs):
+        raw_agents = getattr(self, "initial_data", {}).get("agents", serializers.empty)
+        parsed_agents = attrs.get("agents", serializers.empty)
+        legacy_external_agents = attrs.get("external_agents", serializers.empty)
+        legacy_agent_names = attrs.get("agent_names", serializers.empty)
+
+        if parsed_agents is not serializers.empty:
+            if not uses_unified_leave_agents_payload(raw_agents):
+                external_candidates = [*parsed_agents["external_agents"]]
+                if legacy_external_agents is not serializers.empty:
+                    external_candidates.extend(legacy_external_agents)
+                manual_candidates = [*parsed_agents["manual_names"]]
+                if legacy_agent_names is not serializers.empty:
+                    manual_candidates.extend(normalize_manual_leave_agent_names(legacy_agent_names))
+                parsed_agents = {
+                    **parsed_agents,
+                    "external_agents": normalize_external_leave_agents(external_candidates),
+                    "manual_names": normalize_manual_leave_agent_names(manual_candidates),
+                }
+
+            attrs["agents"] = parsed_agents["employees"]
+            attrs["external_agents"] = parsed_agents["external_agents"]
+            attrs["agent_names"] = format_manual_leave_agent_names(parsed_agents["manual_names"])
+        else:
+            attrs["agents"] = []
+            attrs["external_agents"] = normalize_external_leave_agents(legacy_external_agents) if legacy_external_agents is not serializers.empty else []
+            attrs["agent_names"] = (
+                format_manual_leave_agent_names(legacy_agent_names)
+                if legacy_agent_names is not serializers.empty
+                else None
+            )
+
+        return attrs
+
+
+class EmployeeLeaveBatchDeleteSerializer(serializers.Serializer):
+    leave_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False)
+
+    def validate_leave_ids(self, value):
+        unique_ids = list(OrderedDict((leave_id, True) for leave_id in value).keys())
+        if not unique_ids:
+            raise serializers.ValidationError("At least one leave record is required for batch delete.")
+        return unique_ids
 
 
 class OvertimeBreakSerializer(serializers.ModelSerializer):
@@ -446,7 +839,13 @@ class OvertimeSerializer(serializers.ModelSerializer):
         # Note: grouped Excel export is handled in OvertimeRequest.save(); serializer remains thin.
         self._populate_denormalized_fields(validated_data)
         breaks_data = validated_data.pop("breaks", [])
-        overtime_request = OvertimeRequest.objects.create(**validated_data)
+
+        try:
+            overtime_request = OvertimeRequest.objects.create(**validated_data)
+        except IntegrityError as exc:
+            if "unique_overtime_employee_project_date" in str(exc):
+                raise serializers.ValidationError({"non_field_errors": ["An overtime request already exists for this employee, project, and date."]}) from exc
+            raise
 
         for break_data in breaks_data:
             OvertimeBreak.objects.create(overtime_request=overtime_request, **break_data)
@@ -461,7 +860,13 @@ class OvertimeSerializer(serializers.ModelSerializer):
         # Update the main instance fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
+
+        try:
+            instance.save()
+        except IntegrityError as exc:
+            if "unique_overtime_employee_project_date" in str(exc):
+                raise serializers.ValidationError({"non_field_errors": ["An overtime request already exists for this employee, project, and date."]}) from exc
+            raise
 
         # Handle breaks - replace all breaks
         instance.breaks.all().delete()
@@ -524,6 +929,300 @@ class OvertimeRegulationDocumentSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class TagListField(serializers.Field):
+    """Expose pipe-delimited tags as a normalized string list."""
+
+    def to_representation(self, value):
+        if not value:
+            return []
+        return [tag for tag in value.split("|") if tag]
+
+    def to_internal_value(self, data):
+        if data in (None, ""):
+            return ""
+
+        if isinstance(data, str):
+            normalized = data.strip()
+            if normalized.startswith("["):
+                try:
+                    import json
+
+                    data = json.loads(normalized)
+                except json.JSONDecodeError as exc:
+                    raise serializers.ValidationError("Tags must be a list of strings.") from exc
+            else:
+                data = [part.strip() for part in normalized.split(",") if part.strip()]
+
+        if not isinstance(data, list):
+            raise serializers.ValidationError("Tags must be a list of strings.")
+
+        normalized_tags = []
+        seen = set()
+        for item in data:
+            tag = str(item).strip().lower()
+            if not tag or tag in seen:
+                continue
+            seen.add(tag)
+            normalized_tags.append(tag)
+
+        return f"|{'|'.join(normalized_tags)}|" if normalized_tags else ""
+
+
+class DocumentListSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True)
+    tags = TagListField(required=False)
+    file_url = serializers.SerializerMethodField()
+    host = serializers.SerializerMethodField()
+    can_preview = serializers.SerializerMethodField()
+    preview_type = serializers.SerializerMethodField()
+    is_external = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Document
+        fields = [
+            "id",
+            "title",
+            "source_type",
+            "category",
+            "tags",
+            "is_pinned",
+            "original_filename",
+            "stored_file_size",
+            "mime_type",
+            "extension",
+            "created_by",
+            "created_by_name",
+            "created_at",
+            "updated_at",
+            "file_url",
+            "external_url",
+            "host",
+            "can_preview",
+            "preview_type",
+            "is_external",
+            "link_site_name",
+            "metadata_status",
+            "metadata_fetched_at",
+        ]
+        read_only_fields = fields
+
+    def get_file_url(self, obj):
+        if obj.file:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.file.url)
+            return obj.file.url
+        return None
+
+    def get_host(self, obj):
+        from urllib.parse import urlparse
+
+        url = obj.normalized_url or obj.external_url
+        return urlparse(url).netloc if url else ""
+
+    def get_can_preview(self, obj):
+        return obj.can_preview
+
+    def get_preview_type(self, obj):
+        return obj.preview_type
+
+    def get_is_external(self, obj):
+        return obj.source_type == Document.SourceType.LINK
+
+
+class DocumentDetailSerializer(DocumentListSerializer):
+    class Meta(DocumentListSerializer.Meta):
+        fields = DocumentListSerializer.Meta.fields + [
+            "description",
+            "normalized_url",
+            "updated_by",
+            "link_title",
+            "link_description",
+            "link_favicon_url",
+            "link_image_url",
+            "metadata_error",
+        ]
+        read_only_fields = fields
+
+
+class DocumentWriteSerializer(serializers.ModelSerializer):
+    MAX_UPLOAD_SIZE = 25 * 1024 * 1024
+
+    tags = TagListField(required=False)
+    title = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    external_url = serializers.URLField(required=False, allow_blank=True, max_length=1000)
+
+    class Meta:
+        model = Document
+        fields = [
+            "id",
+            "title",
+            "description",
+            "source_type",
+            "file",
+            "external_url",
+            "category",
+            "tags",
+            "is_pinned",
+        ]
+        read_only_fields = ["id"]
+
+    def validate_file(self, value):
+        if not value:
+            return value
+        if value.size <= 0:
+            raise serializers.ValidationError("Uploaded file is empty.")
+        if value.size > self.MAX_UPLOAD_SIZE:
+            raise serializers.ValidationError(
+                f"File size exceeds {self.MAX_UPLOAD_SIZE // (1024 * 1024)} MB limit.",
+            )
+        return value
+
+    def validate(self, attrs):
+        source_type = attrs.get("source_type")
+        file = attrs.get("file")
+        external_url = attrs.get("external_url")
+
+        if self.instance:
+            source_type = source_type or self.instance.source_type
+            if file is None:
+                file = self.instance.file
+            if external_url is None:
+                external_url = self.instance.external_url
+
+        has_file = bool(file)
+        has_url = bool(str(external_url or "").strip())
+
+        if source_type == Document.SourceType.FILE and not has_file:
+            raise serializers.ValidationError({"file": "A file is required when source type is file."})
+        if source_type == Document.SourceType.LINK and not has_url:
+            raise serializers.ValidationError({"external_url": "A URL is required when source type is link."})
+        if has_file and has_url:
+            raise serializers.ValidationError("Provide either a file or a URL, not both.")
+
+        title = (attrs.get("title") or "").strip()
+        if not title:
+            if source_type == Document.SourceType.FILE and file:
+                attrs["title"] = getattr(file, "name", "Document").split("/")[-1]
+            elif source_type == Document.SourceType.LINK and external_url:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(str(external_url).strip())
+                attrs["title"] = parsed.netloc or parsed.path or "Link"
+        else:
+            attrs["title"] = title
+
+        if "description" in attrs:
+            attrs["description"] = attrs["description"].strip()
+        if "category" in attrs:
+            attrs["category"] = attrs["category"].strip()
+        if has_url:
+            attrs["external_url"] = self._normalize_url(str(external_url).strip())
+
+        return attrs
+
+    @staticmethod
+    def _normalize_url(url):
+        from urllib.parse import urlsplit, urlunsplit
+
+        parsed = urlsplit(url)
+        normalized_netloc = parsed.netloc.lower()
+        normalized_scheme = parsed.scheme.lower()
+        normalized_path = parsed.path or ""
+        normalized_query = parsed.query or ""
+        return urlunsplit((normalized_scheme, normalized_netloc, normalized_path, normalized_query, ""))
+
+    @staticmethod
+    def _apply_file_metadata(validated_data, uploaded_file):
+        import mimetypes
+
+        validated_data["source_type"] = Document.SourceType.FILE
+        validated_data["normalized_url"] = ""
+        validated_data["external_url"] = ""
+        validated_data["original_filename"] = uploaded_file.name.split("/")[-1]
+        validated_data["stored_file_size"] = uploaded_file.size
+        mime_type = getattr(uploaded_file, "content_type", "") or mimetypes.guess_type(uploaded_file.name)[0] or ""
+        validated_data["mime_type"] = mime_type
+        extension = uploaded_file.name.rsplit(".", 1)[-1].lower() if "." in uploaded_file.name else ""
+        validated_data["extension"] = extension
+
+    @staticmethod
+    def _apply_link_metadata(validated_data, url):
+        validated_data["source_type"] = Document.SourceType.LINK
+        validated_data["normalized_url"] = url
+        validated_data["external_url"] = url
+        validated_data["file"] = None
+        validated_data["original_filename"] = ""
+        validated_data["stored_file_size"] = None
+        validated_data["mime_type"] = ""
+        validated_data["extension"] = ""
+
+    @staticmethod
+    def _reset_link_metadata(validated_data, url=""):
+        from .services.document_metadata import fetch_link_metadata
+
+        if not url:
+            validated_data["link_title"] = ""
+            validated_data["link_description"] = ""
+            validated_data["link_site_name"] = ""
+            validated_data["link_favicon_url"] = ""
+            validated_data["link_image_url"] = ""
+            validated_data["metadata_status"] = Document.MetadataStatus.PENDING
+            validated_data["metadata_error"] = ""
+            validated_data["metadata_fetched_at"] = None
+            return
+
+        validated_data.update(fetch_link_metadata(url))
+
+    def create(self, validated_data):
+        uploaded_file = validated_data.get("file")
+        external_url = validated_data.get("external_url", "")
+
+        if uploaded_file:
+            self._apply_file_metadata(validated_data, uploaded_file)
+            self._reset_link_metadata(validated_data)
+        else:
+            self._apply_link_metadata(validated_data, external_url)
+            self._reset_link_metadata(validated_data, external_url)
+
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        old_file = instance.file if instance.file else None
+        uploaded_file = validated_data.get("file")
+        external_url = validated_data.get("external_url")
+        source_type = validated_data.get("source_type", instance.source_type)
+
+        if source_type == Document.SourceType.FILE:
+            if uploaded_file:
+                self._apply_file_metadata(validated_data, uploaded_file)
+            else:
+                validated_data["external_url"] = ""
+                validated_data["normalized_url"] = ""
+            self._reset_link_metadata(validated_data)
+        else:
+            effective_url = str(external_url if external_url is not None else instance.external_url).strip()
+            self._apply_link_metadata(validated_data, effective_url)
+            existing_url = (instance.normalized_url or instance.external_url or "").strip()
+            if instance.source_type != Document.SourceType.LINK or effective_url != existing_url:
+                self._reset_link_metadata(validated_data, effective_url)
+
+        document = super().update(instance, validated_data)
+
+        should_remove_old_file = old_file and (
+            source_type == Document.SourceType.LINK or uploaded_file is not None
+        )
+        if should_remove_old_file:
+            old_name = getattr(old_file, "name", "")
+            current_name = getattr(document.file, "name", "") if document.file else ""
+            if old_name and old_name != current_name:
+                old_file.delete(save=False)
+
+        return document
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     """Serializer for text notifications"""
 
@@ -571,9 +1270,155 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             "event_reminders_disabled_users",
             "tab_icon",
             "tab_icon_url",
+            "notification_email_host",
+            "notification_email_port",
+            "leave_notification_recipients",
+            "leave_notification_sender_name",
+            "leave_notification_recipient_mode",
+            "leave_notification_department_recipients",
+            "leave_notification_custom_recipients",
+            "leave_notification_subject_template",
+            "leave_notification_body_template",
+            "leave_notification_footer_template",
             "updated_at",
         ]
         read_only_fields = ["updated_at", "version", "build_date", "tab_icon_url"]
+
+    def _allowed_notification_domain(self):
+        from_email = getattr(settings, "LEAVE_NOTIFICATION_FROM_EMAIL", "")
+        if "@" in from_email:
+            return from_email.split("@", 1)[1].lower()
+        return "pegatroncorp.com"
+
+    def _validate_recipient_list(self, value, *, field_name):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError(f"{field_name} must be a list of email addresses.")
+
+        validator = serializers.EmailField()
+        normalized = []
+        allowed_domain = self._allowed_notification_domain()
+        for raw_email in value:
+            if not isinstance(raw_email, str):
+                raise serializers.ValidationError("Each recipient must be a valid email address.")
+            email = raw_email.strip().lower()
+            if not email:
+                continue
+            if not email.endswith(f"@{allowed_domain}"):
+                raise serializers.ValidationError(f"All recipients must use the @{allowed_domain} domain.")
+            validator.run_validation(email)
+            normalized.append(email)
+
+        return list(OrderedDict((email, True) for email in normalized).keys())
+
+    def _validate_template_field(self, value, *, field_label):
+        template = (value or "").strip()
+        if not template:
+            raise serializers.ValidationError(f"{field_label} cannot be empty.")
+
+        unsupported = find_unsupported_template_variables(template)
+        if unsupported:
+            allowed = ", ".join(sorted(ALLOWED_LEAVE_NOTIFICATION_TEMPLATE_VARIABLES))
+            invalid = ", ".join(unsupported)
+            raise serializers.ValidationError(f"Unsupported template variables: {invalid}. Allowed variables: {allowed}.")
+        return template
+
+    def validate_notification_email_host(self, value):
+        host = (value or "").strip()
+        if not host:
+            raise serializers.ValidationError("Notification email host cannot be empty.")
+        return host
+
+    def validate_notification_email_port(self, value):
+        if value is None:
+            raise serializers.ValidationError("Notification email port is required.")
+        if value < 1 or value > 65535:
+            raise serializers.ValidationError("Notification email port must be between 1 and 65535.")
+        return value
+
+    def validate_leave_notification_recipients(self, value):
+        return self._validate_recipient_list(value, field_name="Leave notification recipients")
+
+    def validate_leave_notification_sender_name(self, value):
+        sender_name = (value or "").strip()
+        if not sender_name:
+            raise serializers.ValidationError("Leave notification sender name cannot be empty.")
+        return sender_name
+
+    def validate_leave_notification_custom_recipients(self, value):
+        return self._validate_recipient_list(value, field_name="Leave notification custom recipients")
+
+    def validate_leave_notification_department_recipients(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Department recipients must be a list of department recipient mappings.")
+
+        department_lookup = {
+            department.code.upper(): department
+            for department in Department.objects.filter(is_enabled=True)
+            if department.code
+        }
+        normalized = []
+        seen_department_codes = set()
+
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each department recipient entry must be an object.")
+
+            department_code = str(item.get("department_code") or "").strip().upper()
+            if not department_code:
+                raise serializers.ValidationError("Each department recipient entry must include a department_code.")
+            if department_code in seen_department_codes:
+                raise serializers.ValidationError(f"Duplicate department recipient entry for {department_code}.")
+            if department_code not in department_lookup:
+                raise serializers.ValidationError(f"Unknown or disabled department code: {department_code}.")
+
+            recipients = self._validate_recipient_list(item.get("recipients", []), field_name=f"Recipients for {department_code}")
+            normalized.append({"department_code": department_code, "recipients": recipients})
+            seen_department_codes.add(department_code)
+
+        return normalized
+
+    def validate_leave_notification_subject_template(self, value):
+        return self._validate_template_field(value, field_label="Leave notification subject template")
+
+    def validate_leave_notification_body_template(self, value):
+        return self._validate_template_field(value, field_label="Leave notification body template")
+
+    def validate_leave_notification_footer_template(self, value):
+        return self._validate_template_field(value, field_label="Leave notification footer template")
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        instance = getattr(self, "instance", None)
+
+        mode = attrs.get(
+            "leave_notification_recipient_mode",
+            getattr(instance, "leave_notification_recipient_mode", "global"),
+        )
+        global_recipients = attrs.get(
+            "leave_notification_recipients",
+            getattr(instance, "leave_notification_recipients", []),
+        )
+        department_recipients = attrs.get(
+            "leave_notification_department_recipients",
+            getattr(instance, "leave_notification_department_recipients", []),
+        )
+        custom_recipients = attrs.get(
+            "leave_notification_custom_recipients",
+            getattr(instance, "leave_notification_custom_recipients", []),
+        )
+
+        if mode == "global" and not global_recipients:
+            raise serializers.ValidationError({"leave_notification_recipients": "Global mode requires at least one recipient."})
+        if mode == "department" and not department_recipients:
+            raise serializers.ValidationError({"leave_notification_department_recipients": "Department mode requires at least one department recipient mapping."})
+        if mode == "custom" and not custom_recipients:
+            raise serializers.ValidationError({"leave_notification_custom_recipients": "Custom mode requires at least one recipient."})
+
+        return attrs
 
     def get_tab_icon_url(self, obj):
         if obj.tab_icon:
@@ -819,7 +1664,7 @@ class TaskGroupSerializer(serializers.ModelSerializer):
         # Use annotated value from queryset if available
         if hasattr(obj, "_task_count"):
             return obj._task_count
-        return obj.tasks.count()
+        return obj.tasks.values("id").distinct().count()
 
     def validate_color(self, value):
         if value and not value.startswith("#"):
@@ -866,6 +1711,7 @@ class TaskReminderSerializer(serializers.ModelSerializer):
 class PurchaseRequestSerializer(serializers.ModelSerializer):
     """Serializer for purchase requests"""
 
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True, allow_null=True)
     owner_employee_name = serializers.CharField(source="owner_employee.name", read_only=True, allow_null=True)
     status_display = serializers.CharField(source="get_status_display", read_only=True)
 
@@ -875,6 +1721,8 @@ class PurchaseRequestSerializer(serializers.ModelSerializer):
             "id",
             "request_date",
             "owner",
+            "created_by",
+            "created_by_username",
             "owner_employee",
             "owner_employee_name",
             "doc_id",
@@ -896,12 +1744,13 @@ class PurchaseRequestSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "owner_employee_name", "status_display", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "created_by_username", "owner_employee_name", "status_display", "created_at", "updated_at"]
 
 
 class AssetSerializer(serializers.ModelSerializer):
     """Serializer for assets"""
 
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True, allow_null=True)
     department_code = serializers.CharField(source="department.code", read_only=True, allow_null=True)
     department_name = serializers.CharField(source="department.name", read_only=True, allow_null=True)
 
@@ -909,6 +1758,8 @@ class AssetSerializer(serializers.ModelSerializer):
         model = Asset
         fields = [
             "id",
+            "created_by",
+            "created_by_username",
             "company_code",
             "asset_id",
             "fixed_asset_id",
@@ -970,17 +1821,18 @@ class AssetSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "department_code", "department_name", "created_at", "updated_at"]
+        read_only_fields = ["id", "created_by", "created_by_username", "department_code", "department_name", "created_at", "updated_at"]
 
 
 class AssetSummarySerializer(serializers.ModelSerializer):
     """Simplified serializer for asset lists"""
 
+    created_by_username = serializers.CharField(source="created_by.username", read_only=True, allow_null=True)
     department_code = serializers.CharField(source="department.code", read_only=True, allow_null=True)
 
     class Meta:
         model = Asset
-        fields = ["id", "asset_id", "part_number", "product_name", "spec", "quantity", "receive_date", "status", "cost_center", "keeper_dept", "department", "department_code", "keeper_name"]
+        fields = ["id", "created_by", "created_by_username", "asset_id", "part_number", "product_name", "spec", "quantity", "receive_date", "status", "cost_center", "keeper_dept", "department", "department_code", "keeper_name"]
 
 
 # ---------------------------------------------------------------------------

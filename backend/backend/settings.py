@@ -152,6 +152,7 @@ CORS_ALLOW_HEADERS = [
 ]
 
 CORS_ORIGIN_ALLOW_ALL = False  # Never allow all origins; use CORS_ALLOWED_ORIGINS whitelist
+FRONTEND_BASE_URL = (os.environ.get("FRONTEND_BASE_URL") or "http://localhost:3333").rstrip("/")
 
 # REST Framework Configuration
 REST_FRAMEWORK = {
@@ -315,6 +316,17 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "mediafiles"
 
+# Email configuration
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "mail.pegatroncorp.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "False") == "True"
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False") == "True"
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+LEAVE_NOTIFICATION_FROM_EMAIL = os.environ.get("LEAVE_NOTIFICATION_FROM_EMAIL", "no-reply@pegatroncorp.com")
+
 # Security Headers (HTTP-only deployment, no SSL/HTTPS)
 SECURE_SSL_REDIRECT = False  # False for HTTP-only
 SESSION_COOKIE_SECURE = False  # False for HTTP-only
@@ -353,8 +365,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================================
 # Celery Configuration
 # ============================================================================
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/1")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
@@ -476,7 +488,7 @@ os.makedirs(os.path.join(BASE_DIR, "logs"), exist_ok=True)
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": os.environ.get("REDIS_CACHE_URL", "redis://localhost:6379/2"),
+        "LOCATION": os.environ.get("REDIS_CACHE_URL", "redis://localhost:6379/3"),
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
             "CONNECTION_POOL_KWARGS": {
@@ -531,7 +543,7 @@ if _use_redis_channels:
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [os.environ.get("REDIS_CHANNELS_URL", "redis://localhost:6379/3")],
+                "hosts": [os.environ.get("REDIS_CHANNELS_URL", "redis://localhost:6379/4")],
                 "capacity": 1500,
                 "expiry": 10,
             },

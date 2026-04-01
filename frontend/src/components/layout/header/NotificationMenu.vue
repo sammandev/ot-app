@@ -37,13 +37,17 @@
         </div>
       </div>
 
-      <div v-if="notifications.length === 0" class="flex items-center justify-center text-gray-400 py-8">
+      <div v-if="dropdownLoading && notifications.length === 0" class="flex items-center justify-center text-gray-400 py-8">
+        {{ t('common.loading') }}
+      </div>
+
+      <div v-else-if="notifications.length === 0" class="flex items-center justify-center text-gray-400 py-8">
         {{ t('header.noNotifications') }}
       </div>
 
       <ul v-else class="flex flex-col overflow-y-auto custom-scrollbar">
         <li v-for="notification in notifications" :key="notification.id" @click="handleItemClick(notification)">
-          <a class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 cursor-pointer"
+          <div class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 cursor-pointer"
             :class="{ 'bg-gray-50 dark:bg-white/5': !notification.is_read }">
             <span class="relative z-1 block h-10 w-10 flex-shrink-0">
               <span :class="getIconBgClass(notification.event_type)"
@@ -65,7 +69,7 @@
               </span>
 
               <!-- Meeting Link -->
-              <a v-if="notification.meeting_url" :href="notification.meeting_url" target="_blank" @click.stop
+              <a v-if="getSafeMeetingUrl(notification.meeting_url)" :href="getSafeMeetingUrl(notification.meeting_url) || '#'" target="_blank" rel="noopener noreferrer" @click.stop
                 class="inline-flex items-center gap-1 mt-1.5 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -100,7 +104,7 @@
                 </svg>
               </button>
             </span>
-          </a>
+          </div>
         </li>
       </ul>
 
@@ -121,6 +125,7 @@ import { RouterLink } from 'vue-router'
 import type { Notification } from '@/services/api/notification'
 import { useNotificationStore } from '@/stores/notification'
 import { formatFullLocalDateTime, timeAgo } from '@/utils/dateTime'
+import { toSafeExternalUrl } from '@/utils/safeUrl'
 
 const { t } = useI18n()
 const store = useNotificationStore()
@@ -129,7 +134,8 @@ const dropdownRef = ref<HTMLElement | null>(null)
 
 // Use store data - max 10 notifications in dropdown
 const unreadCount = computed(() => store.unreadCount)
-const notifications = computed(() => store.sortedNotifications.slice(0, 10))
+const dropdownLoading = computed(() => store.dropdownLoading)
+const notifications = computed(() => store.sortedDropdownNotifications.slice(0, 10))
 
 // Dynamic height based on notification count
 const dropdownHeight = computed(() => {
@@ -212,6 +218,8 @@ const handleArchive = async (notification: Notification) => {
 const handleDelete = async (notification: Notification) => {
 	await store.deleteNotification(notification.id)
 }
+
+const getSafeMeetingUrl = (url?: string | null) => toSafeExternalUrl(url)
 
 const handleViewAllClick = () => {
 	closeDropdown()

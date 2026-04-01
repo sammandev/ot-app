@@ -429,10 +429,12 @@ class EmployeeLeave(TimestampedModel):
 
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="leaves")
     date = models.DateField(help_text="Date of the leave")
+    batch_key = models.UUIDField(null=True, blank=True, db_index=True, editable=False, help_text="Stable identifier shared by leave dates created or updated together")
     notes = models.TextField(blank=True, null=True, help_text="Optional notes about the leave")
 
     # Agents - employees who will cover during leave
     agents = models.ManyToManyField(Employee, blank=True, related_name="covering_leaves", help_text="Employees assigned to cover during leave")
+    external_agents = models.JSONField(default=list, blank=True, help_text="Structured external agent records selected from external lookup")
     # Agent names for employees not in the system (free text)
     agent_names = models.TextField(blank=True, null=True, help_text="Comma-separated names of agents not in the employee list")
 
@@ -448,6 +450,30 @@ class EmployeeLeave(TimestampedModel):
 
     def __str__(self):
         return f"{self.employee.name} - {self.date}"
+
+
+class LeavePreviewToken(TimestampedModel):
+    """Stores hashed public preview tokens for leave batches."""
+
+    batch_key = models.UUIDField(unique=True, db_index=True)
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    last_accessed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "leave_preview_tokens"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["last_accessed_at"]),
+        ]
+
+    def __str__(self):
+        return f"Leave preview token for {self.batch_key}"
+
+    @staticmethod
+    def hash_token(token: str) -> str:
+        import hashlib
+
+        return hashlib.sha256(token.encode()).hexdigest()
 
 
 class OvertimeRequest(TimestampedModel):
@@ -488,6 +514,12 @@ class OvertimeRequest(TimestampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "project", "request_date"],
+                name="unique_overtime_employee_project_date",
+            )
+        ]
         indexes = [
             models.Index(fields=["request_date", "department"]),
             models.Index(fields=["department_code"]),
@@ -918,6 +950,92 @@ class OvertimeRegulationDocument(TimestampedModel):
         super().save(*args, **kwargs)
 
 
+class Document(TimestampedModel):
+    """Hybrid document library item for uploaded files and saved links."""
+
+    class SourceType(models.TextChoices):
+        FILE = "file", "File"
+        LINK = "link", "Link"
+
+    class MetadataStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    source_type = models.CharField(max_length=10, choices=SourceType.choices, db_index=True)
+
+    file = models.FileField(upload_to="documents/%Y/%m/", null=True, blank=True)
+    external_url = models.URLField(max_length=1000, blank=True)
+    normalized_url = models.URLField(max_length=1000, blank=True)
+
+    original_filename = models.CharField(max_length=255, blank=True)
+    stored_file_size = models.BigIntegerField(null=True, blank=True)
+    mime_type = models.CharField(max_length=150, blank=True)
+    extension = models.CharField(max_length=20, blank=True, db_index=True)
+
+    category = models.CharField(max_length=100, blank=True, db_index=True)
+    tags = models.CharField(max_length=500, blank=True, default="")
+    is_pinned = models.BooleanField(default=False, db_index=True)
+
+    link_title = models.CharField(max_length=255, blank=True)
+    link_description = models.TextField(blank=True)
+    link_site_name = models.CharField(max_length=255, blank=True)
+    link_favicon_url = models.URLField(max_length=1000, blank=True)
+    link_image_url = models.URLField(max_length=1000, blank=True)
+    metadata_status = models.CharField(max_length=20, choices=MetadataStatus.choices, default=MetadataStatus.PENDING, db_index=True)
+    metadata_error = models.CharField(max_length=500, blank=True)
+    metadata_fetched_at = models.DateTimeField(null=True, blank=True)
+
+    created_by = models.ForeignKey("ExternalUser", on_delete=models.SET_NULL, null=True, blank=True, related_name="created_documents")
+    updated_by = models.ForeignKey("ExternalUser", on_delete=models.SET_NULL, null=True, blank=True, related_name="updated_documents")
+
+    class Meta:
+        db_table = "documents"
+        ordering = ["-is_pinned", "-created_at"]
+        indexes = [
+            models.Index(fields=["source_type", "-created_at"]),
+            models.Index(fields=["category", "-created_at"]),
+            models.Index(fields=["is_pinned", "-created_at"]),
+            models.Index(fields=["created_by", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def preview_type(self):
+        if self.source_type != self.SourceType.FILE or not self.file:
+            return None
+
+        mime_type = (self.mime_type or "").lower()
+        extension = (self.extension or "").lower().lstrip(".")
+
+        text_extensions = {"txt", "json", "ini", "log"}
+        csv_mime_types = {"text/csv", "application/csv", "application/vnd.ms-excel"}
+        text_mime_types = {"application/json", "text/plain"}
+
+        if mime_type.startswith("image/") or extension in {"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"}:
+            return "image"
+        if mime_type == "application/pdf" or extension == "pdf":
+            return "pdf"
+        if mime_type in csv_mime_types or extension == "csv":
+            return "csv"
+        if mime_type in text_mime_types or extension in text_extensions:
+            return "text"
+        return None
+
+    @property
+    def can_preview(self):
+        return self.preview_type is not None
+
+    def delete(self, *args, **kwargs):
+        if self.file:
+            self.file.delete(save=False)
+        super().delete(*args, **kwargs)
+
+
 class Notification(TimestampedModel):
     recipient = models.ForeignKey(ExternalUser, on_delete=models.CASCADE, related_name="notifications")
     title = models.CharField(max_length=255)
@@ -977,6 +1095,16 @@ class SystemConfiguration(TimestampedModel):
 
     # App tab icon (favicon) — supports .ico, .svg, .png
     tab_icon = models.FileField(upload_to="system/", blank=True, null=True, help_text="Custom browser tab icon (.ico, .svg, .png)")
+    notification_email_host = models.CharField(max_length=255, default="mail.pegatroncorp.com", help_text="SMTP host for notification emails")
+    notification_email_port = models.PositiveIntegerField(default=25, help_text="SMTP port for notification emails")
+    leave_notification_recipients = models.JSONField(default=list, blank=True, help_text="Internal recipients for leave notifications")
+    leave_notification_sender_name = models.CharField(max_length=100, default="OMS", help_text="Display name used for leave notification emails")
+    leave_notification_recipient_mode = models.CharField(max_length=20, default="global", help_text="Recipient mode for leave notifications: global, department, or custom")
+    leave_notification_department_recipients = models.JSONField(default=list, blank=True, help_text="Department recipient mappings for leave notifications")
+    leave_notification_custom_recipients = models.JSONField(default=list, blank=True, help_text="Custom recipients for leave notifications")
+    leave_notification_subject_template = models.TextField(default="[PTB Calendar] Leave Request {action_label} - {employee_name} ({leave_day_label})", help_text="Subject template for leave notification emails")
+    leave_notification_body_template = models.TextField(default="Hello Team,\n\nA leave request has been {action_label_lower} in PTB Calendar.\n\nEmployee: {employee_name} ({employee_id})\nDepartment: {department_name} ({department_code})\nLeave Dates: {leave_dates}\nTotal Days: {leave_day_count}\nAgent(s): {agents}\nNote: {note}\nSubmitted By: {submitted_by}\n{updated_by_line}\nPlease review the leave coverage details.", help_text="Body template for leave notification emails")
+    leave_notification_footer_template = models.TextField(default="Best regards,\n{sender_name}\n\nThis is an automated notification from PTB Calendar.", help_text="Footer template for leave notification emails")
 
     def save(self, *args, **kwargs):
         self.pk = 1  # Force singleton
@@ -1246,6 +1374,9 @@ class BoardPresence(models.Model):
 
     class Meta:
         db_table = "board_presence"
+        constraints = [
+            models.UniqueConstraint(fields=["user"], name="unique_board_presence_user"),
+        ]
         indexes = [
             models.Index(fields=["user"]),
             models.Index(fields=["last_seen"]),
@@ -1400,6 +1531,7 @@ class PurchaseRequest(TimestampedModel):
     id = models.AutoField(primary_key=True)
     request_date = models.DateField(null=True, blank=True)
     owner = models.CharField(max_length=100, blank=True, null=True, help_text="Can be employee or external person")
+    created_by = models.ForeignKey("ExternalUser", on_delete=models.SET_NULL, null=True, blank=True, related_name="created_purchase_requests")
     owner_employee = models.ForeignKey(Employee, on_delete=models.SET_NULL, null=True, blank=True, related_name="purchase_requests", help_text="Link to employee if owner is from employee list")
     doc_id = models.CharField(max_length=50, blank=True, null=True, db_index=True)
     part_no = models.CharField(max_length=100, blank=True, null=True)
@@ -1435,6 +1567,7 @@ class Asset(TimestampedModel):
     """
 
     id = models.AutoField(primary_key=True)
+    created_by = models.ForeignKey("ExternalUser", on_delete=models.SET_NULL, null=True, blank=True, related_name="created_assets")
     company_code = models.CharField(max_length=20, blank=True, null=True)
     asset_id = models.CharField(max_length=50, unique=True, db_index=True)
     fixed_asset_id = models.CharField(max_length=50, blank=True, null=True)

@@ -4,6 +4,7 @@ Health check endpoints for monitoring system status.
 
 import logging
 import time
+from typing import Any, cast
 
 from django.conf import settings
 from django.core.cache import cache
@@ -35,6 +36,10 @@ class HealthCheckDetailedView(APIView):
 
     permission_classes = [AllowAny]
 
+    @staticmethod
+    def _public_failure_message(service_name):
+        return f"{service_name} unavailable"
+
     def get(self, request):
         health_status = {"status": "healthy", "service": "overtime-api", "timestamp": time.time(), "checks": {}}
 
@@ -46,9 +51,9 @@ class HealthCheckDetailedView(APIView):
                 cursor.execute("SELECT 1")
                 cursor.fetchone()
             health_status["checks"]["database"] = {"status": "healthy", "message": "Database connection successful"}
-        except Exception as e:
-            logger.error("Database health check failed: %s", e)
-            health_status["checks"]["database"] = {"status": "unhealthy", "message": str(e)}
+        except Exception:
+            logger.exception("Database health check failed")
+            health_status["checks"]["database"] = {"status": "unhealthy", "message": self._public_failure_message("Database")}
             overall_healthy = False
 
         # Check cache connection (Redis)
@@ -62,9 +67,9 @@ class HealthCheckDetailedView(APIView):
                 health_status["checks"]["cache"] = {"status": "healthy", "message": "Cache connection successful"}
             else:
                 raise Exception("Cache read/write mismatch")
-        except Exception as e:
-            logger.warning("Cache health check failed: %s", e)
-            health_status["checks"]["cache"] = {"status": "degraded", "message": f"Cache unavailable: {str(e)}"}
+        except Exception:
+            logger.warning("Cache health check failed", exc_info=True)
+            health_status["checks"]["cache"] = {"status": "degraded", "message": self._public_failure_message("Cache")}
             # Cache failure is not critical, mark as degraded not unhealthy
 
         # Check Celery (if configured)
@@ -72,16 +77,18 @@ class HealthCheckDetailedView(APIView):
             try:
                 from celery import current_app
 
-                inspector = current_app.control.inspect()
-                stats = inspector.stats()
+                celery_app = cast(Any, current_app)
+                control = getattr(celery_app, "control", None)
+                inspector = control.inspect() if control else None
+                stats = inspector.stats() if inspector else None
 
                 if stats:
                     health_status["checks"]["celery"] = {"status": "healthy", "message": f"{len(stats)} worker(s) active"}
                 else:
                     health_status["checks"]["celery"] = {"status": "degraded", "message": "No active workers"}
-            except Exception as e:
-                logger.warning("Celery health check failed: %s", e)
-                health_status["checks"]["celery"] = {"status": "degraded", "message": f"Celery unavailable: {str(e)}"}
+            except Exception:
+                logger.warning("Celery health check failed", exc_info=True)
+                health_status["checks"]["celery"] = {"status": "degraded", "message": self._public_failure_message("Celery")}
 
         # Set overall status
         if not overall_healthy:
@@ -111,9 +118,12 @@ class ReadinessCheckView(APIView):
 
             return Response({"status": "ready", "timestamp": time.time()}, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            logger.error("Readiness check failed: %s", e)
-            return Response({"status": "not_ready", "message": str(e), "timestamp": time.time()}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception:
+            logger.exception("Readiness check failed")
+            return Response(
+                {"status": "not_ready", "message": "Critical dependencies unavailable", "timestamp": time.time()},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
 
 class LivenessCheckView(APIView):

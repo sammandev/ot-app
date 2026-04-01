@@ -41,7 +41,36 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-class TaskCommentViewSet(viewsets.ModelViewSet):
+class TaskAccessMixin:
+    def _is_task_admin(self):
+        return getattr(self.request.user, "is_ptb_admin", False) or is_superadmin_user(self.request.user)
+
+    def _get_request_employee(self, raise_if_not_found=True):
+        return get_employee_for_user(self.request.user, raise_if_not_found=raise_if_not_found)
+
+    def _get_accessible_tasks_queryset(self):
+        tasks = CalendarEvent.objects.all()
+        if self._is_task_admin():
+            return tasks
+
+        employee = self._get_request_employee(raise_if_not_found=False)
+        if not employee:
+            return tasks.none()
+
+        return tasks.filter(models.Q(created_by_id=employee.id) | models.Q(assigned_to=employee) | models.Q(group__members=employee)).distinct()
+
+    def _assert_task_access(self, task):
+        if not self._get_accessible_tasks_queryset().filter(pk=task.pk).exists():
+            raise PermissionDenied("You do not have access to this task.")
+
+    def _get_accessible_task_by_id(self, task_id):
+        task = self._get_accessible_tasks_queryset().filter(pk=task_id).first()
+        if not task:
+            raise PermissionDenied("You do not have access to this task.")
+        return task
+
+
+class TaskCommentViewSet(TaskAccessMixin, viewsets.ModelViewSet):
     """
     ViewSet for task comments with threading and mentions support.
     """
@@ -51,12 +80,16 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
     pagination_class = DynamicPagination
 
     def get_queryset(self):
-        queryset = TaskComment.objects.select_related("author", "task").prefetch_related(
-            "mentions",
-            models.Prefetch(
-                "replies",
-                queryset=TaskComment.objects.select_related("author").prefetch_related("mentions"),
-            ),
+        queryset = (
+            TaskComment.objects.select_related("author", "task")
+            .prefetch_related(
+                "mentions",
+                models.Prefetch(
+                    "replies",
+                    queryset=TaskComment.objects.select_related("author").prefetch_related("mentions"),
+                ),
+            )
+            .filter(task__in=self._get_accessible_tasks_queryset())
         )
 
         # Require task_id to prevent enumerating all comments
@@ -73,8 +106,11 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        # Get or create the employee for the current user
-        employee = get_employee_for_user(self.request.user)
+        task = serializer.validated_data.get("task")
+        if task:
+            self._assert_task_access(task)
+
+        employee = self._get_request_employee()
 
         comment = serializer.save(author=employee)
 
@@ -137,21 +173,41 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
                         },
                     )
 
+        from ..consumers import broadcast_task_comment_created
+
+        comment_data = TaskCommentSerializer(comment, context={"request": self.request}).data
+        broadcast_task_comment_created(comment.task_id, comment_data)
+
         return comment
 
     def perform_update(self, serializer):
         comment = self.get_object()
-        employee = get_employee_for_user(self.request.user)
+        employee = self._get_request_employee()
         if comment.author_id != employee.id:
             raise PermissionDenied("You can only edit your own comments.")
-        serializer.save(is_edited=True, edited_at=timezone.now())
+        task = serializer.validated_data.get("task")
+        if task:
+            self._assert_task_access(task)
+        updated_comment = serializer.save(is_edited=True, edited_at=timezone.now())
+
+        from ..consumers import broadcast_task_comment_updated
+
+        comment_data = TaskCommentSerializer(updated_comment, context={"request": self.request}).data
+        broadcast_task_comment_updated(updated_comment.task_id, comment_data)
 
     def perform_destroy(self, instance):
-        employee = get_employee_for_user(self.request.user)
+        employee = self._get_request_employee(raise_if_not_found=False)
         # Only the comment author or a PTB admin can delete comments
-        if instance.author_id != employee.id and not getattr(self.request.user, "is_ptb_admin", False):
+        if not self._is_task_admin() and (not employee or instance.author_id != employee.id):
             raise PermissionDenied("You can only delete your own comments.")
+        task_id = instance.task_id
+        comment_id = instance.id
+        parent_id = instance.parent_id
         instance.delete()
+
+        from ..consumers import broadcast_task_comment_deleted
+
+        broadcast_task_comment_deleted(task_id, comment_id, parent_id)
 
     @action(detail=True, methods=["get"])
     def replies(self, request, pk=None):
@@ -162,7 +218,7 @@ class TaskCommentViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class TaskActivityViewSet(viewsets.ReadOnlyModelViewSet):
+class TaskActivityViewSet(TaskAccessMixin, viewsets.ReadOnlyModelViewSet):
     """
     Read-only ViewSet for task activity logs.
     """
@@ -172,7 +228,7 @@ class TaskActivityViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = DynamicPagination
 
     def get_queryset(self):
-        queryset = TaskActivity.objects.select_related("actor", "task").all()
+        queryset = TaskActivity.objects.select_related("actor", "task").filter(task__in=self._get_accessible_tasks_queryset())
 
         # Require task_id to prevent enumerating all activities
         task_id = self.request.query_params.get("task_id")
@@ -193,7 +249,7 @@ class TaskActivityViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset.filter(pk__in=pks).order_by("-created_at")
 
 
-class TaskSubtaskViewSet(viewsets.ModelViewSet):
+class TaskSubtaskViewSet(TaskAccessMixin, viewsets.ModelViewSet):
     """
     ViewSet for task subtasks/checklist items.
     Restricted to users who are the creator or an assignee of the parent task.
@@ -204,17 +260,10 @@ class TaskSubtaskViewSet(viewsets.ModelViewSet):
     pagination_class = DynamicPagination
 
     def _check_task_membership(self, task):
-        """Verify the current user is the creator, an assignee, or a PTB admin of the task."""
-        if getattr(self.request.user, "is_ptb_admin", False):
-            return
-        employee = get_employee_for_user(self.request.user)
-        is_creator = task.created_by_id == employee.id
-        is_assigned = task.assigned_to.filter(id=employee.id).exists() if hasattr(task.assigned_to, "filter") else False
-        if not is_creator and not is_assigned:
-            raise PermissionDenied("You can only manage subtasks on tasks you created or are assigned to.")
+        self._assert_task_access(task)
 
     def get_queryset(self):
-        queryset = TaskSubtask.objects.select_related("task", "created_by", "completed_by")
+        queryset = TaskSubtask.objects.select_related("task", "created_by", "completed_by").filter(task__in=self._get_accessible_tasks_queryset())
 
         # Filter by task if specified
         task_id = self.request.query_params.get("task_id")
@@ -224,7 +273,7 @@ class TaskSubtaskViewSet(viewsets.ModelViewSet):
         return queryset.order_by("order", "created_at")
 
     def perform_create(self, serializer):
-        employee = get_employee_for_user(self.request.user)
+        employee = self._get_request_employee()
         task = serializer.validated_data.get("task")
         if task:
             self._check_task_membership(task)
@@ -236,8 +285,14 @@ class TaskSubtaskViewSet(viewsets.ModelViewSet):
 
         return subtask
 
+    def perform_update(self, serializer):
+        task = serializer.validated_data.get("task") or serializer.instance.task
+        self._check_task_membership(task)
+        serializer.save()
+
     def perform_destroy(self, instance):
-        employee = get_employee_for_user(self.request.user, raise_if_not_found=False)
+        self._check_task_membership(instance.task)
+        employee = self._get_request_employee(raise_if_not_found=False)
 
         if employee:
             TaskActivity.objects.create(task=instance.task, actor=employee, action="updated", extra_data={"type": "subtask_removed", "subtask_title": instance.title})
@@ -248,7 +303,8 @@ class TaskSubtaskViewSet(viewsets.ModelViewSet):
     def toggle(self, request, pk=None):
         """Toggle subtask completion status"""
         subtask = self.get_object()
-        employee = get_employee_for_user(request.user, raise_if_not_found=False)
+        self._check_task_membership(subtask.task)
+        employee = self._get_request_employee(raise_if_not_found=False)
 
         is_completed = subtask.toggle_complete(employee)
 
@@ -268,19 +324,21 @@ class TaskSubtaskViewSet(viewsets.ModelViewSet):
         if not task_id or not subtask_ids:
             return Response({"detail": "task_id and subtask_ids required"}, status=400)
 
+        task = self._get_accessible_task_by_id(task_id)
+
         # Bulk update order using Case/When (single query instead of N queries)
         from django.db.models import Case, IntegerField, Value, When
 
         cases = [When(id=sid, then=Value(idx)) for idx, sid in enumerate(subtask_ids)]
-        TaskSubtask.objects.filter(id__in=subtask_ids, task_id=task_id).update(order=Case(*cases, output_field=IntegerField()))
+        TaskSubtask.objects.filter(id__in=subtask_ids, task=task).update(order=Case(*cases, output_field=IntegerField()))
 
         # Return updated subtasks
-        subtasks = TaskSubtask.objects.filter(task_id=task_id).order_by("order")
+        subtasks = TaskSubtask.objects.filter(task=task).order_by("order")
         serializer = self.get_serializer(subtasks, many=True)
         return Response(serializer.data)
 
 
-class TaskTimeLogViewSet(viewsets.ModelViewSet):
+class TaskTimeLogViewSet(TaskAccessMixin, viewsets.ModelViewSet):
     """
     ViewSet for task time logs and timer functionality.
     """
@@ -289,8 +347,16 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
     serializer_class = TaskTimeLogSerializer
     pagination_class = DynamicPagination
 
+    def _assert_time_log_owner(self, time_log):
+        if self._is_task_admin():
+            return
+
+        employee = self._get_request_employee()
+        if time_log.employee_id != employee.id:
+            raise PermissionDenied("You can only manage your own time entries.")
+
     def get_queryset(self):
-        queryset = TaskTimeLog.objects.select_related("task", "employee")
+        queryset = TaskTimeLog.objects.select_related("task", "employee").filter(task__in=self._get_accessible_tasks_queryset())
 
         # Filter by task if specified
         task_id = self.request.query_params.get("task_id")
@@ -305,7 +371,10 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
         return queryset.order_by("-started_at")
 
     def perform_create(self, serializer):
-        employee = get_employee_for_user(self.request.user)
+        employee = self._get_request_employee()
+        task = serializer.validated_data.get("task")
+        if task:
+            self._assert_task_access(task)
 
         # Stop any running timers for this employee first (use stop_timer for proper duration calc)
         running_timers = TaskTimeLog.objects.filter(employee=employee, is_running=True)
@@ -319,11 +388,18 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
 
         return time_log
 
+    def perform_update(self, serializer):
+        time_log = self.get_object()
+        self._assert_time_log_owner(time_log)
+
+        task = serializer.validated_data.get("task")
+        if task:
+            self._assert_task_access(task)
+
+        serializer.save()
+
     def perform_destroy(self, instance):
-        employee = get_employee_for_user(self.request.user)
-        # Only the time log owner or a PTB admin can delete entries
-        if instance.employee_id != employee.id and not getattr(self.request.user, "is_ptb_admin", False):
-            raise PermissionDenied("You can only delete your own time entries.")
+        self._assert_time_log_owner(instance)
         instance.delete()
 
     @action(detail=False, methods=["post"])
@@ -335,7 +411,8 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
         if not task_id:
             return Response({"detail": "task_id required"}, status=400)
 
-        employee = get_employee_for_user(request.user)
+        task = self._get_accessible_task_by_id(task_id)
+        employee = self._get_request_employee()
 
         # Stop any existing running timer for this user
         existing_running = TaskTimeLog.objects.filter(employee=employee, is_running=True).first()
@@ -343,7 +420,7 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
             existing_running.stop_timer()
 
         # Create new timer
-        time_log = TaskTimeLog.objects.create(task_id=task_id, employee=employee, description=description, started_at=timezone.now(), is_running=True)
+        time_log = TaskTimeLog.objects.create(task=task, employee=employee, description=description, started_at=timezone.now(), is_running=True)
 
         serializer = self.get_serializer(time_log)
         return Response(serializer.data, status=201)
@@ -352,6 +429,7 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
     def stop_timer(self, request, pk=None):
         """Stop a running timer"""
         time_log = self.get_object()
+        self._assert_time_log_owner(time_log)
 
         if not time_log.is_running:
             return Response({"detail": "Timer is not running"}, status=400)
@@ -388,17 +466,15 @@ class TaskTimeLogViewSet(viewsets.ModelViewSet):
         if not task_id:
             return Response({"detail": "task_id required"}, status=400)
 
+        task = self._get_accessible_task_by_id(task_id)
+
         from django.db.models import Sum
 
-        logs = TaskTimeLog.objects.filter(task_id=task_id)
+        logs = TaskTimeLog.objects.filter(task=task)
         total_minutes = logs.aggregate(total=Sum("duration_minutes"))["total"] or 0
 
         # Get task estimated hours
-        try:
-            task = CalendarEvent.objects.get(id=task_id)
-            estimated_hours = float(task.estimated_hours or 0)
-        except CalendarEvent.DoesNotExist:
-            estimated_hours = 0
+        estimated_hours = float(task.estimated_hours or 0)
 
         return Response({"task_id": task_id, "total_minutes": total_minutes, "total_hours": round(total_minutes / 60, 2), "estimated_hours": estimated_hours, "log_count": logs.count()})
 
@@ -431,8 +507,22 @@ class BoardPresenceViewSet(viewsets.ModelViewSet):
         editing_task_id = request.data.get("editing_task_id")
         channel_name = request.data.get("channel_name", "")
 
-        # Update or create presence record
-        presence, created = BoardPresence.objects.update_or_create(user=employee, defaults={"editing_task_id": editing_task_id, "channel_name": channel_name})
+        existing = BoardPresence.objects.filter(user=employee).first()
+        if existing:
+            updates = []
+            if existing.editing_task_id != editing_task_id:
+                existing.editing_task_id = editing_task_id
+                updates.append("editing_task")
+            if channel_name and existing.channel_name != channel_name:
+                existing.channel_name = channel_name
+                updates.append("channel_name")
+            if updates:
+                updates.append("last_seen")
+                existing.save(update_fields=updates)
+            else:
+                BoardPresence.objects.filter(pk=existing.pk).update(last_seen=timezone.now())
+        else:
+            BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=channel_name)
 
         # Get all current viewers (excluding self)
         from datetime import timedelta
@@ -477,7 +567,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
         if worker_id:
             employee = Employee.objects.filter(emp_id=worker_id).first()
 
-        base_qs = TaskGroup.objects.select_related("created_by", "department").prefetch_related("members").annotate(_task_count=models.Count("tasks"))
+        base_qs = TaskGroup.objects.select_related("created_by", "department").prefetch_related("members").annotate(_task_count=models.Count("tasks", distinct=True))
 
         if employee:
             return base_qs.filter(models.Q(created_by=user) | models.Q(is_private=False) | models.Q(members=employee)).distinct().order_by("order", "name")
@@ -665,7 +755,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
         return Response({"status": "ok", "created": created_count, "updated": updated_count})
 
 
-class TaskAttachmentViewSet(viewsets.ModelViewSet):
+class TaskAttachmentViewSet(TaskAccessMixin, viewsets.ModelViewSet):
     """
     ViewSet for task attachments (files attached to tasks).
     """
@@ -676,7 +766,7 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
     pagination_class = DynamicPagination
 
     def get_queryset(self):
-        queryset = TaskAttachment.objects.select_related("task", "uploaded_by")
+        queryset = TaskAttachment.objects.select_related("task", "uploaded_by").filter(task__in=self._get_accessible_tasks_queryset())
 
         # Filter by task if provided
         task_id = self.request.query_params.get("task_id")
@@ -717,12 +807,15 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
     }
 
     def perform_create(self, serializer):
-        user = self.request.user
-        worker_id = getattr(user, "worker_id", None)
+        task = serializer.validated_data.get("task")
+        if not task:
+            raise serializers.ValidationError({"task": "Task is required."})
+
+        self._assert_task_access(task)
+
         employee = None
-        if worker_id:
-            # Note: Employee model uses emp_id field, not worker_id
-            employee = Employee.objects.filter(emp_id=worker_id).first()
+        if not self._is_task_admin():
+            employee = self._get_request_employee()
 
         # Get file info
         file = self.request.FILES.get("file")
@@ -737,11 +830,32 @@ class TaskAttachmentViewSet(viewsets.ModelViewSet):
         else:
             serializer.save(uploaded_by=employee)
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+
+        if not self._is_task_admin():
+            employee = self._get_request_employee(raise_if_not_found=False)
+            if not employee:
+                raise PermissionDenied("Employee record required to update attachments.")
+            if instance.uploaded_by_id != employee.id:
+                raise PermissionDenied("You can only update your own attachments.")
+
+        task = serializer.validated_data.get("task")
+        if task:
+            self._assert_task_access(task)
+
+        serializer.save()
+
     def perform_destroy(self, instance):
-        employee = get_employee_for_user(self.request.user, raise_if_not_found=False)
         # Only the uploader or a PTB admin can delete attachments
-        is_admin = getattr(self.request.user, "is_ptb_admin", False)
-        if employee and instance.uploaded_by_id != employee.id and not is_admin:
+        if self._is_task_admin():
+            instance.delete()
+            return
+
+        employee = self._get_request_employee(raise_if_not_found=False)
+        if not employee:
+            raise PermissionDenied("Employee record required to delete attachments.")
+        if instance.uploaded_by_id != employee.id:
             raise PermissionDenied("You can only delete your own attachments.")
         instance.delete()
 

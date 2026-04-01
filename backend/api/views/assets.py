@@ -1,11 +1,16 @@
 import logging
 import traceback
+from collections import OrderedDict
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -42,9 +47,56 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
     search_fields = ["owner", "doc_id", "part_no", "description_spec", "pr_no", "remarks"]
     ordering_fields = ["id", "request_date", "owner", "doc_id", "part_no", "pr_no", "status", "created_at"]
     ordering = ["-request_date", "-id"]
+    import_identity_fields = (
+        "request_date",
+        "owner",
+        "doc_id",
+        "part_no",
+        "description_spec",
+        "material_category",
+        "purpose_desc",
+        "plant",
+        "project_code",
+        "pr_type",
+        "mrp_id",
+        "purch_org",
+    )
+    import_update_fields = [
+        "request_date",
+        "owner",
+        "doc_id",
+        "part_no",
+        "description_spec",
+        "material_category",
+        "purpose_desc",
+        "qty",
+        "plant",
+        "project_code",
+        "pr_type",
+        "mrp_id",
+        "purch_org",
+        "sourcer_price",
+        "pr_no",
+        "remarks",
+        "status",
+        "updated_at",
+    ]
+
+    def _is_elevated_user(self, user):
+        return is_ptb_admin(user) or is_superadmin_user(user)
+
+    def _can_manage_purchase_request(self, user, purchase_request):
+        if self._is_elevated_user(user):
+            return True
+        return bool(user and purchase_request.created_by_id and purchase_request.created_by_id == user.id)
+
+    def _assert_can_manage_purchase_requests(self, user, purchase_requests):
+        if all(self._can_manage_purchase_request(user, purchase_request) for purchase_request in purchase_requests):
+            return
+        raise PermissionDenied("Only the creator, PTB Admin, Super Admin, or Developer can edit or delete this purchase request.")
 
     def get_queryset(self):
-        queryset = PurchaseRequest.objects.select_related("owner_employee", "owner_employee__department").all()
+        queryset = PurchaseRequest.objects.select_related("created_by", "owner_employee", "owner_employee__department").all()
 
         # Filter by status
         status_filter = self.request.query_params.get("status")
@@ -61,6 +113,172 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    @staticmethod
+    def _normalize_text(value):
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @staticmethod
+    def _parse_date(value):
+        if value in (None, ""):
+            return None
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(str(value), fmt).date()
+            except (ValueError, TypeError):
+                continue
+        return None
+
+    @staticmethod
+    def _parse_decimal(value, default=None):
+        if value in (None, ""):
+            return default
+        if isinstance(value, Decimal):
+            return value
+        normalized = str(value).replace(",", "").strip()
+        if not normalized:
+            return default
+        try:
+            return Decimal(normalized)
+        except (InvalidOperation, TypeError):
+            return default
+
+    def _build_purchase_request_payload(self, row, default_status="pending"):
+        return {
+            "request_date": self._parse_date(row.get("Request Date")),
+            "owner": self._normalize_text(row.get("Owner")),
+            "doc_id": self._normalize_text(row.get("Doc ID")),
+            "part_no": self._normalize_text(row.get("Part No.")),
+            "description_spec": self._normalize_text(row.get("Description-Spec")),
+            "material_category": self._normalize_text(row.get("Material Category")),
+            "purpose_desc": self._normalize_text(row.get("Purpose/Desc.")),
+            "qty": self._parse_decimal(row.get("Qty"), default=Decimal("1.00")) or Decimal("1.00"),
+            "plant": self._normalize_text(row.get("Plant")),
+            "project_code": self._normalize_text(row.get("Project Code")),
+            "pr_type": self._normalize_text(row.get("PR Type")),
+            "mrp_id": self._normalize_text(row.get("MRPID")),
+            "purch_org": self._normalize_text(row.get("Purch. Org.")),
+            "sourcer_price": self._normalize_text(row.get("Sourcer Price")),
+            "pr_no": self._normalize_text(row.get("PR No.")),
+            "remarks": self._normalize_text(row.get("Remarks")),
+            "status": default_status,
+        }
+
+    def _purchase_request_import_key(self, payload):
+        parts = []
+        for field in self.import_identity_fields:
+            value = payload.get(field) if isinstance(payload, dict) else getattr(payload, field)
+            if isinstance(value, date):
+                serialized = value.isoformat()
+            else:
+                serialized = str(value).strip().lower() if value is not None else ""
+            parts.append(f"{field}={serialized}")
+        return "|".join(parts)
+
+    @staticmethod
+    def _read_sheet(ws):
+        headers = [cell.value for cell in ws[1]]
+        rows = []
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_dict = dict(zip(headers, row, strict=True))
+            if any(value for value in row_dict.values() if value is not None):
+                rows.append(row_dict)
+        return rows
+
+    def _read_purchase_request_rows(self, file):
+        import csv
+        import io
+
+        if file.name.endswith(".csv"):
+            content = file.read().decode("utf-8")
+            reader = csv.DictReader(io.StringIO(content))
+            return [("CSV", list(reader), "pending")]
+
+        if file.name.endswith(".xlsx") or file.name.endswith(".xls"):
+            import openpyxl
+
+            wb = openpyxl.load_workbook(file)
+            sheet_status_map = {
+                "List of Purchase": "pending",
+                "Done": "done",
+                "Cancel Purchase": "canceled",
+            }
+            sheet_names = wb.sheetnames
+            has_named_sheets = any(name in sheet_names for name in sheet_status_map)
+
+            if has_named_sheets:
+                return [(sheet_name, self._read_sheet(wb[sheet_name]), default_status) for sheet_name, default_status in sheet_status_map.items() if sheet_name in sheet_names]
+
+            ws = wb.active
+            return [(ws.title, self._read_sheet(ws), "pending")]
+
+        raise ValueError("Unsupported file format")
+
+    def _prepare_purchase_request_payloads(self, sheet_batches):
+        prepared_rows = OrderedDict()
+        sheet_summaries = []
+
+        for sheet_name, rows, default_status in sheet_batches:
+            sheet_unique = OrderedDict()
+            for row in rows:
+                payload = self._build_purchase_request_payload(row, default_status)
+                key = self._purchase_request_import_key(payload)
+                sheet_unique[key] = payload
+                prepared_rows[key] = payload
+
+            if sheet_unique:
+                sheet_summaries.append(f"{sheet_name}: {len(sheet_unique)}")
+
+        return prepared_rows, sheet_summaries
+
+    def _apply_purchase_request_payload(self, instance, payload):
+        changed = False
+        for field, value in payload.items():
+            if getattr(instance, field) != value:
+                setattr(instance, field, value)
+                changed = True
+        return changed
+
+    def _persist_purchase_request_import(self, prepared_rows, imported_by=None):
+        existing_by_key = {}
+        for existing in PurchaseRequest.objects.all().iterator(chunk_size=500):
+            existing_by_key[self._purchase_request_import_key(existing)] = existing
+
+        to_create = []
+        to_update = []
+        created_count = 0
+        updated_count = 0
+        skipped_count = 0
+
+        for key, payload in prepared_rows.items():
+            existing = existing_by_key.get(key)
+            if existing:
+                if self._apply_purchase_request_payload(existing, payload):
+                    to_update.append(existing)
+                    updated_count += 1
+                else:
+                    skipped_count += 1
+                continue
+
+            new_request = PurchaseRequest(created_by=imported_by, **payload)
+            to_create.append(new_request)
+            existing_by_key[key] = new_request
+            created_count += 1
+
+        with transaction.atomic():
+            if to_create:
+                PurchaseRequest.objects.bulk_create(to_create, batch_size=200)
+            if to_update:
+                PurchaseRequest.objects.bulk_update(to_update, self.import_update_fields, batch_size=200)
+
+        return created_count, updated_count, skipped_count
+
     @swagger_auto_schema(
         operation_summary="Import purchase requests from CSV/Excel",
         manual_parameters=[
@@ -75,111 +293,33 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
         - 'Done' -> status=done
         - 'Cancel Purchase' -> status=canceled
         """
+        if not self._is_elevated_user(request.user):
+            raise PermissionDenied("Only PTB Admin, Super Admin, or Developer can import purchase requests.")
+
         file = request.FILES.get("file")
         if not file:
             return Response({"detail": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        import csv
-        import io
-        from datetime import datetime
-
-        def parse_date(val):
-            if not val:
-                return None
-            for fmt in ["%m/%d/%Y", "%Y-%m-%d", "%d/%m/%Y"]:
-                try:
-                    return datetime.strptime(str(val), fmt).date()
-                except (ValueError, TypeError):
-                    continue
-            return None
-
-        def process_rows(rows, default_status="pending"):
-            batch = []
-            for row in rows:
-                pr_data = {
-                    "request_date": parse_date(row.get("Request Date")),
-                    "owner": row.get("Owner") or None,
-                    "doc_id": row.get("Doc ID") or None,
-                    "part_no": row.get("Part No.") or None,
-                    "description_spec": row.get("Description-Spec") or None,
-                    "material_category": row.get("Material Category") or None,
-                    "purpose_desc": row.get("Purpose/Desc.") or None,
-                    "qty": row.get("Qty") or 1,
-                    "plant": row.get("Plant") or None,
-                    "project_code": row.get("Project Code") or None,
-                    "pr_type": row.get("PR Type") or None,
-                    "mrp_id": row.get("MRPID") or None,
-                    "purch_org": row.get("Purch. Org.") or None,
-                    "sourcer_price": row.get("Sourcer Price") or None,
-                    "pr_no": row.get("PR No.") or None,
-                    "remarks": row.get("Remarks") or None,
-                    "status": default_status,
-                }
-                batch.append(PurchaseRequest(**pr_data))
-            if batch:
-                PurchaseRequest.objects.bulk_create(batch, batch_size=200)
-            return len(batch)
-
-        def read_sheet(ws):
-            headers = [cell.value for cell in ws[1]]
-            rows = []
-            for row in ws.iter_rows(min_row=2, values_only=True):
-                row_dict = dict(zip(headers, row, strict=True))
-                # Skip empty rows
-                if any(v for v in row_dict.values() if v is not None):
-                    rows.append(row_dict)
-            return rows
-
         try:
-            if file.name.endswith(".csv"):
-                content = file.read().decode("utf-8")
-                reader = csv.DictReader(io.StringIO(content))
-                rows = list(reader)
-                created_count = process_rows(rows, "pending")
-                return Response({"message": f"Successfully imported {created_count} purchase requests"})
+            sheet_batches = self._read_purchase_request_rows(file)
+            prepared_rows, sheet_summaries = self._prepare_purchase_request_payloads(sheet_batches)
+            created_count, updated_count, skipped_count = self._persist_purchase_request_import(prepared_rows, imported_by=request.user)
 
-            elif file.name.endswith(".xlsx") or file.name.endswith(".xls"):
-                import openpyxl
-
-                wb = openpyxl.load_workbook(file)
-                sheet_names = wb.sheetnames
-
-                # Sheet-to-status mapping
-                sheet_status_map = {
-                    "List of Purchase": "pending",
-                    "Done": "done",
-                    "Cancel Purchase": "canceled",
+            detail = ", ".join(sheet_summaries) if sheet_summaries else "no non-empty sheets found"
+            return Response(
+                {
+                    "message": f"Successfully processed purchase requests ({detail})",
+                    "created": created_count,
+                    "updated": updated_count,
+                    "skipped": skipped_count,
                 }
+            )
 
-                total_created = 0
-                sheets_processed = []
-
-                # Check if workbook has our expected sheet names
-                has_named_sheets = any(name in sheet_names for name in sheet_status_map)
-
-                if has_named_sheets:
-                    # Multi-sheet import
-                    for sheet_name, default_status in sheet_status_map.items():
-                        if sheet_name in sheet_names:
-                            ws = wb[sheet_name]
-                            rows = read_sheet(ws)
-                            if rows:
-                                count = process_rows(rows, default_status)
-                                total_created += count
-                                sheets_processed.append(f"{sheet_name}: {count}")
-                else:
-                    # Fallback: read active sheet as pending
-                    ws = wb.active
-                    rows = read_sheet(ws)
-                    total_created = process_rows(rows, "pending")
-                    sheets_processed.append(f"{ws.title}: {total_created}")
-
-                detail = ", ".join(sheets_processed)
-                return Response({"message": f"Successfully imported {total_created} purchase requests ({detail})", "created": total_created})
-            else:
-                return Response({"detail": "Unsupported file format"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception:
+            logger.error("Purchase request import error: %s", traceback.format_exc())
             return Response({"detail": "An unexpected error occurred. Please try again or contact support."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def update(self, request, *args, **kwargs):
@@ -188,6 +328,7 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
 
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
+        self._assert_can_manage_purchase_requests(request.user, [instance])
         old_status = instance.status
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
@@ -209,25 +350,30 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def bulk_delete(self, request):
         """Delete multiple purchase requests at once."""
-        if not is_ptb_admin(request.user) and not is_superadmin_user(request.user):
-            return Response({"detail": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get("ids", [])
         if not ids:
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
+        purchase_requests = list(PurchaseRequest.objects.filter(id__in=ids))
+        if len(purchase_requests) != len(ids):
+            return Response({"detail": "Some purchase requests could not be found"}, status=status.HTTP_404_NOT_FOUND)
+        self._assert_can_manage_purchase_requests(request.user, purchase_requests)
         deleted_count, _ = PurchaseRequest.objects.filter(id__in=ids).delete()
         return Response({"message": f"Successfully deleted {deleted_count} purchase requests", "deleted": deleted_count})
 
     @action(detail=False, methods=["post"])
     def bulk_update_status(self, request):
         """Update status of multiple purchase requests at once."""
-        if not is_ptb_admin(request.user) and not is_superadmin_user(request.user):
-            return Response({"detail": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
         ids = request.data.get("ids", [])
         new_status = request.data.get("status", "")
         if not ids:
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
         if new_status not in ["pending", "done", "canceled"]:
             return Response({"detail": "Invalid status"}, status=status.HTTP_400_BAD_REQUEST)
+
+        purchase_requests = list(PurchaseRequest.objects.filter(id__in=ids))
+        if len(purchase_requests) != len(ids):
+            return Response({"detail": "Some purchase requests could not be found"}, status=status.HTTP_404_NOT_FOUND)
+        self._assert_can_manage_purchase_requests(request.user, purchase_requests)
 
         # Fetch requests that will actually change status so we can notify
         requests_to_update = list(PurchaseRequest.objects.filter(id__in=ids).exclude(status=new_status))
@@ -247,6 +393,17 @@ class PurchaseRequestViewSet(viewsets.ModelViewSet):
 
         return Response({"message": f"Successfully updated {updated_count} purchase requests to {new_status}", "updated": updated_count})
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        self._assert_can_manage_purchase_requests(self.request.user, [serializer.instance])
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._assert_can_manage_purchase_requests(self.request.user, [instance])
+        instance.delete()
+
 
 class AssetViewSet(viewsets.ModelViewSet):
     """
@@ -263,8 +420,26 @@ class AssetViewSet(viewsets.ModelViewSet):
     ordering_fields = ["id", "asset_id", "part_number", "product_name", "keeper_name", "status", "receive_date", "created_at"]
     ordering = ["-receive_date", "asset_id"]
 
+    def _is_elevated_user(self, user):
+        return is_ptb_admin(user) or is_superadmin_user(user)
+
+    def _can_edit_asset(self, user, asset):
+        if self._is_elevated_user(user):
+            return True
+        return bool(user and asset.created_by_id and asset.created_by_id == user.id)
+
+    def _assert_can_edit_assets(self, user, assets):
+        if all(self._can_edit_asset(user, asset) for asset in assets):
+            return
+        raise PermissionDenied("Only the creator, PTB Admin, Super Admin, or Developer can edit this asset.")
+
+    def _assert_can_delete_assets(self, user):
+        if self._is_elevated_user(user):
+            return
+        raise PermissionDenied("Only PTB Admin, Super Admin, or Developer can delete assets.")
+
     def get_queryset(self):
-        queryset = Asset.objects.select_related("department").all()
+        queryset = Asset.objects.select_related("created_by", "department").all()
 
         # Filter by department
         department_id = self.request.query_params.get("department")
@@ -361,6 +536,9 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"], parser_classes=[MultiPartParser, FormParser])
     def import_data(self, request):
         """Import assets from CSV or Excel file"""
+        if not self._is_elevated_user(request.user):
+            raise PermissionDenied("Only PTB Admin, Super Admin, or Developer can import assets.")
+
         file = request.FILES.get("file")
         if not file:
             return Response({"detail": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -520,7 +698,7 @@ class AssetViewSet(viewsets.ModelViewSet):
                     updated_count += 1
                 else:
                     # Create new
-                    new_asset = Asset(asset_id=asset_id, **asset_data)
+                    new_asset = Asset(asset_id=asset_id, created_by=request.user, **asset_data)
                     if dept:
                         new_asset.department = dept
                     to_create.append(new_asset)
@@ -546,6 +724,7 @@ class AssetViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["post"])
     def bulk_delete(self, request):
         """Delete multiple assets at once."""
+        self._assert_can_delete_assets(request.user)
         ids = request.data.get("ids", [])
         if not ids:
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -561,8 +740,23 @@ class AssetViewSet(viewsets.ModelViewSet):
             return Response({"detail": "No IDs provided"}, status=status.HTTP_400_BAD_REQUEST)
         if not new_status:
             return Response({"detail": "No status provided"}, status=status.HTTP_400_BAD_REQUEST)
+        assets = list(Asset.objects.filter(id__in=ids))
+        if len(assets) != len(ids):
+            return Response({"detail": "Some assets could not be found"}, status=status.HTTP_404_NOT_FOUND)
+        self._assert_can_edit_assets(request.user, assets)
         updated_count = Asset.objects.filter(id__in=ids).update(status=new_status)
         return Response({"message": f"Successfully updated {updated_count} assets to {new_status}", "updated": updated_count})
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        self._assert_can_edit_assets(self.request.user, [serializer.instance])
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._assert_can_delete_assets(self.request.user)
+        instance.delete()
 
 
 # ===========================================================================

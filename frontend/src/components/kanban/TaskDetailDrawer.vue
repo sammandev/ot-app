@@ -425,10 +425,13 @@
 
               <!-- File Info -->
               <div class="flex-1 min-w-0">
-                <a :href="attachment.file_url || attachment.file" target="_blank"
+                <a v-if="getSafeAttachmentUrl(attachment)" :href="getSafeAttachmentUrl(attachment) || '#'" target="_blank" rel="noopener noreferrer"
                   class="font-medium text-sm text-gray-900 dark:text-white hover:text-brand-600 truncate block">
                   {{ attachment.filename }}
                 </a>
+                <span v-else class="font-medium text-sm text-gray-500 truncate block">
+                  {{ attachment.filename }}
+                </span>
                 <div class="text-xs text-gray-500 flex items-center gap-2">
                   <span>{{ formatFileSize(attachment.file_size) }}</span>
                   <span v-if="attachment.uploaded_by_name">• {{ attachment.uploaded_by_name }}</span>
@@ -437,7 +440,7 @@
 
               <!-- Actions -->
               <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                <a :href="attachment.file_url || attachment.file" download
+                <a v-if="getSafeAttachmentUrl(attachment)" :href="getSafeAttachmentUrl(attachment) || '#'" download rel="noopener noreferrer"
                   class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-500 hover:text-gray-700">
                   <DownloadIcon class="w-4 h-4" />
                 </a>
@@ -730,6 +733,7 @@ import { type TaskEditor, useTaskWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
 import { formatFullLocalDateTime, formatLocalDateTime, timeAgo } from '@/utils/dateTime'
+import { toSafeExternalUrl } from '@/utils/safeUrl'
 
 const props = defineProps<{
 	task: CalendarEvent | null
@@ -981,6 +985,10 @@ function getTaskLoadKey(taskId: number): string {
 	return String(taskId)
 }
 
+function getSafeAttachmentUrl(attachment: TaskAttachment): string | null {
+	return toSafeExternalUrl(attachment.file_url || attachment.file)
+}
+
 async function ensureTabLoaded(tab: typeof activeTab.value, force = false) {
 	const taskId = props.task?.id
 	if (!taskId) return
@@ -1077,13 +1085,22 @@ function connectWebSocket() {
 	taskWs.connect()
 
 	taskWs.onCommentAdded = (comment: TaskComment) => {
-		// Add comment if not already in list
-		if (!comments.value.find((c) => c.id === comment.id)) {
-			comments.value.push(comment)
-		}
+		upsertComment(comment)
+	}
+
+	taskWs.onCommentUpdated = (comment: TaskComment) => {
+		updateCommentLocally(comment)
+	}
+
+	taskWs.onCommentDeleted = (commentId: number) => {
+		removeCommentLocally(commentId)
 	}
 
 	taskWs.onUserTyping = (user, isTyping) => {
+		if (currentUserEmployeeId.value && user.user_id === currentUserEmployeeId.value) {
+			return
+		}
+
 		if (isTyping) {
 			if (!typingUsers.value.find((u) => u.user_id === user.user_id)) {
 				typingUsers.value.push(user)
@@ -1358,6 +1375,79 @@ function sendTypingIndicator() {
 	}, 2000)
 }
 
+function upsertComment(comment: TaskComment) {
+	const existingTopLevel = comments.value.find((c) => c.id === comment.id)
+	if (existingTopLevel) {
+		Object.assign(existingTopLevel, comment)
+		return
+	}
+
+	for (const topLevelComment of comments.value) {
+		const existingReply = topLevelComment.replies?.find((reply) => reply.id === comment.id)
+		if (existingReply) {
+			Object.assign(existingReply, comment)
+			return
+		}
+	}
+
+	if (comment.parent) {
+		let parentComment = comments.value.find((c) => c.id === comment.parent)
+
+		if (!parentComment) {
+			for (const topLevelComment of comments.value) {
+				const matchedReply = topLevelComment.replies?.find((reply) => reply.id === comment.parent)
+				if (matchedReply) {
+					parentComment = topLevelComment
+					break
+				}
+			}
+		}
+
+		if (parentComment) {
+			parentComment.replies = [...(parentComment.replies || []), comment]
+			parentComment.reply_count = (parentComment.reply_count || 0) + 1
+			return
+		}
+	}
+
+	comments.value.push(comment)
+}
+
+function updateCommentLocally(updatedComment: TaskComment) {
+	const topLevelComment = comments.value.find((comment) => comment.id === updatedComment.id)
+	if (topLevelComment) {
+		Object.assign(topLevelComment, updatedComment)
+		return
+	}
+
+	for (const parent of comments.value) {
+		const reply = parent.replies?.find((comment) => comment.id === updatedComment.id)
+		if (reply) {
+			Object.assign(reply, updatedComment)
+			return
+		}
+	}
+}
+
+function removeCommentLocally(commentId: number) {
+	const topLevelIndex = comments.value.findIndex((comment) => comment.id === commentId)
+	if (topLevelIndex !== -1) {
+		comments.value.splice(topLevelIndex, 1)
+		return
+	}
+
+	for (const parent of comments.value) {
+		if (!parent.replies?.length) continue
+
+		const originalLength = parent.replies.length
+		parent.replies = parent.replies.filter((reply) => reply.id !== commentId)
+		if (parent.replies.length !== originalLength) {
+			parent.reply_count = Math.max(0, (parent.reply_count || 0) - 1)
+			return
+		}
+	}
+}
+
 function insertMention(employee: { id: number; name: string }) {
 	const cursorPos = commentInput.value?.selectionStart || newComment.value.length
 	const textBeforeCursor = newComment.value.substring(0, cursorPos)
@@ -1403,39 +1493,7 @@ async function submitComment() {
 			mentions,
 		})
 
-		// Add to local list
-		if (replyingTo.value) {
-			// Add as reply - search both top-level and nested comments
-			const parentId = replyingTo.value.id
-			let parent = comments.value.find((c) => c.id === parentId)
-
-			// If not found in top-level, search in nested replies
-			if (!parent) {
-				for (const topComment of comments.value) {
-					if (topComment.replies) {
-						const nestedParent = topComment.replies.find((r) => r.id === parentId)
-						if (nestedParent) {
-							// For reply-to-reply, add to the top-level parent's replies
-							parent = topComment
-							break
-						}
-					}
-				}
-			}
-
-			if (parent) {
-				parent.replies = [...(parent.replies || []), comment]
-				parent.reply_count++
-			} else {
-				// Fallback: if no parent found, add as top-level (shouldn't happen normally)
-				comments.value.push(comment)
-			}
-		} else {
-			comments.value.push(comment)
-		}
-
-		// Notify via WebSocket
-		taskWs?.notifyCommentAdded(comment)
+		upsertComment(comment)
 
 		// Emit event
 		emit('commentAdded', comment)
@@ -1778,22 +1836,7 @@ async function saveEditComment() {
 	try {
 		const updated = await taskCommentAPI.update(editingCommentId.value, editCommentContent.value)
 
-		// Update in local list
-		const comment = comments.value.find((c) => c.id === editingCommentId.value)
-		if (comment) {
-			comment.content = updated.content
-			comment.is_edited = true
-		} else {
-			// Check in replies
-			for (const parent of comments.value) {
-				const reply = parent.replies?.find((r) => r.id === editingCommentId.value)
-				if (reply) {
-					reply.content = updated.content
-					reply.is_edited = true
-					break
-				}
-			}
-		}
+		updateCommentLocally(updated)
 
 		cancelEditComment()
 		showToast(t('kanban.commentUpdated'), 'success')
@@ -1816,17 +1859,7 @@ async function deleteComment(commentId: number, parentId?: number) {
 	try {
 		await taskCommentAPI.delete(commentId)
 
-		if (parentId) {
-			// Remove from parent replies
-			const parent = comments.value.find((c) => c.id === parentId)
-			if (parent?.replies) {
-				parent.replies = parent.replies.filter((r) => r.id !== commentId)
-				parent.reply_count = Math.max(0, (parent.reply_count || 0) - 1)
-			}
-		} else {
-			// Remove from main list
-			comments.value = comments.value.filter((c) => c.id !== commentId)
-		}
+		removeCommentLocally(commentId)
 		showToast(t('kanban.commentDeleted'), 'success')
 	} catch (error: unknown) {
 		console.error('Failed to delete comment:', error)

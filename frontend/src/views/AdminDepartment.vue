@@ -570,12 +570,10 @@ const viewEmployees = async (dept: Department) => {
 	loadingEmployees.value = true
 
 	try {
-		const response = await departmentAPI.getEmployees(dept.id)
+		const employees = await departmentAPI.getEmployees(dept.id)
 		// Only update if this department is still the selected one (handles race condition)
 		if (selectedDepartment.value?.id === dept.id) {
-			departmentEmployees.value = (response.data ?? []).filter(
-				(e: DepartmentEmployee | null) => e?.id != null,
-			)
+			departmentEmployees.value = employees.filter((e: DepartmentEmployee | null) => e?.id != null)
 		}
 	} catch (error) {
 		console.error('Failed to fetch employees:', error)

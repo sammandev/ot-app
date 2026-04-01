@@ -20,7 +20,6 @@ export function useKanbanTasks(
 	boardWs: BoardWebSocket,
 	sortedEmployees: ComputedRef<Employee[]>,
 	sortedProjects: ComputedRef<Project[]>,
-	selectedGroup: Ref<number | null>,
 ) {
 	const employeeStore = useEmployeeStore()
 	const departmentStore = useDepartmentStore()
@@ -121,6 +120,24 @@ export function useKanbanTasks(
 		} catch (e) {
 			console.error('Failed to fetch tasks', e)
 		}
+	}
+
+	function upsertTask(task: CalendarEvent) {
+		const taskId = task.id
+		if (!taskId) return
+
+		const index = events.value.findIndex((event) => event.id === taskId)
+		if (index === -1) {
+			events.value = [task, ...events.value]
+			return
+		}
+
+		const nextEvents = [...events.value]
+		nextEvents[index] = {
+			...nextEvents[index],
+			...task,
+		}
+		events.value = nextEvents
 	}
 
 	async function fetchProjects() {
@@ -232,12 +249,13 @@ export function useKanbanTasks(
 			}
 
 			if (isEditing.value && editingId.value) {
-				await calendarAPI.update(editingId.value, payload)
+				const updatedTask = await calendarAPI.update(editingId.value, payload)
+				upsertTask(updatedTask)
 			} else {
-				await calendarAPI.create(payload)
+				const createdTask = await calendarAPI.create(payload)
+				upsertTask(createdTask)
 			}
 
-			await fetchTasks()
 			closeModal()
 		} catch (e) {
 			console.error('Failed to save task', e)
@@ -343,11 +361,6 @@ export function useKanbanTasks(
 		return dept?.code || '—'
 	}
 
-	function getSelectedGroupColor(): string {
-		const group = taskGroups.value.find((g) => g.id === selectedGroup.value)
-		return group?.color || '#6366F1'
-	}
-
 	return {
 		// Task state
 		showModal,
@@ -396,6 +409,5 @@ export function useKanbanTasks(
 		// Helpers
 		getEmployeeName,
 		getDepartmentCode,
-		getSelectedGroupColor,
 	}
 }

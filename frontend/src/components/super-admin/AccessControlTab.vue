@@ -528,6 +528,7 @@ const availableResourceGroups = [
 			{ name: 'Task Board', key: 'kanban' },
 			{ name: 'Purchasing', key: 'purchasing' },
 			{ name: 'Assets', key: 'assets' },
+            { name: 'Documents', key: 'documents' },
 			{ name: 'Personal Notes', key: 'personal_notes' },
 		],
 	},

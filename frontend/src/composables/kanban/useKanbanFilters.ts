@@ -18,32 +18,24 @@ export function useKanbanFilters(
 	const employeeStore = useEmployeeStore()
 	const departmentStore = useDepartmentStore()
 
-	// ── Filter State ────────────────────────────────────────────────────
-	const selectedProject = ref<number | null>(null)
-	const selectedEmployee = ref<number | null>(null)
-	const selectedDepartment = ref<number | null>(null)
-	const selectedStatus = ref<string | null>(null)
+	const selectedProject = ref<number[]>([])
+	const selectedEmployee = ref<number[]>([])
+	const selectedDepartment = ref<number[]>([])
+	const selectedStatus = ref<TaskStatus[]>([])
 	const showFilters = ref(false)
-	const selectedLabel = ref<string | null>(null)
-	const selectedPriority = ref<PriorityLevel | null>(null)
-	const selectedGroup = ref<number | null>(null)
+	const selectedLabel = ref<string[]>([])
+	const selectedPriority = ref<PriorityLevel[]>([])
+	const selectedGroup = ref<number[]>([])
 
-	// Filter dropdown search state
-	const filterProjectSearch = ref('')
-	const showFilterProjectDropdown = ref(false)
-	const filterProjectDropdownRef = ref<HTMLElement | null>(null)
-
-	// ── Computed: Current User Employee ID ──────────────────────────────
 	const currentUserEmployeeId = computed(() => {
 		const currentUser = authStore.user
 		if (!currentUser?.worker_id) return null
 		const matchingEmployee = employeeStore.employees.find(
-			(emp) => emp.emp_id.toLowerCase() === currentUser.worker_id?.toLowerCase(),
+			(employee) => employee.emp_id.toLowerCase() === currentUser.worker_id?.toLowerCase(),
 		)
 		return matchingEmployee?.id ?? null
 	})
 
-	// Groups the current user is a member of
 	const userGroupIds = computed(() => {
 		const userEmpId = currentUserEmployeeId.value
 		if (!userEmpId) return []
@@ -52,140 +44,160 @@ export function useKanbanFilters(
 			.map((group) => group.id)
 	})
 
-	// ── Sorted Reference Data ──────────────────────────────────────────
+	const userGroupIdSet = computed(() => new Set(userGroupIds.value))
+
 	const sortedProjects = computed(() => {
 		return [...projects.value]
-			.filter((p) => p.is_enabled)
-			.sort((a, b) => a.name.localeCompare(b.name))
+			.filter((project) => project.is_enabled)
+			.sort((left, right) => left.name.localeCompare(right.name))
 	})
 
 	const sortedEmployees = computed(() => {
 		return [...employeeStore.employees]
-			.filter((e) => e.is_enabled)
-			.sort((a, b) => a.name.localeCompare(b.name))
+			.filter((employee) => employee.is_enabled)
+			.sort((left, right) => left.name.localeCompare(right.name))
 	})
 
 	const sortedDepartments = computed(() => {
 		return [...departmentStore.departments]
-			.filter((d) => d.is_enabled)
-			.sort((a, b) => a.name.localeCompare(b.name))
+			.filter((department) => department.is_enabled)
+			.sort((left, right) => left.name.localeCompare(right.name))
 	})
 
-	// Employees filtered by selected department
 	const filteredEmployees = computed(() => {
-		if (!selectedDepartment.value) return sortedEmployees.value
-		return sortedEmployees.value.filter((e) => e.department === selectedDepartment.value)
+		if (selectedDepartment.value.length === 0) return sortedEmployees.value
+		const selectedDepartmentSet = new Set(selectedDepartment.value)
+		return sortedEmployees.value.filter((employee) => selectedDepartmentSet.has(employee.department))
 	})
 
-	// Filter dropdown search filtered projects
-	const filteredFilterProjects = computed(() => {
-		if (!filterProjectSearch.value) return sortedProjects.value
-		const query = filterProjectSearch.value.toLowerCase()
-		return sortedProjects.value.filter((p) => p.name.toLowerCase().includes(query))
-	})
-
-	// Active filters count
 	const activeFiltersCount = computed(() => {
-		let count = 0
-		if (selectedProject.value) count++
-		if (authStore.isPtbAdmin && selectedEmployee.value) count++
-		if (authStore.isPtbAdmin && selectedDepartment.value) count++
-		if (selectedStatus.value) count++
-		if (selectedLabel.value) count++
-		if (selectedPriority.value) count++
-		if (selectedGroup.value) count++
+		let count = selectedProject.value.length
+		count += selectedStatus.value.length
+		count += selectedLabel.value.length
+		count += selectedPriority.value.length
+		count += selectedGroup.value.length
+
+		if (authStore.isPtbAdmin) {
+			count += selectedEmployee.value.length
+			count += selectedDepartment.value.length
+		}
+
 		return count
 	})
 
-	// ── Column Tasks Map ───────────────────────────────────────────────
 	const columnTasksMap = shallowReactive<Record<TaskStatus, CalendarEvent[]>>({
 		todo: [],
 		in_progress: [],
 		done: [],
 	})
 
-	function updateColumnTasks() {
+	const visibleTasks = computed(() => {
 		const isPtbAdmin = authStore.isPtbAdmin
 		const userEmpId = currentUserEmployeeId.value
+		const selectedProjectSet = new Set(selectedProject.value)
+		const selectedLabelSet = new Set(selectedLabel.value)
+		const selectedPrioritySet = new Set(selectedPriority.value)
+		const selectedGroupSet = new Set(selectedGroup.value)
+		const selectedEmployeeSet = new Set(selectedEmployee.value)
+		const selectedDepartmentSet = new Set(selectedDepartment.value)
 
-		// Pre-compute department employee ID set once (avoids per-task recomputation)
 		const deptEmployeeIdSet =
-			isPtbAdmin && selectedDepartment.value
+			isPtbAdmin && selectedDepartmentSet.size > 0
 				? new Set(
 						employeeStore.employees
-							.filter((e) => e.department === selectedDepartment.value)
-							.map((e) => e.id),
-					)
+							.filter((employee) => selectedDepartmentSet.has(employee.department))
+							.map((employee) => employee.id),
+				  )
 				: new Set<number>()
 
-		const filteredEvents = events.value.filter((task) => {
-			if (selectedProject.value && task.project !== selectedProject.value) return false
-			if (selectedLabel.value && !task.labels?.includes(selectedLabel.value)) return false
-			if (selectedPriority.value && task.priority !== selectedPriority.value) return false
-			if (selectedGroup.value && task.group !== selectedGroup.value) return false
-
-			// Employee filter (PTB admins only)
-			if (isPtbAdmin && selectedEmployee.value) {
-				const isCreator = task.created_by === selectedEmployee.value
-				const isAssigned = task.assigned_to?.includes(selectedEmployee.value)
-				if (!isCreator && !isAssigned) return false
+		return events.value.filter((task) => {
+			if (selectedProjectSet.size > 0 && (!task.project || !selectedProjectSet.has(task.project))) {
+				return false
 			}
 
-			// Department filter (PTB admins only)
-			if (isPtbAdmin && selectedDepartment.value) {
-				const creatorInDept = task.created_by ? deptEmployeeIdSet.has(task.created_by) : false
-				const assigneeInDept = task.assigned_to?.some((id) => deptEmployeeIdSet.has(id)) ?? false
-				if (!creatorInDept && !assigneeInDept) return false
+			if (
+				selectedLabelSet.size > 0 &&
+				!(task.labels ?? []).some((label) => selectedLabelSet.has(label))
+			) {
+				return false
 			}
 
-			// Non-PTB admin: only show tasks user created, is assigned to, or is in their groups
+			if (
+				selectedPrioritySet.size > 0 &&
+				(!task.priority || !selectedPrioritySet.has(task.priority))
+			) {
+				return false
+			}
+
+			if (selectedGroupSet.size > 0 && (!task.group || !selectedGroupSet.has(task.group))) {
+				return false
+			}
+
+			const taskStatus = (task.status || 'todo') as TaskStatus
+			if (selectedStatus.value.length > 0 && !selectedStatus.value.includes(taskStatus)) {
+				return false
+			}
+
+			if (isPtbAdmin && selectedEmployeeSet.size > 0) {
+				const isCreator = !!task.created_by && selectedEmployeeSet.has(task.created_by)
+				const isAssigned = task.assigned_to?.some((employeeId) => selectedEmployeeSet.has(employeeId))
+				if (!isCreator && !isAssigned) {
+					return false
+				}
+			}
+
+			if (isPtbAdmin && selectedDepartmentSet.size > 0) {
+				const creatorInDepartment = task.created_by ? deptEmployeeIdSet.has(task.created_by) : false
+				const assigneeInDepartment =
+					task.assigned_to?.some((employeeId) => deptEmployeeIdSet.has(employeeId)) ?? false
+				if (!creatorInDepartment && !assigneeInDepartment) {
+					return false
+				}
+			}
+
 			if (!isPtbAdmin) {
 				if (!userEmpId) return false
 				const isCreator = task.created_by === userEmpId
 				const isAssigned = task.assigned_to?.includes(userEmpId)
-				const isInUserGroup = task.group && userGroupIds.value.includes(task.group)
-				if (!isCreator && !isAssigned && !isInUserGroup) return false
+				const isInUserGroup = !!task.group && userGroupIdSet.value.has(task.group)
+				if (!isCreator && !isAssigned && !isInUserGroup) {
+					return false
+				}
 			}
 
 			return true
 		})
+	})
 
-		if (selectedStatus.value) {
-			const statusFiltered = filteredEvents.filter(
-				(t) => (t.status || 'todo') === selectedStatus.value,
-			)
-			columnTasksMap.todo = selectedStatus.value === 'todo' ? statusFiltered : []
-			columnTasksMap.in_progress = selectedStatus.value === 'in_progress' ? statusFiltered : []
-			columnTasksMap.done = selectedStatus.value === 'done' ? statusFiltered : []
-		} else {
-			columnTasksMap.todo = filteredEvents.filter((t) => (t.status || 'todo') === 'todo')
-			columnTasksMap.in_progress = filteredEvents.filter((t) => t.status === 'in_progress')
-			columnTasksMap.done = filteredEvents.filter((t) => t.status === 'done')
+	function updateColumnTasks() {
+		const nextTodo: CalendarEvent[] = []
+		const nextInProgress: CalendarEvent[] = []
+		const nextDone: CalendarEvent[] = []
+
+		for (const task of visibleTasks.value) {
+			const status = (task.status || 'todo') as TaskStatus
+			if (status === 'todo') nextTodo.push(task)
+			else if (status === 'in_progress') nextInProgress.push(task)
+			else if (status === 'done') nextDone.push(task)
 		}
+
+		columnTasksMap.todo = nextTodo
+		columnTasksMap.in_progress = nextInProgress
+		columnTasksMap.done = nextDone
 	}
 
-	// ── Functions ──────────────────────────────────────────────────────
 	function clearFilters() {
-		selectedProject.value = null
-		filterProjectSearch.value = ''
+		selectedProject.value = []
 		if (authStore.isPtbAdmin) {
-			selectedEmployee.value = null
-			selectedDepartment.value = null
+			selectedEmployee.value = []
+			selectedDepartment.value = []
 		}
-		selectedStatus.value = null
-		selectedLabel.value = null
-		selectedPriority.value = null
-		selectedGroup.value = null
+		selectedStatus.value = []
+		selectedLabel.value = []
+		selectedPriority.value = []
+		selectedGroup.value = []
 	}
 
-	function handleFilterProjectBlur() {
-		setTimeout(() => {
-			showFilterProjectDropdown.value = false
-			filterProjectSearch.value = ''
-		}, 150)
-	}
-
-	// ── Watchers ───────────────────────────────────────────────────────
 	watch(
 		[
 			events,
@@ -195,24 +207,24 @@ export function useKanbanFilters(
 			selectedStatus,
 			selectedLabel,
 			selectedPriority,
+			selectedGroup,
 			userGroupIds,
 		],
 		() => updateColumnTasks(),
-		{ immediate: true },
+		{ immediate: true, deep: true },
 	)
 
-	// Clear employee filter when department changes (if employee not in new department)
-	watch(selectedDepartment, (newDept) => {
-		if (newDept && selectedEmployee.value) {
-			const employee = employeeStore.employees.find((e) => e.id === selectedEmployee.value)
-			if (employee && employee.department !== newDept) {
-				selectedEmployee.value = null
-			}
-		}
+	watch(selectedDepartment, (newDepartments) => {
+		if (newDepartments.length === 0 || selectedEmployee.value.length === 0) return
+
+		const allowedDepartmentSet = new Set(newDepartments)
+		selectedEmployee.value = selectedEmployee.value.filter((employeeId) => {
+			const employee = employeeStore.employees.find((entry) => entry.id === employeeId)
+			return employee ? allowedDepartmentSet.has(employee.department) : false
+		})
 	})
 
 	return {
-		// Filter state
 		selectedProject,
 		selectedEmployee,
 		selectedDepartment,
@@ -221,24 +233,15 @@ export function useKanbanFilters(
 		selectedLabel,
 		selectedPriority,
 		selectedGroup,
-		// Filter dropdown search
-		filterProjectSearch,
-		showFilterProjectDropdown,
-		filterProjectDropdownRef,
-		// Computeds
 		currentUserEmployeeId,
 		userGroupIds,
 		sortedProjects,
 		sortedEmployees,
 		sortedDepartments,
 		filteredEmployees,
-		filteredFilterProjects,
 		activeFiltersCount,
-		// Column tasks
 		columnTasksMap,
 		updateColumnTasks,
-		// Functions
 		clearFilters,
-		handleFilterProjectBlur,
 	}
 }

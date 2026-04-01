@@ -7,11 +7,12 @@ from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -636,11 +637,10 @@ class TokenRefreshView(APIView):
         # Handle local token refresh
         if auth_type == "local":
             try:
-                refresh = RefreshToken(refresh_token)
-                new_access_token = str(refresh.access_token)
-
-                # If token rotation is enabled, get new refresh token
-                new_refresh = str(refresh) if hasattr(refresh, "access_token") else None
+                serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+                serializer.is_valid(raise_exception=True)
+                new_access_token = serializer.validated_data["access"]
+                new_refresh = serializer.validated_data.get("refresh")
 
                 logger.info("Local token refreshed successfully")
                 response = Response({"message": "Token refreshed"}, status=status.HTTP_200_OK)
@@ -649,9 +649,11 @@ class TokenRefreshView(APIView):
                 set_auth_cookies(response, new_access_token, new_refresh)
                 return response
 
-            except (InvalidToken, TokenError) as e:
+            except (InvalidToken, TokenError, ValidationError) as e:
                 logger.warning("Local token refresh failed: %s", e)
-                return Response({"detail": "Your session has expired. Please login again.", "code": "invalid_refresh_token"}, status=status.HTTP_401_UNAUTHORIZED)
+                response = Response({"detail": "Your session has expired. Please login again.", "code": "invalid_refresh_token"}, status=status.HTTP_401_UNAUTHORIZED)
+                clear_auth_cookies(response)
+                return response
 
         # Handle external token refresh
         elif auth_type == "external":
@@ -687,7 +689,9 @@ class TokenRefreshView(APIView):
 
             except AuthenticationFailed as e:
                 logger.warning("External token refresh failed: %s", e)
-                return Response({"detail": "Your session has expired. Please login again.", "code": "invalid_refresh_token"}, status=status.HTTP_401_UNAUTHORIZED)
+                response = Response({"detail": "Your session has expired. Please login again.", "code": "invalid_refresh_token"}, status=status.HTTP_401_UNAUTHORIZED)
+                clear_auth_cookies(response)
+                return response
 
         else:
             return Response({"detail": 'Invalid auth_type. Must be "local" or "external"', "code": "invalid_auth_type"}, status=status.HTTP_400_BAD_REQUEST)

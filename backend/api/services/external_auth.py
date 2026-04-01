@@ -12,6 +12,16 @@ from rest_framework.exceptions import AuthenticationFailed
 logger = logging.getLogger(__name__)
 
 
+class ExternalServiceError(Exception):
+    """Raised when a proxied external API request cannot be completed."""
+
+    def __init__(self, message, *, code="external_service_error", status_code=503):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.status_code = status_code
+
+
 class ExternalAuthService:
     """Service for interacting with external authentication API"""
 
@@ -125,6 +135,67 @@ class ExternalAuthService:
         except requests.exceptions.RequestException as e:
             logger.error("Get user info error: %s", e)
             raise AuthenticationFailed("User info service unavailable") from e
+
+    @classmethod
+    def lookup_user_accounts(cls, access_token, *, keyword=None):
+        """Look up external user accounts for leave-agent selection."""
+        url = f"{cls.BASE_URL}/user/account/lookup"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {}
+        if keyword:
+            params["keyword"] = keyword
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=cls.TIMEOUT)
+
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    return data
+                logger.error("External lookup returned unexpected payload type: %s", type(data).__name__)
+                raise ExternalServiceError(
+                    "External lookup returned an unexpected response.",
+                    code="external_lookup_invalid_response",
+                    status_code=502,
+                )
+
+            if response.status_code == 401:
+                logger.warning("External lookup rejected the access token")
+                raise ExternalServiceError(
+                    "Your external session has expired. Please log in again.",
+                    code="external_lookup_auth_failed",
+                    status_code=401,
+                )
+
+            if response.status_code == 400:
+                logger.warning("External lookup rejected parameters: %s", response.text)
+                raise ExternalServiceError(
+                    "The lookup request is invalid.",
+                    code="external_lookup_invalid_request",
+                    status_code=400,
+                )
+
+            logger.error("External lookup failed with status %s", response.status_code)
+            raise ExternalServiceError(
+                "External lookup service is currently unavailable.",
+                code="external_lookup_unavailable",
+                status_code=502,
+            )
+
+        except requests.exceptions.Timeout as e:
+            logger.error("External lookup timeout")
+            raise ExternalServiceError(
+                "External lookup service timed out.",
+                code="external_lookup_timeout",
+                status_code=503,
+            ) from e
+        except requests.exceptions.RequestException as e:
+            logger.error("External lookup request error: %s", e)
+            raise ExternalServiceError(
+                "External lookup service is currently unavailable.",
+                code="external_lookup_unavailable",
+                status_code=503,
+            ) from e
 
     @classmethod
     def verify_token(cls, access_token):

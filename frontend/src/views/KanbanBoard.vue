@@ -48,19 +48,14 @@
                 :selected-department="selectedDepartment" :selected-employee="selectedEmployee"
                 :selected-project="selectedProject" :selected-status="selectedStatus"
                 :selected-priority="selectedPriority" :selected-label="selectedLabel" :selected-group="selectedGroup"
-                :filter-project-search="filterProjectSearch" :show-filter-project-dropdown="showFilterProjectDropdown"
                 :active-filters-count="activeFiltersCount" :sorted-departments="sortedDepartments"
                 :sorted-employees="sortedEmployees" :filtered-employees="filteredEmployees"
-                :sorted-projects="sortedProjects" :filtered-filter-projects="filteredFilterProjects"
-                :task-groups="taskGroups" :get-selected-group-color="getSelectedGroupColor"
+                :sorted-projects="sortedProjects" :task-groups="taskGroups"
                 @update:selected-department="selectedDepartment = $event"
                 @update:selected-employee="selectedEmployee = $event"
                 @update:selected-project="selectedProject = $event" @update:selected-status="selectedStatus = $event"
                 @update:selected-priority="handleSelectedPriorityUpdate" @update:selected-label="selectedLabel = $event"
-                @update:selected-group="selectedGroup = $event"
-                @update:filter-project-search="filterProjectSearch = $event"
-                @update:show-filter-project-dropdown="showFilterProjectDropdown = $event"
-                @filter-project-blur="handleFilterProjectBlur" @clear-filters="clearFilters" />
+                @update:selected-group="selectedGroup = $event" @clear-filters="clearFilters" />
 
             <!-- Loading State -->
             <div v-if="loading" class="flex-1 flex items-center justify-center">
@@ -136,7 +131,7 @@
                                                     d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
                                             </svg>
                                         </button>
-                                        <button v-if="canDelete" @click="deleteTask(task.id!)"
+                                        <button v-if="canDelete && canDeleteTaskRecord(task)" @click="requestDeleteTask(task)"
                                             class="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-red-500 bg-white/80 dark:bg-gray-800/80 shadow-sm">
                                             <TrashIcon class="w-4 h-4" />
                                         </button>
@@ -599,6 +594,7 @@ import {
 } from '@/composables/kanban'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
 import { usePagePermission } from '@/composables/usePagePermission'
+import { useToast } from '@/composables/useToast'
 import {
 	AlarmIcon,
 	CheckIcon,
@@ -621,6 +617,7 @@ import { useEmployeeStore } from '@/stores/employee'
 
 const authStore = useAuthStore()
 const { t } = useI18n()
+const { showToast } = useToast()
 const employeeStore = useEmployeeStore()
 const departmentStore = useDepartmentStore()
 const { canCreate, canUpdate, canDelete } = usePagePermission('kanban')
@@ -644,19 +641,15 @@ const {
 	selectedLabel,
 	selectedPriority,
 	selectedGroup,
-	filterProjectSearch,
-	showFilterProjectDropdown,
 	currentUserEmployeeId,
 	userGroupIds,
 	sortedProjects,
 	sortedEmployees,
 	sortedDepartments,
 	filteredEmployees,
-	filteredFilterProjects,
 	activeFiltersCount,
 	columnTasksMap,
 	clearFilters,
-	handleFilterProjectBlur,
 } = useKanbanFilters(events, projects, taskGroups)
 
 const {
@@ -695,7 +688,6 @@ const {
 	handleProjectDropdownBlur,
 	closeProjectDropdown,
 	getEmployeeName,
-	getSelectedGroupColor,
 } = useKanbanTasks(
 	events,
 	projects,
@@ -703,7 +695,6 @@ const {
 	boardWs,
 	sortedEmployees,
 	sortedProjects,
-	selectedGroup,
 )
 
 const {
@@ -744,16 +735,30 @@ const {
 	getTaskEditingIndicator,
 } = useKanbanWebSocket(events, boardWs)
 
-const handleSelectedPriorityUpdate = (value: string | null) => {
-	if (
-		value === 'low' ||
-		value === 'medium' ||
-		value === 'high' ||
-		value === 'urgent' ||
-		value === null
-	) {
-		selectedPriority.value = value
-	}
+const isElevatedTaskManager = computed(
+    () => authStore.isPtbAdmin || authStore.isSuperAdmin || authStore.isDeveloper,
+)
+
+const canDeleteTaskRecord = (task: CalendarEvent) => {
+    if (isElevatedTaskManager.value) return true
+    if (!currentUserEmployeeId.value) return false
+    return task.created_by === currentUserEmployeeId.value
+}
+
+const requestDeleteTask = (task: CalendarEvent) => {
+    if (!task.id) return
+    if (!canDeleteTaskRecord(task)) {
+        showToast(t('kanban.deletePermissionDenied'), 'error')
+        return
+    }
+    deleteTask(task.id)
+}
+
+const handleSelectedPriorityUpdate = (values: string[]) => {
+    selectedPriority.value = values.filter(
+        (value): value is 'low' | 'medium' | 'high' | 'urgent' =>
+            value === 'low' || value === 'medium' || value === 'high' || value === 'urgent',
+    )
 }
 
 const handleListGroupsTabUpdate = (value: string) => {

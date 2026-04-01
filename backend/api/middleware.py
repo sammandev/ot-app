@@ -6,7 +6,6 @@ import http.cookies
 import logging
 import re
 import time
-from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.middleware import BaseMiddleware
@@ -29,7 +28,6 @@ class TokenAuthMiddleware(BaseMiddleware):
     """
     WebSocket middleware for JWT token authentication.
     Reads the httpOnly access_token cookie from the WS handshake headers.
-    Falls back to query string token (legacy).
     """
 
     async def __call__(self, scope, receive, send):
@@ -46,12 +44,6 @@ class TokenAuthMiddleware(BaseMiddleware):
                     token = cookie["access_token"].value
             except http.cookies.CookieError:
                 pass
-
-        # 2. Fallback: query string (legacy)
-        if not token:
-            query_string = scope.get("query_string", b"").decode()
-            query_params = parse_qs(query_string)
-            token = query_params.get("token", [None])[0]
 
         if token:
             user = await self.get_user_from_token(token)

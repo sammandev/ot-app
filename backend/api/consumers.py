@@ -189,6 +189,58 @@ def broadcast_task_deleted(task_id: int, deleted_by: str = "Unknown"):
         )
 
 
+def broadcast_task_comment_created(task_id: int, comment_data: dict):
+    """
+    Broadcast a persisted task comment to all viewers of a task detail drawer.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task_id}",
+            {
+                "type": "comment_added",
+                "comment": comment_data,
+                "comment_id": comment_data.get("id"),
+                "timestamp": timezone.now().isoformat(),
+            },
+        )
+
+
+def broadcast_task_comment_updated(task_id: int, comment_data: dict):
+    """
+    Broadcast a persisted task comment update to all viewers of a task detail drawer.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task_id}",
+            {
+                "type": "comment_updated",
+                "comment": comment_data,
+                "comment_id": comment_data.get("id"),
+                "new_content": comment_data.get("content"),
+                "timestamp": timezone.now().isoformat(),
+            },
+        )
+
+
+def broadcast_task_comment_deleted(task_id: int, comment_id: int, parent_id: int | None = None):
+    """
+    Broadcast a task comment deletion to all viewers of a task detail drawer.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(
+            f"task_{task_id}",
+            {
+                "type": "comment_deleted",
+                "comment_id": comment_id,
+                "parent_id": parent_id,
+                "timestamp": timezone.now().isoformat(),
+            },
+        )
+
+
 def send_notification_to_ptb_admins(notification_data: dict):
     """
     Send a notification to all PTB admin users via the shared 'role_ptb_admins' group.
@@ -440,6 +492,7 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
         self.user = self.scope.get("user")
         self._authenticated = False
         self._employee_cache = None
+        self._last_presence_editing_task_id = None
         self._init_rate_limiter()
 
         if self.user and getattr(self.user, "is_authenticated", False) and hasattr(self.user, "id"):
@@ -522,11 +575,12 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
             employee = await self.get_employee()
             if employee:
                 editing_task_id = content.get("editing_task_id")
-                await self.update_presence(employee, editing_task_id)
+                await self.touch_presence(employee, editing_task_id)
 
                 # If user started editing a task, broadcast it
-                if editing_task_id:
+                if editing_task_id != self._last_presence_editing_task_id:
                     await self.channel_layer.group_send(self.board_group, {"type": "task_editing", "user_id": employee.id, "user_name": employee.name, "task_id": editing_task_id})
+                    self._last_presence_editing_task_id = editing_task_id
 
         elif message_type == "stop_editing":
             # User closed task detail drawer - broadcast to clear editing indicator
@@ -534,6 +588,7 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
             if employee:
                 await self.update_presence(employee, None)
                 await self.channel_layer.group_send(self.board_group, {"type": "task_editing", "user_id": employee.id, "user_name": employee.name, "task_id": None})
+                self._last_presence_editing_task_id = None
 
         elif message_type == "task_updated":
             task_id = content.get("task_id")
@@ -609,7 +664,42 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
     def update_presence(self, employee, editing_task_id):
         from .models import BoardPresence
 
-        BoardPresence.objects.update_or_create(user=employee, defaults={"editing_task_id": editing_task_id, "channel_name": self.channel_name})
+        existing = BoardPresence.objects.filter(user=employee).first()
+        if existing:
+            updates = []
+            if existing.editing_task_id != editing_task_id:
+                existing.editing_task_id = editing_task_id
+                updates.append("editing_task")
+            if existing.channel_name != self.channel_name:
+                existing.channel_name = self.channel_name
+                updates.append("channel_name")
+            updates.append("last_seen")
+            existing.save(update_fields=updates)
+            return
+
+        BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
+
+    @database_sync_to_async
+    def touch_presence(self, employee, editing_task_id):
+        from .models import BoardPresence
+
+        existing = BoardPresence.objects.filter(user=employee).first()
+        if existing:
+            if existing.editing_task_id != editing_task_id or existing.channel_name != self.channel_name:
+                updates = []
+                if existing.editing_task_id != editing_task_id:
+                    existing.editing_task_id = editing_task_id
+                    updates.append("editing_task")
+                if existing.channel_name != self.channel_name:
+                    existing.channel_name = self.channel_name
+                    updates.append("channel_name")
+                updates.append("last_seen")
+                existing.save(update_fields=updates)
+            else:
+                BoardPresence.objects.filter(pk=existing.pk).update(last_seen=timezone.now())
+            return
+
+        BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
 
     @database_sync_to_async
     def remove_presence(self, employee):
@@ -712,36 +802,18 @@ class TaskDetailConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketCon
             await self.send_json({"type": "error", "error": "Rate limit exceeded"})
             return
 
-        if message_type == "comment_added":
-            # Validate comment text (B4)
-            comment_text = content.get("comment")
-            if not comment_text or not isinstance(comment_text, str):
-                return
+        if message_type == "typing":
             employee = await self.get_employee()
-            await self.channel_layer.group_send(self.task_group, {"type": "comment_added", "comment": comment_text[:5000], "author_name": employee.name if employee else "Unknown", "timestamp": timezone.now().isoformat()})
-
-        elif message_type == "comment_updated":
-            comment_id = content.get("comment_id")
-            new_content = content.get("new_content")
-            if not comment_id or not isinstance(comment_id, int):
-                return
-            if not new_content or not isinstance(new_content, str):
-                return
-            if not await self._comment_exists(comment_id):
-                return
-            await self.channel_layer.group_send(self.task_group, {"type": "comment_updated", "comment_id": comment_id, "new_content": new_content[:5000], "timestamp": timezone.now().isoformat()})
-
-        elif message_type == "comment_deleted":
-            comment_id = content.get("comment_id")
-            if not comment_id or not isinstance(comment_id, int):
-                return
-            if not await self._comment_exists(comment_id):
-                return
-            await self.channel_layer.group_send(self.task_group, {"type": "comment_deleted", "comment_id": comment_id, "timestamp": timezone.now().isoformat()})
-
-        elif message_type == "typing":
-            employee = await self.get_employee()
-            await self.channel_layer.group_send(self.task_group, {"type": "user_typing", "user_id": employee.id if employee else None, "user_name": employee.name if employee else "Unknown", "is_typing": bool(content.get("is_typing", True))})
+            await self.channel_layer.group_send(
+                self.task_group,
+                {
+                    "type": "user_typing",
+                    "user_id": employee.id if employee else None,
+                    "user_name": employee.name if employee else "Unknown",
+                    "is_typing": bool(content.get("is_typing", True)),
+                    "sender_channel_name": self.channel_name,
+                },
+            )
 
     # Message handlers for group_send
     async def comment_added(self, event):
@@ -754,7 +826,10 @@ class TaskDetailConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketCon
         await self.send_json(event)
 
     async def user_typing(self, event):
-        await self.send_json(event)
+        if event.get("sender_channel_name") == self.channel_name:
+            return
+        payload = {k: v for k, v in event.items() if k != "sender_channel_name"}
+        await self.send_json(payload)
 
     # Database helpers
     @database_sync_to_async
@@ -765,14 +840,6 @@ class TaskDetailConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketCon
         presences = BoardPresence.objects.filter(last_seen__gte=cutoff, editing_task_id=self.task_id).select_related("user")
 
         return [{"user_id": p.user.id, "user_name": p.user.name} for p in presences]
-
-    @database_sync_to_async
-    def _comment_exists(self, comment_id):
-        """Verify a TaskComment record exists before broadcasting."""
-        from .models import TaskComment
-
-        return TaskComment.objects.filter(pk=comment_id).exists()
-
 
 class CalendarConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer):
     """

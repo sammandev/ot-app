@@ -24,6 +24,7 @@
             <!-- Tab Panels -->
             <AccessControlTab v-if="activeTab === 'access'" v-model:users="users" />
             <SystemSettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
+            <EmailNotificationsTab v-if="activeTab === 'email-notifications'" ref="emailNotificationsTabRef" />
             <ActivityLogsTab v-if="activeTab === 'activity'" />
             <EventRemindersTab v-if="activeTab === 'reminders'" :users="users" ref="remindersTabRef" />
             <SmbConfigTab v-if="activeTab === 'smb'" ref="smbTabRef" />
@@ -39,10 +40,11 @@ import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import AccessControlTab from '@/components/super-admin/AccessControlTab.vue'
 import ActivityLogsTab from '@/components/super-admin/ActivityLogsTab.vue'
-import type EventRemindersTab from '@/components/super-admin/EventRemindersTab.vue'
-import type SmbConfigTab from '@/components/super-admin/SmbConfigTab.vue'
-import type SystemSettingsTab from '@/components/super-admin/SystemSettingsTab.vue'
-import type UserReportsTab from '@/components/super-admin/UserReportsTab.vue'
+import EmailNotificationsTab from '@/components/super-admin/EmailNotificationsTab.vue'
+import EventRemindersTab from '@/components/super-admin/EventRemindersTab.vue'
+import SmbConfigTab from '@/components/super-admin/SmbConfigTab.vue'
+import SystemSettingsTab from '@/components/super-admin/SystemSettingsTab.vue'
+import UserReportsTab from '@/components/super-admin/UserReportsTab.vue'
 import { STORAGE_KEY_SUPERADMIN_TAB } from '@/constants/storage'
 import type { UserAccessControl } from '@/services/api/auth'
 import { useConfigStore } from '@/stores/config'
@@ -54,6 +56,7 @@ const activeTab = ref(localStorage.getItem(STORAGE_KEY_SUPERADMIN_TAB) || 'acces
 const users = ref<UserAccessControl[]>([])
 
 const settingsTabRef = ref<InstanceType<typeof SystemSettingsTab> | null>(null)
+const emailNotificationsTabRef = ref<InstanceType<typeof EmailNotificationsTab> | null>(null)
 const remindersTabRef = ref<InstanceType<typeof EventRemindersTab> | null>(null)
 const smbTabRef = ref<InstanceType<typeof SmbConfigTab> | null>(null)
 const reportsTabRef = ref<InstanceType<typeof UserReportsTab> | null>(null)
@@ -61,6 +64,7 @@ const reportsTabRef = ref<InstanceType<typeof UserReportsTab> | null>(null)
 const tabs = [
 	{ key: 'access', label: 'Access Control' },
 	{ key: 'settings', label: 'System Configuration' },
+    { key: 'email-notifications', label: 'Email Notifications' },
 	{ key: 'activity', label: 'User Activity Logs' },
 	{ key: 'reminders', label: 'Event Reminders' },
 	{ key: 'smb', label: 'SMB Config' },
@@ -71,8 +75,9 @@ onMounted(async () => {
 	try {
 		await configStore.fetchConfig()
 		// Initialize child tabs that depend on config
-		settingsTabRef.value?.initFromConfig()
-		remindersTabRef.value?.initFromConfig()
+		settingsTabRef.value?.initFromConfig?.()
+        emailNotificationsTabRef.value?.initFromConfig?.()
+		remindersTabRef.value?.initFromConfig?.()
 	} catch (error) {
 		console.error('Failed to load system config', error)
 	}

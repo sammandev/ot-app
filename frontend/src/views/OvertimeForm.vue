@@ -27,21 +27,18 @@
 				</div>
 				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
 					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('otForm.remainingApplicable') }}
-						<span v-if="overtimePeriod" class="text-xs text-gray-400 dark:text-gray-500">{{ overtimePeriod
-						}} </span>
+						<span v-if="overtimePeriod" class="text-xs text-gray-400 dark:text-gray-500">{{ overtimePeriod}} </span>
 					</p>
-					<div class="flex items-baseline gap-2 mt-2">
+					<div class="mt-2 flex items-baseline gap-2">
 						<p class="text-lg font-semibold">
-							<span :class="weeklyRemainingColor">{{ weeklyRemainingHours.toFixed(2) }}</span> <span
-								class="text-gray-900 dark:text-white">/</span>
+							<span :class="weeklyRemainingColor">{{ weeklyRemainingHours.toFixed(2) }}</span>
+							<span class="px-1 text-gray-400 dark:text-gray-500">/</span>
 							<span :class="monthlyRemainingColor">{{ monthlyRemainingHours.toFixed(2) }}</span>
-							<span class="text-sm font-normal text-gray-900 dark:text-white"> {{ t('otForm.hours')
-							}}</span>
+							<span class="px-1 text-sm font-normal text-gray-900 dark:text-white"> {{ t('otForm.hours') }}</span>
 						</p>
 					</div>
 					<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ t('otForm.weeklyMonthly') }}</p>
-					<p v-if="remainingWarning" :class="remainingWarningClass" class="mt-1 text-xs">{{ remainingWarning
-					}}</p>
+					<p v-if="remainingWarning" :class="remainingWarningClass" class="mt-1 text-xs">{{ remainingWarning }}</p>
 				</div>
 			</div>
 

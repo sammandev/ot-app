@@ -306,6 +306,12 @@ const allMenuGroups = computed<MenuGroup[]>(() => [
 				key: 'assets',
 			},
 			{
+				icon: DocsIcon,
+				name: t('menu.documents'),
+				path: '/documents',
+				key: 'documents',
+			},
+			{
 				icon: FlagIcon,
 				name: t('menu.reportIssue'),
 				path: '/report',

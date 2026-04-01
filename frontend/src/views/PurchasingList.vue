@@ -10,7 +10,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.purchasingList.subtitle') }}</p>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="showImportModal = true"
+                    <button v-if="canImportPurchaseRequests" @click="openImportModal"
                         class="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
                         {{ t('purchasing.import') }}
                     </button>
@@ -80,24 +80,24 @@
                 style="max-height: calc(100vh - 200px)">
 
                 <!-- Bulk Actions Bar -->
-                <div v-if="selectedIds.length > 0"
+                <div v-if="canSelectPurchaseRequests && selectedIds.length > 0"
                     class="flex-none flex items-center gap-3 border-b border-gray-200 bg-brand-50 px-4 py-3 dark:border-gray-800 dark:bg-brand-500/10">
                     <span class="text-sm font-medium text-brand-700 dark:text-brand-300">
                         {{ selectedIds.length }} {{ t('purchasing.selected') }}
                     </span>
                     <div class="flex gap-2 ml-auto">
-                        <select v-if="canUpdate" v-model="bulkStatusTarget"
+                        <select v-if="canUpdate && canBulkManageSelectedPurchaseRequests" v-model="bulkStatusTarget"
                             class="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             <option value="">{{ t('purchasing.changeStatus') }}</option>
                             <option value="pending">{{ t('purchasing.pending') }}</option>
                             <option value="done">{{ t('purchasing.doneStat') }}</option>
                             <option value="canceled">{{ t('purchasing.canceled') }}</option>
                         </select>
-                        <button v-if="canUpdate && bulkStatusTarget" @click="handleBulkStatusUpdate"
+                        <button v-if="canUpdate && canBulkManageSelectedPurchaseRequests && bulkStatusTarget" @click="handleBulkStatusUpdate"
                             class="h-9 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700">
                             {{ t('purchasing.applyStatus') }}
                         </button>
-                        <button v-if="canDelete" @click="handleBulkDelete"
+                        <button v-if="canDelete && canBulkManageSelectedPurchaseRequests" @click="handleBulkDelete"
                             class="h-9 rounded-lg bg-error-600 px-4 text-sm font-medium text-white hover:bg-error-700">
                             {{ t('purchasing.deleteSelected') }}
                         </button>
@@ -113,7 +113,7 @@
                         <thead
                             class="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/80 backdrop-blur-sm">
                             <tr>
-                                <th class="px-4 py-4 text-left w-10">
+                                <th v-if="canSelectPurchaseRequests" class="px-4 py-4 text-left w-10">
                                     <input type="checkbox" :checked="isAllSelected" :indeterminate="isIndeterminate"
                                         @change="toggleSelectAll"
                                         class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800" />
@@ -139,8 +139,8 @@
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
                             <tr v-for="pr in purchaseRequests" :key="pr.id"
                                 class="hover:bg-gray-50 dark:hover:bg-white/5"
-                                :class="{ 'bg-brand-50/50 dark:bg-brand-500/5': selectedIds.includes(pr.id) }">
-                                <td class="px-4 py-4">
+                                :class="{ 'bg-brand-50/50 dark:bg-brand-500/5': canSelectPurchaseRequests && selectedIds.includes(pr.id) }">
+                                <td v-if="canSelectPurchaseRequests" class="px-4 py-4">
                                     <input type="checkbox" :checked="selectedIds.includes(pr.id)"
                                         @change="toggleSelect(pr.id)"
                                         class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800" />
@@ -184,11 +184,11 @@
                                             class="h-8 rounded-lg border border-gray-300 px-3 text-xs font-medium text-gray-600 transition hover:bg-gray-50 focus:outline-hidden dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
                                             {{ t('common.view') }}
                                         </button>
-                                        <button v-if="canUpdate" @click="editRequest(pr)"
+                                        <button v-if="canUpdate && canManagePurchaseRequest(pr)" @click="editRequest(pr)"
                                             class="h-8 rounded-lg border border-brand-300 px-3 text-xs font-medium text-brand-600 transition hover:bg-brand-50 focus:outline-hidden dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10">
                                             {{ t('common.edit') }}
                                         </button>
-                                        <button v-if="canDelete" @click="deleteRequest(pr.id)"
+                                        <button v-if="canDelete && canManagePurchaseRequest(pr)" @click="deleteRequest(pr)"
                                             class="h-8 rounded-lg border border-error-300 px-3 text-xs font-medium text-error-600 transition hover:bg-error-50 focus:outline-hidden dark:border-error-500/30 dark:text-error-400 dark:hover:bg-error-500/10">
                                             {{ t('common.delete') }}
                                         </button>
@@ -496,7 +496,7 @@
                                 class="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
                                 {{ t('common.close') }}
                             </button>
-                            <button v-if="canUpdate" @click="editRequest(selectedRequest!)"
+                            <button v-if="canUpdate && selectedRequest && canManagePurchaseRequest(selectedRequest)" @click="editRequest(selectedRequest)"
                                 class="h-11 flex-1 rounded-lg bg-brand-600 px-6 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700">
                                 {{ t('common.edit') }}
                             </button>
@@ -612,7 +612,7 @@
 
 <script setup lang="ts">
 import flatpickr from 'flatpickr'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
@@ -620,10 +620,12 @@ import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
 import { XIcon } from '@/icons'
 import { type PurchaseRequest, purchaseRequestAPI } from '@/services/api/purchase-request'
+import { useAuthStore } from '@/stores/auth'
 
 const { showToast } = useToast()
 const { canCreate, canUpdate, canDelete } = usePagePermission('purchasing')
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 // Format number: strip trailing zeros (1.00 → 1, 1.50 → 1.5)
 const formatNumber = (val: number | string | null | undefined): string => {
@@ -733,6 +735,19 @@ const pageRangeStart = computed(() =>
 	totalCount.value > 0 ? (currentPage.value - 1) * pageSize.value + 1 : 0,
 )
 const pageRangeEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalCount.value))
+const currentUserId = computed(() => authStore.user?.id ?? null)
+const isElevatedPurchasingUser = computed(
+    () => authStore.isPtbAdmin || authStore.isSuperAdmin || authStore.isDeveloper,
+)
+const canSelectPurchaseRequests = computed(() => isElevatedPurchasingUser.value)
+const canImportPurchaseRequests = computed(() => isElevatedPurchasingUser.value)
+const selectedPurchaseRequests = computed(() =>
+    purchaseRequests.value.filter((purchaseRequest) => selectedIds.value.includes(purchaseRequest.id)),
+)
+const canBulkManageSelectedPurchaseRequests = computed(() =>
+    selectedPurchaseRequests.value.length > 0 &&
+    selectedPurchaseRequests.value.every((purchaseRequest) => canManagePurchaseRequest(purchaseRequest)),
+)
 
 // Methods
 const formatDate = (date: string | null) => {
@@ -762,6 +777,32 @@ const getStatusClass = (status: string) => {
 const getOrdering = () => {
 	const prefix = sortDirection.value === 'desc' ? '-' : ''
 	return `${prefix}${sortField.value}`
+}
+
+const canManagePurchaseRequest = (purchaseRequest: PurchaseRequest | null | undefined) => {
+    if (!purchaseRequest) return false
+    if (isElevatedPurchasingUser.value) return true
+    return currentUserId.value !== null && purchaseRequest.created_by === currentUserId.value
+}
+
+const ensureCanManagePurchaseRequest = (purchaseRequest: PurchaseRequest | null | undefined) => {
+    if (canManagePurchaseRequest(purchaseRequest)) return true
+    showToast(t('purchasing.managePermissionDenied'), 'error')
+    return false
+}
+
+const ensureCanManageSelectedPurchaseRequests = () => {
+    if (canBulkManageSelectedPurchaseRequests.value) return true
+    showToast(t('purchasing.bulkManagePermissionDenied'), 'error')
+    return false
+}
+
+const openImportModal = () => {
+    if (!canImportPurchaseRequests.value) {
+        showToast(t('purchasing.importPermissionDenied'), 'error')
+        return
+    }
+    showImportModal.value = true
 }
 
 const loadData = async () => {
@@ -853,6 +894,7 @@ const toggleSort = (field: string) => {
 
 // Selection
 const toggleSelectAll = () => {
+    if (!canSelectPurchaseRequests.value) return
 	if (isAllSelected.value) {
 		selectedIds.value = []
 	} else {
@@ -861,6 +903,7 @@ const toggleSelectAll = () => {
 }
 
 const toggleSelect = (id: number) => {
+    if (!canSelectPurchaseRequests.value) return
 	const idx = selectedIds.value.indexOf(id)
 	if (idx > -1) {
 		selectedIds.value.splice(idx, 1)
@@ -875,6 +918,7 @@ const clearSelection = () => {
 }
 
 const handleBulkDelete = () => {
+    if (!ensureCanManageSelectedPurchaseRequests()) return
 	showBulkDeleteModal.value = true
 }
 
@@ -897,6 +941,7 @@ const confirmBulkDelete = async () => {
 
 const handleBulkStatusUpdate = async () => {
 	if (!bulkStatusTarget.value) return
+    if (!ensureCanManageSelectedPurchaseRequests()) return
 	try {
 		const result = await purchaseRequestAPI.bulkUpdateStatus(
 			selectedIds.value,
@@ -918,6 +963,7 @@ const viewDetails = (pr: PurchaseRequest) => {
 }
 
 const editRequest = (pr: PurchaseRequest) => {
+    if (!ensureCanManagePurchaseRequest(pr)) return
 	selectedRequest.value = pr
 	editForm.value = {
 		request_date: pr.request_date || '',
@@ -966,6 +1012,7 @@ const initDatePicker = () => {
 
 const saveRequest = async () => {
 	if (!selectedRequest.value) return
+    if (!ensureCanManagePurchaseRequest(selectedRequest.value)) return
 
 	isSaving.value = true
 	try {
@@ -982,8 +1029,9 @@ const saveRequest = async () => {
 	}
 }
 
-const deleteRequest = (id: number) => {
-	deleteId.value = id
+const deleteRequest = (purchaseRequest: PurchaseRequest) => {
+    if (!ensureCanManagePurchaseRequest(purchaseRequest)) return
+    deleteId.value = purchaseRequest.id
 	showDeleteModal.value = true
 }
 
@@ -1024,6 +1072,10 @@ const handleFileSelect = (event: Event) => {
 
 const importData = async () => {
 	if (!importFile.value) return
+    if (!canImportPurchaseRequests.value) {
+        showToast(t('purchasing.importPermissionDenied'), 'error')
+        return
+    }
 
 	isImporting.value = true
 	try {
@@ -1140,5 +1192,9 @@ onMounted(() => {
 	loadData()
 	loadTabCounts()
 	document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+	document.removeEventListener('click', handleClickOutside)
 })
 </script>

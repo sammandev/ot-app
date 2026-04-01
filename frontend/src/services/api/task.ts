@@ -143,6 +143,7 @@ export interface TaskWebSocketMessage {
 	error?: string
 	comment?: TaskComment
 	comment_id?: number
+	parent_id?: number | null
 	new_content?: string
 	author_name?: string
 	user_id?: number

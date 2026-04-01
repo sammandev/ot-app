@@ -52,6 +52,7 @@ class ResourcePermission(permissions.BasePermission):
         "admin_employees": ["employees", "admin_employees"],
         "regulations": ["regulations", "admin_regulations"],
         "admin_regulations": ["regulations", "admin_regulations"],
+        "documents": ["documents"],
         "overtime_form": ["overtime_form", "ot_form"],
         "ot_form": ["overtime_form", "ot_form"],
         "overtime_history": ["overtime_history", "ot_history"],
@@ -189,7 +190,13 @@ class ResourcePermission(permissions.BasePermission):
             logger.debug("Default: assets allows all actions")
             return True
 
-        # j) Regulations: Read Only for everyone (needed for OT Form page)
+        # j) Documents: Read only for regular users
+        elif resource_name == "documents":
+            result = required_action == "read"
+            logger.debug("Default: documents read-only: %s", result)
+            return result
+
+        # k) Regulations: Read Only for everyone (needed for OT Form page)
         elif resource_name == "regulations":
             result = required_action == "read"
             logger.debug("Default: regulations read-only: %s", result)

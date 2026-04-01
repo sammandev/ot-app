@@ -43,7 +43,9 @@ export interface WebSocketNotification {
 
 export const useNotificationStore = defineStore('notification', () => {
 	const notifications = ref<Notification[]>([])
+	const dropdownNotifications = ref<Notification[]>([])
 	const loading = ref(false)
+	const dropdownLoading = ref(false)
 	let latestFetchAbortController: AbortController | null = null
 	let unreadCountFetchAbortController: AbortController | null = null
 	let paginatedFetchAbortController: AbortController | null = null
@@ -55,19 +57,52 @@ export const useNotificationStore = defineStore('notification', () => {
 	const hasMore = ref(false)
 	const loadingMore = ref(false)
 	const currentArchivedMode = ref(false)
+	const pageLoaded = ref(false)
 	const serverUnreadCount = ref(0)
+
+	const sortNotifications = (items: Notification[]) =>
+		[...items].sort(
+			(a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+		)
+
+	const upsertNotification = (items: Notification[], notification: Notification) => {
+		const existingIndex = items.findIndex((item) => item.id === notification.id)
+		if (existingIndex === -1) {
+			return [notification, ...items]
+		}
+
+		const nextItems = [...items]
+		nextItems[existingIndex] = { ...nextItems[existingIndex], ...notification }
+		return nextItems
+	}
+
+	const updateNotificationById = (
+		items: Notification[],
+		id: number,
+		updater: (notification: Notification) => Notification,
+	) => items.map((notification) => (notification.id === id ? updater(notification) : notification))
+
+	const removeNotificationById = (items: Notification[], id: number) =>
+		items.filter((notification) => notification.id !== id)
+
+	const findNotificationById = (id: number) =>
+		dropdownNotifications.value.find((notification) => notification.id === id) ||
+		notifications.value.find((notification) => notification.id === id)
 
 	// Prefer server unread count; local list acts as a fallback.
 	const unreadCount = computed(() => {
-		const localUnread = notifications.value.filter((n) => !n.is_read).length
-		return Math.max(serverUnreadCount.value, localUnread)
+		const unreadIds = new Set<number>()
+		for (const notification of dropdownNotifications.value) {
+			if (!notification.is_read) unreadIds.add(notification.id)
+		}
+		for (const notification of notifications.value) {
+			if (!notification.is_read) unreadIds.add(notification.id)
+		}
+		return Math.max(serverUnreadCount.value, unreadIds.size)
 	})
 
-	const sortedNotifications = computed(() =>
-		[...notifications.value].sort(
-			(a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-		),
-	)
+	const sortedNotifications = computed(() => sortNotifications(notifications.value))
+	const sortedDropdownNotifications = computed(() => sortNotifications(dropdownNotifications.value))
 
 	const isAbortError = (err: unknown) => {
 		return (
@@ -85,29 +120,33 @@ export const useNotificationStore = defineStore('notification', () => {
 	 * This is called when a new notification is received via WebSocket
 	 */
 	function addNotification(notification: WebSocketNotification) {
-		// Check if notification already exists (avoid duplicates)
-		const existingIndex = notifications.value.findIndex((n) => n.id === notification.id)
-		if (existingIndex === -1) {
-			// Add to the beginning of the array (newest first)
-			const newNotification: Notification = {
-				id: notification.id,
-				title: notification.title,
-				message: notification.message,
-				is_read: notification.is_read,
-				created_at: notification.created_at,
-				time_ago: 'Just now',
-				recipient: useAuthStore().user?.id ?? 0,
-				event: notification.event_id ?? null,
-				event_type: notification.event_type,
-				computed_event_type: notification.event_type,
-			}
-			notifications.value.unshift(newNotification)
+		const newNotification: Notification = {
+			id: notification.id,
+			title: notification.title,
+			message: notification.message,
+			is_read: notification.is_read,
+			created_at: notification.created_at,
+			time_ago: 'Just now',
+			recipient: useAuthStore().user?.id ?? 0,
+			event: notification.event_id ?? null,
+			event_type: notification.event_type,
+			computed_event_type: notification.event_type,
+		}
+
+		const alreadyExists = !!findNotificationById(notification.id)
+		dropdownNotifications.value = upsertNotification(dropdownNotifications.value, newNotification)
+
+		if (pageLoaded.value && !currentArchivedMode.value && currentPage.value === 1) {
+			notifications.value = upsertNotification(notifications.value, newNotification)
+		}
+
+		if (!alreadyExists) {
 			if (!notification.is_read) {
 				serverUnreadCount.value += 1
 			}
-
-			// Increment total count for pagination
-			totalCount.value++
+			if (pageLoaded.value && !currentArchivedMode.value) {
+				totalCount.value += 1
+			}
 		}
 	}
 
@@ -126,11 +165,11 @@ export const useNotificationStore = defineStore('notification', () => {
 		const controller = new AbortController()
 		latestFetchAbortController = controller
 
-		loading.value = true
+		dropdownLoading.value = true
 		try {
 			const notifData = await notificationAPI.getLatest(10, { signal: controller.signal })
 			if (Array.isArray(notifData)) {
-				notifications.value = notifData
+				dropdownNotifications.value = notifData
 			}
 		} catch (e) {
 			if (isAbortError(e)) {
@@ -140,7 +179,7 @@ export const useNotificationStore = defineStore('notification', () => {
 		} finally {
 			if (latestFetchAbortController === controller) {
 				latestFetchAbortController = null
-				loading.value = false
+				dropdownLoading.value = false
 			}
 		}
 	}
@@ -232,6 +271,7 @@ export const useNotificationStore = defineStore('notification', () => {
 				totalPages.value = data.total_pages
 				currentPage.value = data.current_page
 				hasMore.value = data.next !== null
+				pageLoaded.value = true
 			}
 		} catch (e) {
 			if (isAbortError(e)) {
@@ -263,14 +303,6 @@ export const useNotificationStore = defineStore('notification', () => {
 	 * Reset pagination state
 	 */
 	function resetPagination() {
-		if (unreadCountFetchAbortController) {
-			unreadCountFetchAbortController.abort()
-			unreadCountFetchAbortController = null
-		}
-		if (latestFetchAbortController) {
-			latestFetchAbortController.abort()
-			latestFetchAbortController = null
-		}
 		if (paginatedFetchAbortController) {
 			paginatedFetchAbortController.abort()
 			paginatedFetchAbortController = null
@@ -280,16 +312,23 @@ export const useNotificationStore = defineStore('notification', () => {
 		totalPages.value = 0
 		hasMore.value = false
 		currentArchivedMode.value = false
-		serverUnreadCount.value = 0
+		pageLoaded.value = false
 		notifications.value = []
 	}
 
 	async function markAsRead(id: number) {
 		try {
 			await notificationAPI.markRead(id)
-			const n = notifications.value.find((n) => n.id === id)
-			if (n && !n.is_read) {
-				n.is_read = true
+			const target = findNotificationById(id)
+			if (target && !target.is_read) {
+				dropdownNotifications.value = updateNotificationById(dropdownNotifications.value, id, (notification) => ({
+					...notification,
+					is_read: true,
+				}))
+				notifications.value = updateNotificationById(notifications.value, id, (notification) => ({
+					...notification,
+					is_read: true,
+				}))
 				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
 			}
 		} catch (e) {
@@ -300,6 +339,10 @@ export const useNotificationStore = defineStore('notification', () => {
 	async function markAllAsRead() {
 		try {
 			const response = await notificationAPI.markAllRead()
+			dropdownNotifications.value = dropdownNotifications.value.map((notification) => ({
+				...notification,
+				is_read: true,
+			}))
 			notifications.value.forEach((n) => {
 				n.is_read = true
 			})
@@ -313,13 +356,17 @@ export const useNotificationStore = defineStore('notification', () => {
 
 	async function archiveNotification(id: number) {
 		try {
+			const target = findNotificationById(id)
+			const wasUnread = !!target && !target.is_read
 			await notificationAPI.archiveNotification(id)
-			const target = notifications.value.find((n) => n.id === id)
-			if (target && !target.is_read) {
+			if (wasUnread) {
 				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
 			}
+			dropdownNotifications.value = removeNotificationById(dropdownNotifications.value, id)
 			notifications.value = notifications.value.filter((n) => n.id !== id)
-			totalCount.value = Math.max(0, totalCount.value - 1)
+			if (pageLoaded.value && !currentArchivedMode.value) {
+				totalCount.value = Math.max(0, totalCount.value - 1)
+			}
 			return true
 		} catch (e) {
 			console.error('Failed to archive notification', e)
@@ -331,7 +378,9 @@ export const useNotificationStore = defineStore('notification', () => {
 		try {
 			await notificationAPI.unarchiveNotification(id)
 			notifications.value = notifications.value.filter((n) => n.id !== id)
-			totalCount.value = Math.max(0, totalCount.value - 1)
+			if (pageLoaded.value && currentArchivedMode.value) {
+				totalCount.value = Math.max(0, totalCount.value - 1)
+			}
 			return true
 		} catch (e) {
 			console.error('Failed to unarchive notification', e)
@@ -341,13 +390,18 @@ export const useNotificationStore = defineStore('notification', () => {
 
 	async function deleteNotification(id: number) {
 		try {
+			const target = findNotificationById(id)
+			const wasUnread = !!target && !target.is_read
+			const pageHasTarget = notifications.value.some((notification) => notification.id === id)
 			await notificationAPI.deleteNotification(id)
-			const target = notifications.value.find((n) => n.id === id)
-			if (target && !target.is_read) {
+			if (wasUnread) {
 				serverUnreadCount.value = Math.max(0, serverUnreadCount.value - 1)
 			}
+			dropdownNotifications.value = removeNotificationById(dropdownNotifications.value, id)
 			notifications.value = notifications.value.filter((n) => n.id !== id)
-			totalCount.value = Math.max(0, totalCount.value - 1)
+			if (pageLoaded.value && (pageHasTarget || !currentArchivedMode.value)) {
+				totalCount.value = Math.max(0, totalCount.value - 1)
+			}
 			return true
 		} catch (e) {
 			console.error('Failed to delete notification', e)
@@ -389,19 +443,26 @@ export const useNotificationStore = defineStore('notification', () => {
 	function clearNotifications() {
 		disposeControllers()
 		notifications.value = []
+		dropdownNotifications.value = []
+		dropdownLoading.value = false
 		serverUnreadCount.value = 0
 		totalCount.value = 0
 		totalPages.value = 0
 		currentPage.value = 1
 		hasMore.value = false
+		currentArchivedMode.value = false
+		pageLoaded.value = false
 	}
 
 	return {
 		notifications,
+		dropdownNotifications,
 		unreadCount,
 		loading,
+		dropdownLoading,
 		loadingMore,
 		sortedNotifications,
+		sortedDropdownNotifications,
 		totalCount,
 		totalPages,
 		currentPage,

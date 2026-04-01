@@ -21,6 +21,7 @@ from .views.config import (
     UserActivityLogViewSet,
     UserReportViewSet,
 )
+from .views.documents import DocumentViewSet
 from .views.employees import EmployeeViewSet
 from .views.holidays import EmployeeLeaveViewSet, HolidayViewSet
 from .views.notifications import NotificationViewSet
@@ -73,6 +74,7 @@ v1_router.register(r"task-reminders", TaskReminderViewSet, basename="task-remind
 # Purchasing and Assets
 v1_router.register(r"purchase-requests", PurchaseRequestViewSet, basename="purchase-request")
 v1_router.register(r"assets", AssetViewSet, basename="asset")
+v1_router.register(r"documents", DocumentViewSet, basename="document")
 # User Reports & Release Notes
 v1_router.register(r"user-reports", UserReportViewSet, basename="user-report")
 v1_router.register(r"release-notes", ReleaseNoteViewSet, basename="release-note")

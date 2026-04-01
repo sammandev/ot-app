@@ -11,6 +11,8 @@ import { apiClient } from './client'
 
 export interface PurchaseRequest {
 	id: number
+	created_by?: number | null
+	created_by_username?: string | null
 	request_date: string | null
 	owner: string | null
 	owner_employee: number | null

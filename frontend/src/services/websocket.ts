@@ -483,8 +483,8 @@ export class TaskWebSocket {
 
 	// Event handlers
 	public onCommentAdded: ((comment: TaskComment) => void) | null = null
-	public onCommentUpdated: ((commentId: number, newContent: string) => void) | null = null
-	public onCommentDeleted: ((commentId: number) => void) | null = null
+	public onCommentUpdated: ((comment: TaskComment) => void) | null = null
+	public onCommentDeleted: ((commentId: number, parentId?: number | null) => void) | null = null
 	public onUserTyping: ((user: TaskEditor, isTyping: boolean) => void) | null = null
 
 	constructor(taskId: number) {
@@ -555,14 +555,14 @@ export class TaskWebSocket {
 				break
 
 			case 'comment_updated':
-				if (message.comment_id && message.new_content) {
-					this.onCommentUpdated?.(message.comment_id, message.new_content)
+				if (message.comment) {
+					this.onCommentUpdated?.(message.comment)
 				}
 				break
 
 			case 'comment_deleted':
 				if (message.comment_id) {
-					this.onCommentDeleted?.(message.comment_id)
+					this.onCommentDeleted?.(message.comment_id, message.parent_id)
 				}
 				break
 

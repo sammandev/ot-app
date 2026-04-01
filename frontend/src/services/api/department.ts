@@ -51,9 +51,16 @@ export const departmentAPI = {
 	},
 
 	async getEmployees(departmentId: number) {
-		return apiClient.get<{ id: number; emp_id: string; name: string; is_enabled: boolean }[]>(
-			`/v1/departments/${departmentId}/employees/`,
-		)
+		const response = await apiClient.get<
+			| { id: number; emp_id: string; name: string; is_enabled: boolean }[]
+			| { results?: { id: number; emp_id: string; name: string; is_enabled: boolean }[] }
+		>(`/v1/departments/${departmentId}/employees/`)
+
+		if (Array.isArray(response.data)) {
+			return response.data
+		}
+
+		return Array.isArray(response.data?.results) ? response.data.results : []
 	},
 
 	async removeEmployee(departmentId: number, employeeId: number) {

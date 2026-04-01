@@ -9,7 +9,7 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.assets.subtitle') }}</p>
                 </div>
                 <div class="flex gap-2">
-                    <button @click="showImportModal = true"
+                    <button v-if="canImportAssets" @click="openImportModal"
                         class="h-11 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
                         {{ t('common.import') }}
                     </button>
@@ -70,7 +70,7 @@
             <div v-else-if="assets.length === 0"
                 class="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-gray-500 dark:text-gray-400">{{ t('assets.noAssetsFound') }}</p>
-                <button @click="showImportModal = true" class="mt-2 text-brand-600 hover:underline">{{ t('assets.importAssetsFromFile') }}</button>
+                <button v-if="canImportAssets" @click="openImportModal" class="mt-2 text-brand-600 hover:underline">{{ t('assets.importAssetsFromFile') }}</button>
             </div>
 
             <!-- Assets Table -->
@@ -79,14 +79,14 @@
                 style="max-height: calc(100vh - 200px)">
 
                 <!-- Bulk Actions Bar -->
-                <div v-if="selectedIds.length > 0"
+                <div v-if="canSelectAssets && selectedIds.length > 0"
                     class="flex-none flex items-center gap-3 border-b border-gray-200 bg-brand-50 px-4 py-3 dark:border-gray-800 dark:bg-brand-500/10">
                     <span class="text-sm font-medium text-brand-700 dark:text-brand-300">
                         {{ selectedIds.length }} {{ t('assets.selected') }}
                     </span>
                     <div class="flex gap-2 ml-auto">
                         <!-- Bulk Status Update -->
-                        <select v-if="canUpdate" v-model="bulkStatusTarget"
+                        <select v-if="canUpdate && canBulkEditSelectedAssets" v-model="bulkStatusTarget"
                             class="h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                             <option value="">{{ t('assets.changeStatus') }}</option>
                             <option value="Picking">{{ t('assets.picking') }}</option>
@@ -94,17 +94,17 @@
                             <option value="Received">{{ t('assets.received') }}</option>
                             <option value="__custom__">{{ t('assets.customStatus') }}</option>
                         </select>
-                        <input v-if="canUpdate && bulkStatusTarget === '__custom__'" v-model="customStatusValue"
+                        <input v-if="canUpdate && canBulkEditSelectedAssets && bulkStatusTarget === '__custom__'" v-model="customStatusValue"
                             type="text" :placeholder="t('assets.enterStatus')"
                             class="h-9 w-36 rounded-lg border border-gray-300 bg-white px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
                             @keyup.enter="handleBulkStatusUpdate" />
                         <button
-                            v-if="canUpdate && (bulkStatusTarget && bulkStatusTarget !== '__custom__' || (bulkStatusTarget === '__custom__' && customStatusValue))"
+                            v-if="canUpdate && canBulkEditSelectedAssets && (bulkStatusTarget && bulkStatusTarget !== '__custom__' || (bulkStatusTarget === '__custom__' && customStatusValue))"
                             @click="handleBulkStatusUpdate" :disabled="isBulkUpdating"
                             class="h-9 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50">
                             {{ isBulkUpdating ? t('assets.applying') : t('assets.applyStatus') }}
                         </button>
-                        <button v-if="canDelete" @click="handleBulkDelete"
+                        <button v-if="canDelete && canDeleteAssets" @click="handleBulkDelete"
                             class="h-9 rounded-lg bg-error-600 px-4 text-sm font-medium text-white hover:bg-error-700">
                             {{ t('assets.deleteSelected') }}
                         </button>
@@ -121,7 +121,7 @@
                         <thead
                             class="sticky top-0 z-10 border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/90 backdrop-blur-sm">
                             <tr>
-                                <th class="px-4 py-4 text-left w-10">
+                                <th v-if="canSelectAssets" class="px-4 py-4 text-left w-10">
                                     <input type="checkbox" :checked="isAllSelected" :indeterminate="isIndeterminate"
                                         @change="toggleSelectAll"
                                         class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800" />
@@ -146,8 +146,8 @@
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
                             <tr v-for="asset in assets" :key="asset.id"
                                 class="hover:bg-gray-50 dark:hover:bg-white/5"
-                                :class="{ 'bg-brand-50/50 dark:bg-brand-500/5': selectedIds.includes(asset.id) }">
-                                <td class="px-4 py-3">
+                                :class="{ 'bg-brand-50/50 dark:bg-brand-500/5': canSelectAssets && selectedIds.includes(asset.id) }">
+                                <td v-if="canSelectAssets" class="px-4 py-3">
                                     <input type="checkbox" :checked="selectedIds.includes(asset.id)"
                                         @change="toggleSelect(asset.id)"
                                         class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800" />
@@ -188,11 +188,11 @@
                                             class="h-8 rounded-lg border border-gray-300 px-3 text-xs font-medium text-gray-600 transition hover:bg-gray-50 focus:outline-hidden dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
                                             {{ t('common.view') }}
                                         </button>
-                                        <button v-if="canUpdate" @click="editAsset(asset.id)"
+                                        <button v-if="canUpdate && canEditAsset(asset)" @click="editAsset(asset)"
                                             class="h-8 rounded-lg border border-brand-300 px-3 text-xs font-medium text-brand-600 transition hover:bg-brand-50 focus:outline-hidden dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10">
                                             {{ t('common.edit') }}
                                         </button>
-                                        <button v-if="canDelete" @click="deleteAsset(asset.id)"
+                                        <button v-if="canDelete && canDeleteAssets" @click="deleteAsset(asset.id)"
                                             class="h-8 rounded-lg border border-error-300 px-3 text-xs font-medium text-error-600 transition hover:bg-error-50 focus:outline-hidden dark:border-error-500/30 dark:text-error-400 dark:hover:bg-error-500/10">
                                             {{ t('common.delete') }}
                                         </button>
@@ -478,7 +478,7 @@
                                 class="h-11 flex-1 rounded-lg border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
                                 {{ t('common.close') }}
                             </button>
-                            <button v-if="canUpdate && selectedAsset" @click="editAsset(selectedAsset.id)"
+                            <button v-if="canUpdate && selectedAsset && canEditAsset(selectedAsset)" @click="editAsset(selectedAsset)"
                                 class="h-11 flex-1 rounded-lg bg-brand-600 px-6 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-700">
                                 {{ t('common.edit') }}
                             </button>
@@ -664,7 +664,7 @@ defineOptions({
 })
 
 import flatpickr from 'flatpickr'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
@@ -672,10 +672,12 @@ import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
 import { XIcon } from '@/icons'
 import { type Asset, type AssetSummary, assetAPI } from '@/services/api/asset'
+import { useAuthStore } from '@/stores/auth'
 
 const { showToast } = useToast()
 const { t } = useI18n()
 const { canCreate, canUpdate, canDelete } = usePagePermission('assets')
+const authStore = useAuthStore()
 
 // Format number: strip trailing zeros (1.00 → 1, 1.50 → 1.5)
 const formatNumber = (val: number | string | null | undefined): string => {
@@ -712,6 +714,20 @@ const pageRangeStart = computed(() =>
 	totalCount.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1,
 )
 const pageRangeEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalCount.value))
+const currentUserId = computed(() => authStore.user?.id ?? null)
+const isElevatedAssetUser = computed(
+    () => authStore.isPtbAdmin || authStore.isSuperAdmin || authStore.isDeveloper,
+)
+const canSelectAssets = computed(() => isElevatedAssetUser.value)
+const canImportAssets = computed(() => isElevatedAssetUser.value)
+const canDeleteAssets = computed(() => isElevatedAssetUser.value)
+const selectedAssetsOnPage = computed(() =>
+    assets.value.filter((asset) => selectedIds.value.includes(asset.id)),
+)
+const canBulkEditSelectedAssets = computed(() =>
+    selectedAssetsOnPage.value.length > 0 &&
+    selectedAssetsOnPage.value.every((asset) => canEditAsset(asset)),
+)
 
 // State
 const isLoading = ref(false)
@@ -787,6 +803,7 @@ const isIndeterminate = computed(() => {
 })
 
 const toggleSelectAll = () => {
+    if (!canSelectAssets.value) return
 	if (isAllSelected.value) {
 		const pageIds = new Set(assets.value.map((a) => a.id))
 		selectedIds.value = selectedIds.value.filter((id) => !pageIds.has(id))
@@ -797,6 +814,7 @@ const toggleSelectAll = () => {
 }
 
 const toggleSelect = (id: number) => {
+    if (!canSelectAssets.value) return
 	const idx = selectedIds.value.indexOf(id)
 	if (idx > -1) {
 		selectedIds.value.splice(idx, 1)
@@ -818,6 +836,38 @@ const getStatusClass = (status: string) => {
 	if (s === 'broken') return 'bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-300'
 	if (s === 'received') return 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300'
 	return 'bg-gray-100 text-gray-800 dark:bg-gray-500/20 dark:text-gray-300'
+}
+
+const canEditAsset = (asset: Pick<Asset, 'created_by'> | Pick<AssetSummary, 'created_by'> | null | undefined) => {
+    if (!asset) return false
+    if (isElevatedAssetUser.value) return true
+    return currentUserId.value !== null && asset.created_by === currentUserId.value
+}
+
+const ensureCanEditAsset = (asset: Pick<Asset, 'created_by'> | Pick<AssetSummary, 'created_by'> | null | undefined) => {
+    if (canEditAsset(asset)) return true
+    showToast(t('assets.editPermissionDenied'), 'error')
+    return false
+}
+
+const ensureCanDeleteAssets = () => {
+    if (canDeleteAssets.value) return true
+    showToast(t('assets.deletePermissionDenied'), 'error')
+    return false
+}
+
+const ensureCanBulkEditAssets = () => {
+    if (canBulkEditSelectedAssets.value) return true
+    showToast(t('assets.bulkEditPermissionDenied'), 'error')
+    return false
+}
+
+const openImportModal = () => {
+    if (!canImportAssets.value) {
+        showToast(t('assets.importPermissionDenied'), 'error')
+        return
+    }
+    showImportModal.value = true
 }
 
 // Methods
@@ -897,6 +947,7 @@ const handleReset = () => {
 const goToPage = (page: number) => {
 	if (page < 1 || page > totalPages.value) return
 	currentPage.value = page
+    clearSelection()
 	loadData()
 }
 
@@ -915,6 +966,7 @@ const handleBulkStatusUpdate = async () => {
 	const status =
 		bulkStatusTarget.value === '__custom__' ? customStatusValue.value : bulkStatusTarget.value
 	if (!status || selectedIds.value.length === 0) return
+    if (!ensureCanBulkEditAssets()) return
 
 	isBulkUpdating.value = true
 	try {
@@ -931,6 +983,7 @@ const handleBulkStatusUpdate = async () => {
 }
 
 const handleBulkDelete = () => {
+    if (!ensureCanDeleteAssets()) return
 	showBulkDeleteModal.value = true
 }
 
@@ -961,9 +1014,12 @@ const viewAsset = async (id: number) => {
 	}
 }
 
-const editAsset = async (id: number) => {
+const editAsset = async (assetOrId: AssetSummary | Asset | number) => {
+    if (typeof assetOrId !== 'number' && !ensureCanEditAsset(assetOrId)) return
+    const id = typeof assetOrId === 'number' ? assetOrId : assetOrId.id
 	try {
 		const asset = await assetAPI.get(id)
+        if (!ensureCanEditAsset(asset)) return
 		selectedAsset.value = asset
 		editForm.value = {
 			asset_id: asset.asset_id || '',
@@ -1015,6 +1071,7 @@ const initDatePicker = () => {
 
 const saveAsset = async () => {
 	if (!selectedAsset.value) return
+    if (!ensureCanEditAsset(selectedAsset.value)) return
 
 	isSaving.value = true
 	try {
@@ -1062,6 +1119,7 @@ const createAsset = async () => {
 }
 
 const deleteAsset = (id: number) => {
+    if (!ensureCanDeleteAssets()) return
 	deleteId.value = id
 	showDeleteModal.value = true
 }
@@ -1102,6 +1160,10 @@ const handleFileSelect = (event: Event) => {
 
 const importData = async () => {
 	if (!importFile.value) return
+    if (!canImportAssets.value) {
+        showToast(t('assets.importPermissionDenied'), 'error')
+        return
+    }
 
 	isImporting.value = true
 	try {
@@ -1228,5 +1290,9 @@ onMounted(() => {
 	loadData()
 	loadDepartmentOptions()
 	document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+	document.removeEventListener('click', handleClickOutside)
 })
 </script>

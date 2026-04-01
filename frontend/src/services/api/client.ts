@@ -84,6 +84,18 @@ apiClient.interceptors.response.use(
 // --- Auth token refresh on 401 ---
 let isLoggingOut = false
 let logoutResetTimer: ReturnType<typeof setTimeout> | null = null
+let refreshPromise: Promise<void> | null = null
+
+function getRefreshPromise() {
+	if (!refreshPromise) {
+		const authStore = useAuthStore()
+		refreshPromise = authStore.refreshToken().finally(() => {
+			refreshPromise = null
+		})
+	}
+
+	return refreshPromise
+}
 
 apiClient.interceptors.response.use(
 	(response) => response,
@@ -111,7 +123,7 @@ apiClient.interceptors.response.use(
 					return Promise.reject(error)
 				}
 
-				await authStore.refreshToken()
+				await getRefreshPromise()
 
 				// Retry original request (cookies are sent automatically)
 				return apiClient(originalRequest)

@@ -4,11 +4,37 @@ Async task processing for long-running operations
 """
 
 import logging
+import threading
 
 from celery import shared_task
 from django.utils import timezone
 
+from api.services.leave_notification_service import send_leave_notification_email_message
+
 logger = logging.getLogger(__name__)
+
+
+def deliver_leave_notification_email(leave_ids, action, actor_username=None):
+    return send_leave_notification_email_message(leave_ids=leave_ids, action=action, actor_username=actor_username)
+
+
+def dispatch_leave_notification_email(leave_ids, action, actor_username=None):
+    def _run_delivery():
+        try:
+            deliver_leave_notification_email(leave_ids=leave_ids, action=action, actor_username=actor_username)
+        except Exception:
+            logger.exception("Background leave email delivery failed for IDs %s", leave_ids)
+
+    threading.Thread(target=_run_delivery, name="leave-email-dispatch", daemon=True).start()
+
+
+@shared_task(bind=True, max_retries=3)
+def send_leave_notification_email(self, leave_ids, action, actor_username=None):
+    try:
+        return deliver_leave_notification_email(leave_ids=leave_ids, action=action, actor_username=actor_username)
+    except Exception as exc:
+        logger.error("Error sending leave notification email for IDs %s: %s", leave_ids, exc, exc_info=True)
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1)) from exc
 
 
 @shared_task(bind=True, max_retries=3)

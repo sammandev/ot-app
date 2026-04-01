@@ -25,6 +25,8 @@ import ErrorIcon from './ErrorIcon.vue'
 import ExpandIcon from './ExpandIcon.vue'
 import FlagIcon from './FlagIcon.vue'
 import FolderIcon from './FolderIcon.vue'
+import FullscreenEnterIcon from './FullscreenEnterIcon.vue'
+import FullscreenExitIcon from './FullscreenExitIcon.vue'
 import FunnelIcon from './FunnelIcon.vue'
 import GridIcon from './GridIcon.vue'
 import HistoryIcon from './HistoryIcon.vue'
@@ -99,6 +101,8 @@ export {
 	ExpandIcon,
 	FlagIcon,
 	FolderIcon,
+	FullscreenEnterIcon,
+	FullscreenExitIcon,
 	FunnelIcon,
 	GridIcon,
 	HistoryIcon,

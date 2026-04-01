@@ -361,6 +361,7 @@ import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
+import type { Employee } from '@/services/api/employee'
 import type { OvertimeRequest } from '@/services/api/overtime'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
@@ -420,6 +421,10 @@ const filteredEmployeeOptions = computed(() => {
 	// Sort alphabetically by name
 	return [...employees].sort((a, b) => a.name.localeCompare(b.name))
 })
+
+const initialSelectedEmployeeId = computed(
+	() => String(route.params.id || (filteredEmployeeOptions.value[0]?.id ?? '')),
+)
 
 const normalizeHours = (value: OvertimeRequest['total_hours']) => {
 	if (typeof value === 'string') {
@@ -494,105 +499,111 @@ const generatePeriodBuckets = (
 }
 
 // Compute employeesData from API data instead of mock data
-const employeesData = computed<EmployeeData[]>(() => {
-	const employees = employeeStore.employees
-	const projects = projectStore.projects
-	const requests = overtimeStore.requests
-	const range = calculateDateRange()
+const projectNameMap = computed(() => {
+	const map = new Map<number, string>()
+	for (const project of projectStore.projects) {
+		map.set(project.id, project.name)
+	}
+	return map
+})
 
-	return employees.map((emp) => {
-		// Filter requests for this employee within the date range
-		const empRequests = requests.filter((req) => {
-			if (req.employee !== emp.id) return false
-			if (req.status === 'rejected') return false
-			if (!req.request_date) return false
-			if (!range) return true
-			return isWithinRange(req.request_date, range)
+const selectedEmployeeMeta = computed<Employee | null>(() => {
+	const selectedId = Number(selectedEmployeeId.value)
+	if (!selectedId) return null
+	return filteredEmployeeOptions.value.find((employee) => employee.id === selectedId) || null
+})
+
+const employeeRequests = computed<OvertimeRequest[]>(() => {
+	const employeeId = selectedEmployeeMeta.value?.id
+	if (!employeeId) return []
+	return overtimeStore.requests.filter((req) => req.employee === employeeId && req.status !== 'rejected')
+})
+
+const employeeProjects = computed<EmployeeData['projects']>(() => {
+	const projectMap = new Map<number, { id: string; name: string; hours: number; requests: number }>()
+	for (const req of employeeRequests.value) {
+		if (!req.project) continue
+		const hours = normalizeHours(req.total_hours)
+		const existing = projectMap.get(req.project)
+		if (existing) {
+			existing.hours += hours
+			existing.requests += 1
+			continue
+		}
+		projectMap.set(req.project, {
+			id: String(req.project),
+			name:
+				projectNameMap.value.get(req.project) || req.project_name || `Project ${req.project}`,
+			hours,
+			requests: 1,
 		})
+	}
+	return Array.from(projectMap.values()).sort((a, b) => b.hours - a.hours)
+})
 
-		// Calculate project breakdown
-		const projectMap = new Map<
-			number,
-			{ id: string; name: string; hours: number; requests: number }
-		>()
-		empRequests.forEach((req) => {
-			if (req.project) {
-				const existing = projectMap.get(req.project)
-				const hours = normalizeHours(req.total_hours)
+const employeeTypeBreakdown = computed(() => {
+	const typeBreakdown = { weekday: 0, weekend: 0, holiday: 0 }
+	for (const req of employeeRequests.value) {
+		const hours = normalizeHours(req.total_hours)
+		if (req.is_holiday) {
+			typeBreakdown.holiday += hours
+		} else if (req.is_weekend) {
+			typeBreakdown.weekend += hours
+		} else {
+			typeBreakdown.weekday += hours
+		}
+	}
+	return typeBreakdown
+})
 
-				if (existing) {
-					existing.hours += hours
-					existing.requests += 1
-				} else {
-					const proj = projects.find((p) => p.id === req.project)
-					projectMap.set(req.project, {
-						id: String(req.project),
-						name: proj?.name || req.project_name || `Project ${req.project}`,
-						hours,
-						requests: 1,
-					})
+const employeeTrend = computed<number[]>(() => {
+	const range = calculateDateRange()
+	const trend: number[] = []
+	if (range) {
+		const periodBuckets = generatePeriodBuckets(range.start, range.end)
+		for (const bucket of periodBuckets) {
+			let periodHours = 0
+			for (const req of employeeRequests.value) {
+				const reqPeriod = getPeriodForDate(new Date(req.request_date))
+				if (reqPeriod.month === bucket.month && reqPeriod.year === bucket.year) {
+					periodHours += normalizeHours(req.total_hours)
 				}
 			}
-		})
+			trend.push(periodHours)
+		}
+		return trend
+	}
 
-		// Calculate type breakdown (weekday/weekend/holiday)
-		const typeBreakdown = { weekday: 0, weekend: 0, holiday: 0 }
-		empRequests.forEach((req) => {
-			const hours = normalizeHours(req.total_hours)
-			const date = new Date(req.request_date)
-			const day = date.getDay()
-
-			if (day === 0 || day === 6) {
-				typeBreakdown.weekend += hours
-			} else {
-				typeBreakdown.weekday += hours
-			}
-		})
-
-		// Calculate trend based on selected date range (group by period: 26th-25th)
-		const trend: number[] = []
-		if (range) {
-			// Generate period buckets based on actual period boundaries
-			const periodBuckets = generatePeriodBuckets(range.start, range.end)
-
-			for (const bucket of periodBuckets) {
-				const periodRequests = empRequests.filter((req) => {
-					const reqPeriod = getPeriodForDate(new Date(req.request_date))
-					return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
-				})
-				const periodHours = periodRequests.reduce(
-					(sum, req) => sum + normalizeHours(req.total_hours),
-					0,
-				)
-				trend.push(periodHours)
-			}
-		} else {
-			// Fallback: last 6 periods from now
-			const now = new Date()
-			for (let i = 5; i >= 0; i--) {
-				const targetPeriod = getPeriodForDate(new Date(now.getFullYear(), now.getMonth() - i, 15))
-				const periodRequests = empRequests.filter((req) => {
-					const reqPeriod = getPeriodForDate(new Date(req.request_date))
-					return reqPeriod.month === targetPeriod.month && reqPeriod.year === targetPeriod.year
-				})
-				const periodHours = periodRequests.reduce(
-					(sum, req) => sum + normalizeHours(req.total_hours),
-					0,
-				)
-				trend.push(periodHours)
+	const now = new Date()
+	for (let i = 5; i >= 0; i--) {
+		const targetPeriod = getPeriodForDate(new Date(now.getFullYear(), now.getMonth() - i, 15))
+		let periodHours = 0
+		for (const req of employeeRequests.value) {
+			const reqPeriod = getPeriodForDate(new Date(req.request_date))
+			if (reqPeriod.month === targetPeriod.month && reqPeriod.year === targetPeriod.year) {
+				periodHours += normalizeHours(req.total_hours)
 			}
 		}
+		trend.push(periodHours)
+	}
+	return trend
+})
 
-		return {
-			id: String(emp.id),
-			name: emp.name,
-			department: String(emp.department || 'N/A'),
-			projects: Array.from(projectMap.values()).sort((a, b) => b.hours - a.hours),
-			trend,
-			typeBreakdown,
-			totalRequests: empRequests.filter((req) => req.status !== 'rejected').length,
-		}
-	})
+const employeesData = computed<EmployeeData[]>(() => {
+	const employee = selectedEmployeeMeta.value
+	if (!employee) return []
+
+	return [
+		{
+			id: String(employee.id),
+			name: employee.name,
+			department: String(employee.department || 'N/A'),
+			projects: employeeProjects.value,
+			trend: employeeTrend.value,
+			typeBreakdown: employeeTypeBreakdown.value,
+			totalRequests: employeeRequests.value.length,
+		},
+	]
 })
 
 const toSlug = (name: string) =>
@@ -664,9 +675,7 @@ const datePickerOptions = {
 // Control flatpickr mounting to prevent "Element not found" error
 const flatpickrReady = ref(false)
 
-const selectedEmployeeId = ref<string>(
-	String(route.params.id || (employeesData.value[0]?.id ?? '')),
-)
+const selectedEmployeeId = ref<string>(initialSelectedEmployeeId.value)
 // Initialize date filter from UI store (persisted state)
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
 const selectedYear = ref(uiStore.dateFilter.selectedYear)
@@ -694,10 +703,10 @@ const toggleFilterSticky = () => {
 	isFilterSticky.value = !isFilterSticky.value
 }
 
-const selectedEmployee = computed(() => {
-	const found = employeesData.value.find((emp) => emp.id === selectedEmployeeId.value)
+const selectedEmployee = computed<EmployeeData>(() => {
+	const found = employeesData.value.find((emp: EmployeeData) => emp.id === selectedEmployeeId.value)
 	if (found) return found
-	if (employeesData.value.length > 0) return employeesData.value[0]
+	if (employeesData.value.length > 0) return employeesData.value[0] as EmployeeData
 	// Return a default empty employee to prevent undefined errors
 	return {
 		id: '',
@@ -711,7 +720,7 @@ const selectedEmployee = computed(() => {
 })
 
 watch(selectedEmployeeId, async (newId) => {
-	const emp = employeesData.value.find((e) => e.id === newId)
+	const emp = employeesData.value.find((e: EmployeeData) => e.id === newId)
 	if (emp) {
 		const newRoute = {
 			name: 'EmployeeOvertimeDetail',
@@ -815,7 +824,7 @@ const resetToCurrentPeriod = () => {
 const fetchOvertimeData = async () => {
 	const range = calculateDateRange() || getCurrentPeriodRange()
 	const empId = Number(selectedEmployeeId.value)
-	await overtimeStore.fetchRequests(
+	await overtimeStore.fetchAllRequests(
 		{
 			start_date: formatYMD(range.start),
 			end_date: formatYMD(range.end),
@@ -823,7 +832,6 @@ const fetchOvertimeData = async () => {
 			ordering: '-request_date',
 			...(empId ? { employee: empId } : {}),
 		},
-		true,
 	)
 }
 
@@ -877,15 +885,15 @@ const summaryCards = computed<SummaryCard[]>(() => {
 	const emp = selectedEmployee.value
 	// Use the actual trend data from real requests (not interpolated)
 	const realTrend = emp?.trend || []
-	const totalHours = realTrend.reduce((sum, val) => sum + val, 0)
+	const totalHours = realTrend.reduce((sum: number, val: number) => sum + val, 0)
 	const totalRequests = emp?.totalRequests ?? 0
 	const avgHoursPerRequest = totalRequests ? totalHours / totalRequests : 0
 
 	// Calculate previous period for trend
 	// Since we're using trend data based on months in the selected range
 	const midPoint = Math.floor(realTrend.length / 2)
-	const currentPeriodHours = realTrend.slice(midPoint).reduce((s, v) => s + v, 0)
-	const previousPeriodHours = realTrend.slice(0, midPoint).reduce((s, v) => s + v, 0)
+	const currentPeriodHours = realTrend.slice(midPoint).reduce((s: number, v: number) => s + v, 0)
+	const previousPeriodHours = realTrend.slice(0, midPoint).reduce((s: number, v: number) => s + v, 0)
 	const hoursTrend =
 		previousPeriodHours === 0
 			? currentPeriodHours > 0
@@ -1115,10 +1123,10 @@ const topProjects = computed(() => {
 		return []
 	}
 	// Scale project hours by the ratio of filtered data vs full data
-	const fullHours = selectedEmployee.value.trend.reduce((s, v) => s + v, 0)
-	const filteredHours = getTrendData.value.data.reduce((s, v) => s + v, 0)
+	const fullHours = selectedEmployee.value.trend.reduce((s: number, v: number) => s + v, 0)
+	const filteredHours = getTrendData.value.data.reduce((s: number, v: number) => s + v, 0)
 	const ratio = fullHours > 0 ? filteredHours / fullHours : 1
-	return selectedEmployee.value.projects.map((proj) => ({
+	return selectedEmployee.value.projects.map((proj: EmployeeData['projects'][number]) => ({
 		...proj,
 		hours: proj.hours * ratio,
 		slug: toSlug(proj.name),
@@ -1150,7 +1158,7 @@ watch([tpPageSize, () => topProjects.value.length], () => {
 })
 
 const projectsChartSeries = computed(() => [
-	{ name: 'Hours', data: topProjects.value.map((p) => p.hours) },
+	{ name: 'Hours', data: topProjects.value.map((p: (typeof topProjects.value)[number]) => p.hours) },
 ])
 const projectsChartOptions = computed<ApexOptions>(() => ({
 	chart: {
@@ -1182,7 +1190,7 @@ const projectsChartOptions = computed<ApexOptions>(() => ({
 	},
 	dataLabels: { enabled: false },
 	xaxis: {
-		categories: topProjects.value.map((p) => p.name),
+		categories: topProjects.value.map((p: (typeof topProjects.value)[number]) => p.name),
 		labels: { rotateAlways: true, rotate: -20 },
 		title: { text: 'Project Name', style: { fontWeight: 600 } },
 	},
