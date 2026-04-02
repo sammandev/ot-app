@@ -64,6 +64,12 @@ export interface UserAccessUpdate {
 	event_reminders_enabled?: boolean
 }
 
+export interface UserAccessListParams {
+	page?: number
+	page_size?: number
+	search?: string
+}
+
 // ============================================================================
 // API Endpoints
 // ============================================================================
@@ -128,9 +134,10 @@ export const authAPI = {
  * User Access Control API (Super Admin only)
  */
 export const userAccessAPI = {
-	async getAll() {
+	async getAll(params?: UserAccessListParams) {
 		const response = await apiClient.get<PaginatedResponse<UserAccessControl>>(
 			'/v1/users/access-control/',
+			{ params },
 		)
 		return response.data.results
 	},

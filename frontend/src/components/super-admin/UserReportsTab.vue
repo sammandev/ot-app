@@ -76,18 +76,24 @@
                 <p class="text-sm text-gray-400 dark:text-gray-500">No reports found.</p>
             </div>
 
-            <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
-                <div v-for="report in reports" :key="report.id"
+                <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
+                    <div v-for="report in reports" :key="report.id"
                     class="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <div class="flex items-start justify-between gap-4">
+                    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="text-base">{{ report.report_type === 'bug' ? '🐛' : '💡' }}</span>
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ report.title
-                                    }}</h4>
-                            </div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-2">{{ report.description
-                                }}</p>
+                            <div class="mb-1 flex items-center gap-2">
+                                 <span class="text-base">{{ report.report_type === 'bug' ? '🐛' : '💡' }}</span>
+                                 <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">{{ report.title
+                                     }}</h4>
+                             </div>
+                            <p class="mb-2 text-xs leading-6 text-gray-500 dark:text-gray-400"
+                                :class="expandedReports[report.id!] ? 'whitespace-pre-wrap break-words' : 'line-clamp-3 break-words'">
+                                {{ report.description }}
+                            </p>
+                            <button type="button" @click="toggleExpanded(report.id!)"
+                                class="mb-3 text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                                {{ expandedReports[report.id!] ? 'Show less' : 'Show full report' }}
+                            </button>
                             <div
                                 class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                                 <span class="font-medium text-gray-700 dark:text-gray-300"
@@ -104,7 +110,7 @@
                                 <span>{{ formatReportDate(report.created_at!) }}</span>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
+                        <div class="flex items-center gap-2 shrink-0 xl:pt-1">
                             <!-- Priority badge -->
                             <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                                 :class="getReportPriorityClass(report.priority)">
@@ -123,8 +129,27 @@
                         </div>
                     </div>
 
-                    <!-- Admin Notes (inline edit) -->
-                    <div class="mt-3">
+                    <div v-if="expandedReports[report.id!]" class="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/30 lg:grid-cols-[1fr_320px]">
+                        <div class="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                            <div v-if="report.page_url">
+                                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Reported From</div>
+                                <div class="mt-1 break-all">{{ report.page_url }}</div>
+                            </div>
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Current Status</div>
+                                <div class="mt-1">{{ report.status_display || report.status }}</div>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Admin Notes</label>
+                            <textarea v-model="report.admin_notes" rows="5" @blur="saveAdminNotes(report)"
+                            placeholder="Add admin notes..."
+                            class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300" />
+                        </div>
+                    </div>
+
+                    <!-- Admin Notes (compact) -->
+                    <div v-else class="mt-3">
                         <textarea v-model="report.admin_notes" rows="1" @blur="saveAdminNotes(report)"
                             placeholder="Add admin notes..."
                             class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300" />
@@ -141,6 +166,7 @@ import { type UserReportData, userReportAPI } from '@/services/api/user-report'
 
 const reportsLoading = ref(false)
 const reports = ref<UserReportData[]>([])
+const expandedReports = ref<Record<number, boolean>>({})
 const reportStats = ref<{
 	total: number
 	by_status: Record<string, number>
@@ -194,6 +220,10 @@ const saveAdminNotes = async (report: UserReportData) => {
 	} catch (err) {
 		console.error('Failed to save admin notes:', err)
 	}
+}
+
+const toggleExpanded = (id: number) => {
+	expandedReports.value[id] = !expandedReports.value[id]
 }
 
 const getReportPriorityClass = (priority: string) => {

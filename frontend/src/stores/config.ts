@@ -9,12 +9,26 @@ export interface LeaveNotificationDepartmentRecipient {
 	recipients: string[]
 }
 
+export interface LeaveNotificationEmployeeGroup {
+	id: string
+	name: string
+	employee_ids: number[]
+	recipients: string[]
+}
+
+export interface LeaveNotificationEmployeeRecipient {
+	employee_id: number
+	recipients: string[]
+	group_ids: string[]
+}
+
 interface SystemConfig {
 	app_name?: string
 	app_acronym?: string
 	version?: string
 	build_date?: string
 	tab_icon_url?: string | null
+	sidebar_logo_url?: string | null
 	event_reminders_disabled_globally?: boolean
 	event_reminders_disabled_roles?: string[]
 	event_reminders_disabled_users?: number[]
@@ -25,6 +39,9 @@ interface SystemConfig {
 	leave_notification_recipient_mode?: LeaveNotificationRecipientMode
 	leave_notification_department_recipients?: LeaveNotificationDepartmentRecipient[]
 	leave_notification_custom_recipients?: string[]
+	leave_notification_employee_recipients?: LeaveNotificationEmployeeRecipient[]
+	leave_notification_employee_groups?: LeaveNotificationEmployeeGroup[]
+	user_activity_log_retention_days?: number | null
 	leave_notification_subject_template?: string
 	leave_notification_body_template?: string
 	leave_notification_footer_template?: string
@@ -36,6 +53,7 @@ export const useConfigStore = defineStore('config', () => {
 	const version = ref('2.0.0')
 	const buildDate = ref('January 2026')
 	const tabIconUrl = ref<string | null>(null)
+	const sidebarLogoUrl = ref<string | null>(null)
 	const loading = ref(false)
 	const error = ref<string | null>(null)
 
@@ -50,6 +68,9 @@ export const useConfigStore = defineStore('config', () => {
 	const leaveNotificationRecipientMode = ref<LeaveNotificationRecipientMode>('global')
 	const leaveNotificationDepartmentRecipients = ref<LeaveNotificationDepartmentRecipient[]>([])
 	const leaveNotificationCustomRecipients = ref<string[]>([])
+	const leaveNotificationEmployeeRecipients = ref<LeaveNotificationEmployeeRecipient[]>([])
+	const leaveNotificationEmployeeGroups = ref<LeaveNotificationEmployeeGroup[]>([])
+	const userActivityLogRetentionDays = ref<number | null>(null)
 	const leaveNotificationSubjectTemplate = ref(
 		'[PTB Calendar] Leave Request {action_label} - {employee_name} ({leave_day_label})',
 	)
@@ -81,6 +102,7 @@ export const useConfigStore = defineStore('config', () => {
 				version.value = data.version ?? version.value
 				buildDate.value = data.build_date ?? buildDate.value
 				tabIconUrl.value = data.tab_icon_url ?? null
+				sidebarLogoUrl.value = data.sidebar_logo_url ?? null
 				// Event reminder settings
 				if (data.event_reminders_disabled_globally !== undefined) {
 					eventRemindersDisabledGlobally.value = data.event_reminders_disabled_globally
@@ -111,6 +133,15 @@ export const useConfigStore = defineStore('config', () => {
 				}
 				if (data.leave_notification_custom_recipients !== undefined) {
 					leaveNotificationCustomRecipients.value = data.leave_notification_custom_recipients
+				}
+				if (data.leave_notification_employee_recipients !== undefined) {
+					leaveNotificationEmployeeRecipients.value = data.leave_notification_employee_recipients
+				}
+				if (data.leave_notification_employee_groups !== undefined) {
+					leaveNotificationEmployeeGroups.value = data.leave_notification_employee_groups
+				}
+				if (data.user_activity_log_retention_days !== undefined) {
+					userActivityLogRetentionDays.value = data.user_activity_log_retention_days
 				}
 				if (data.leave_notification_subject_template !== undefined) {
 					leaveNotificationSubjectTemplate.value = data.leave_notification_subject_template
@@ -144,6 +175,7 @@ export const useConfigStore = defineStore('config', () => {
 				version.value = data.version ?? version.value
 				buildDate.value = data.build_date ?? buildDate.value
 				tabIconUrl.value = data.tab_icon_url || null
+				sidebarLogoUrl.value = data.sidebar_logo_url ?? sidebarLogoUrl.value
 				notificationEmailHost.value = data.notification_email_host ?? notificationEmailHost.value
 				notificationEmailPort.value = data.notification_email_port ?? notificationEmailPort.value
 				leaveNotificationRecipients.value = data.leave_notification_recipients ?? leaveNotificationRecipients.value
@@ -151,6 +183,9 @@ export const useConfigStore = defineStore('config', () => {
 				leaveNotificationRecipientMode.value = data.leave_notification_recipient_mode ?? leaveNotificationRecipientMode.value
 				leaveNotificationDepartmentRecipients.value = data.leave_notification_department_recipients ?? leaveNotificationDepartmentRecipients.value
 				leaveNotificationCustomRecipients.value = data.leave_notification_custom_recipients ?? leaveNotificationCustomRecipients.value
+				leaveNotificationEmployeeRecipients.value = data.leave_notification_employee_recipients ?? leaveNotificationEmployeeRecipients.value
+				leaveNotificationEmployeeGroups.value = data.leave_notification_employee_groups ?? leaveNotificationEmployeeGroups.value
+				userActivityLogRetentionDays.value = data.user_activity_log_retention_days ?? userActivityLogRetentionDays.value
 				leaveNotificationSubjectTemplate.value = data.leave_notification_subject_template ?? leaveNotificationSubjectTemplate.value
 				leaveNotificationBodyTemplate.value = data.leave_notification_body_template ?? leaveNotificationBodyTemplate.value
 				leaveNotificationFooterTemplate.value = data.leave_notification_footer_template ?? leaveNotificationFooterTemplate.value
@@ -172,6 +207,7 @@ export const useConfigStore = defineStore('config', () => {
 		version,
 		buildDate,
 		tabIconUrl,
+		sidebarLogoUrl,
 		eventRemindersDisabledGlobally,
 		eventRemindersDisabledRoles,
 		eventRemindersDisabledUsers,
@@ -182,6 +218,9 @@ export const useConfigStore = defineStore('config', () => {
 		leaveNotificationRecipientMode,
 		leaveNotificationDepartmentRecipients,
 		leaveNotificationCustomRecipients,
+		leaveNotificationEmployeeRecipients,
+		leaveNotificationEmployeeGroups,
+		userActivityLogRetentionDays,
 		leaveNotificationSubjectTemplate,
 		leaveNotificationBodyTemplate,
 		leaveNotificationFooterTemplate,

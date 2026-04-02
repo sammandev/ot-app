@@ -25,7 +25,7 @@
             <AccessControlTab v-if="activeTab === 'access'" v-model:users="users" />
             <SystemSettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
             <EmailNotificationsTab v-if="activeTab === 'email-notifications'" ref="emailNotificationsTabRef" />
-            <ActivityLogsTab v-if="activeTab === 'activity'" />
+            <ActivityLogsTab v-if="activeTab === 'activity'" :users="users" />
             <EventRemindersTab v-if="activeTab === 'reminders'" :users="users" ref="remindersTabRef" />
             <SmbConfigTab v-if="activeTab === 'smb'" ref="smbTabRef" />
             <UserReportsTab v-if="activeTab === 'reports'" ref="reportsTabRef" />
@@ -46,7 +46,7 @@ import SmbConfigTab from '@/components/super-admin/SmbConfigTab.vue'
 import SystemSettingsTab from '@/components/super-admin/SystemSettingsTab.vue'
 import UserReportsTab from '@/components/super-admin/UserReportsTab.vue'
 import { STORAGE_KEY_SUPERADMIN_TAB } from '@/constants/storage'
-import type { UserAccessControl } from '@/services/api/auth'
+import { type UserAccessControl, userAccessAPI } from '@/services/api/auth'
 import { useConfigStore } from '@/stores/config'
 
 const { t } = useI18n()
@@ -73,6 +73,16 @@ const tabs = [
 
 onMounted(async () => {
 	try {
+		const loadedUsers: UserAccessControl[] = []
+		let page = 1
+		while (true) {
+			const batch = await userAccessAPI.getAll({ page, page_size: 500 })
+			loadedUsers.push(...batch)
+			if (batch.length < 500) break
+			page += 1
+		}
+		users.value = loadedUsers
+
 		await configStore.fetchConfig()
 		// Initialize child tabs that depend on config
 		settingsTabRef.value?.initFromConfig?.()

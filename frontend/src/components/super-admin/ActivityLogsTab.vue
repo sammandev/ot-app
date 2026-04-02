@@ -16,6 +16,28 @@
                 </div>
             </div>
 
+            <div class="border-b border-gray-200 bg-purple-50/50 px-6 py-4 dark:border-gray-800 dark:bg-purple-900/10">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Automatic Cleanup</h4>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose how long to keep user activity logs before old entries are permanently deleted by the daily cleanup job.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <select v-model="retentionDays" class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <option :value="''">Keep indefinitely</option>
+                            <option :value="3">3 days</option>
+                            <option :value="7">7 days</option>
+                            <option :value="10">10 days</option>
+                            <option :value="30">30 days</option>
+                        </select>
+                        <button @click="saveRetentionSettings" :disabled="retentionSaving"
+                            class="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50">
+                            {{ retentionSaving ? 'Saving...' : 'Save Cleanup Policy' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Filters -->
             <div class="border-b border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
@@ -160,7 +182,7 @@
                             </td>
                             <td class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">
                                 <div v-if="log._detailsJson"
-                                    class="max-w-xs truncate font-mono text-xs">
+                                    class="max-w-md whitespace-pre-wrap break-words rounded-lg bg-gray-50 px-3 py-2 font-mono text-xs dark:bg-gray-900/50">
                                     {{ log._detailsJson }}
                                 </div>
                                 <span v-else>-</span>
@@ -201,8 +223,9 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
-import { type UserAccessControl, userAccessAPI } from '@/services/api/auth'
+import type { UserAccessControl } from '@/services/api/auth'
 import { apiClient } from '@/services/api/client'
+import { useConfigStore } from '@/stores/config'
 import { formatLocalDateTime } from '@/utils/dateTime'
 
 interface ActivityLog {
@@ -217,6 +240,12 @@ interface ActivityLog {
 	ip_address: string | null
 	details: Record<string, unknown> | null
 }
+
+const props = defineProps<{
+	users: UserAccessControl[]
+}>()
+
+const configStore = useConfigStore()
 
 const activityLogs = ref<ActivityLog[]>([])
 const activityLoading = ref(false)
@@ -247,10 +276,8 @@ const debounceLoadLogs = () => {
 	}, 400)
 }
 
-// User list for employee filter dropdown
-const users = ref<UserAccessControl[]>([])
 const userOptions = computed(() =>
-	users.value
+	props.users
 		.filter((u) => u.is_active)
 		.slice()
 		.sort((a, b) => {
@@ -263,6 +290,8 @@ const userOptions = computed(() =>
 // Flatpickr configuration for scrollable date range selection
 const { flatpickrInstances, attachMonthScroll, destroyFlatpickrs } = useFlatpickrScroll()
 const flatpickrReady = ref(false)
+const retentionDays = ref<number | ''>('')
+const retentionSaving = ref(false)
 
 const resetPageAndLoad = () => {
 	currentPage.value = 1
@@ -346,6 +375,21 @@ const clearActivityFilters = () => {
 	loadActivityLogs()
 }
 
+const saveRetentionSettings = async () => {
+	retentionSaving.value = true
+	try {
+		await configStore.updateConfig({
+			user_activity_log_retention_days: retentionDays.value === '' ? null : Number(retentionDays.value),
+		})
+		await configStore.fetchConfig(true)
+		retentionDays.value = configStore.userActivityLogRetentionDays ?? ''
+	} catch (error) {
+		console.error('Failed to save activity log retention settings:', error)
+	} finally {
+		retentionSaving.value = false
+	}
+}
+
 const goToPage = (page: number) => {
 	if (page < 1 || page > totalPages.value) return
 	currentPage.value = page
@@ -375,9 +419,7 @@ const getActionBadgeClass = (action: string) => {
 onMounted(async () => {
 	await nextTick()
 	flatpickrReady.value = true
-	userAccessAPI.getAll().then((res) => {
-		users.value = res
-	})
+	retentionDays.value = configStore.userActivityLogRetentionDays ?? ''
 	loadActivityLogs()
 })
 

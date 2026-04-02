@@ -113,14 +113,24 @@ const availableRoles = [
 	{ key: 'superuser', label: 'Superuser' },
 ]
 
-const filteredReminderUsers = computed(() => {
-	const validUsers = props.users.filter((u) => u && u.id != null && u.is_active)
-	if (!reminderUserSearch.value) return validUsers
-	const q = reminderUserSearch.value.toLowerCase()
-	return validUsers.filter(
-		(u) => u.username?.toLowerCase().includes(q) || u.worker_id?.toLowerCase().includes(q),
-	)
-})
+	const filteredReminderUsers = computed(() => {
+		const validUsers = props.users
+			.filter((u) => u && u.id != null && u.is_active)
+			.slice()
+			.sort((a, b) => {
+				const left = `${a.first_name} ${a.last_name}`.trim() || a.username
+				const right = `${b.first_name} ${b.last_name}`.trim() || b.username
+				return left.localeCompare(right)
+			})
+		if (!reminderUserSearch.value) return validUsers
+		const q = reminderUserSearch.value.toLowerCase()
+		return validUsers.filter(
+			(u) =>
+				u.username?.toLowerCase().includes(q) ||
+				u.worker_id?.toLowerCase().includes(q) ||
+				`${u.first_name} ${u.last_name}`.trim().toLowerCase().includes(q),
+		)
+	})
 
 const resetReminderSettings = () => {
 	reminderSettings.disabled_globally = configStore.eventRemindersDisabledGlobally

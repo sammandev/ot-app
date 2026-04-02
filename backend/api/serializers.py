@@ -184,15 +184,10 @@ def normalize_unified_leave_agents(value):
 
         raise serializers.ValidationError("Each agent must use type employee, external, or manual.")
 
-    employee_lookup = {
-        employee.id: employee
-        for employee in Employee.objects.filter(id__in=employee_ids, is_enabled=True).select_related("department")
-    }
+    employee_lookup = {employee.id: employee for employee in Employee.objects.filter(id__in=employee_ids, is_enabled=True).select_related("department")}
     missing_employee_ids = [employee_id for employee_id in employee_ids if employee_id not in employee_lookup]
     if missing_employee_ids:
-        raise serializers.ValidationError(
-            f"Unknown or disabled employee agent ids: {', '.join(str(employee_id) for employee_id in missing_employee_ids)}."
-        )
+        raise serializers.ValidationError(f"Unknown or disabled employee agent ids: {', '.join(str(employee_id) for employee_id in missing_employee_ids)}.")
 
     return {
         "employees": [employee_lookup[employee_id] for employee_id in employee_ids],
@@ -624,19 +619,11 @@ class EmployeeLeaveBatchCreateSerializer(serializers.Serializer):
         else:
             attrs["agents"] = []
             attrs["external_agents"] = normalize_external_leave_agents(legacy_external_agents) if legacy_external_agents is not serializers.empty else []
-            attrs["agent_names"] = (
-                format_manual_leave_agent_names(legacy_agent_names)
-                if legacy_agent_names is not serializers.empty
-                else None
-            )
+            attrs["agent_names"] = format_manual_leave_agent_names(legacy_agent_names) if legacy_agent_names is not serializers.empty else None
 
         employee = attrs["employee"]
         dates = attrs["dates"]
-        existing_dates = list(
-            EmployeeLeave.objects.filter(employee=employee, date__in=dates)
-            .order_by("date")
-            .values_list("date", flat=True)
-        )
+        existing_dates = list(EmployeeLeave.objects.filter(employee=employee, date__in=dates).order_by("date").values_list("date", flat=True))
         if existing_dates:
             formatted_dates = ", ".join(date_value.isoformat() for date_value in existing_dates)
             raise serializers.ValidationError({"dates": f"Leave already exists for {employee.name} on: {formatted_dates}."})
@@ -699,11 +686,7 @@ class EmployeeLeaveBatchUpdateSerializer(serializers.Serializer):
         else:
             attrs["agents"] = []
             attrs["external_agents"] = normalize_external_leave_agents(legacy_external_agents) if legacy_external_agents is not serializers.empty else []
-            attrs["agent_names"] = (
-                format_manual_leave_agent_names(legacy_agent_names)
-                if legacy_agent_names is not serializers.empty
-                else None
-            )
+            attrs["agent_names"] = format_manual_leave_agent_names(legacy_agent_names) if legacy_agent_names is not serializers.empty else None
 
         return attrs
 
@@ -1211,9 +1194,7 @@ class DocumentWriteSerializer(serializers.ModelSerializer):
 
         document = super().update(instance, validated_data)
 
-        should_remove_old_file = old_file and (
-            source_type == Document.SourceType.LINK or uploaded_file is not None
-        )
+        should_remove_old_file = old_file and (source_type == Document.SourceType.LINK or uploaded_file is not None)
         if should_remove_old_file:
             old_name = getattr(old_file, "name", "")
             current_name = getattr(document.file, "name", "") if document.file else ""
@@ -1257,6 +1238,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class SystemConfigurationSerializer(serializers.ModelSerializer):
     tab_icon_url = serializers.SerializerMethodField()
+    sidebar_logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = SystemConfiguration
@@ -1270,6 +1252,8 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             "event_reminders_disabled_users",
             "tab_icon",
             "tab_icon_url",
+            "sidebar_logo",
+            "sidebar_logo_url",
             "notification_email_host",
             "notification_email_port",
             "leave_notification_recipients",
@@ -1277,12 +1261,138 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             "leave_notification_recipient_mode",
             "leave_notification_department_recipients",
             "leave_notification_custom_recipients",
+            "leave_notification_employee_recipients",
+            "leave_notification_employee_groups",
+            "user_activity_log_retention_days",
             "leave_notification_subject_template",
             "leave_notification_body_template",
             "leave_notification_footer_template",
             "updated_at",
         ]
-        read_only_fields = ["updated_at", "version", "build_date", "tab_icon_url"]
+        read_only_fields = ["updated_at", "version", "build_date", "tab_icon_url", "sidebar_logo_url"]
+
+    def _enabled_employee_lookup(self):
+        return {employee.id: employee for employee in Employee.objects.filter(is_enabled=True).select_related("department")}
+
+    def _validate_group_recipient_entry(self, value, *, field_name):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError(f"Each {field_name} entry must be an object.")
+
+        group_id = str(value.get("id") or "").strip()
+        name = str(value.get("name") or "").strip()
+        employee_ids = value.get("employee_ids", [])
+        recipients = self._validate_recipient_list(value.get("recipients", []), field_name=f"Recipients for {name or group_id or 'group'}")
+
+        if not group_id:
+            raise serializers.ValidationError(f"Each {field_name} entry must include an id.")
+        if not name:
+            raise serializers.ValidationError(f"Each {field_name} entry must include a name.")
+        if not isinstance(employee_ids, list):
+            raise serializers.ValidationError(f"Employee ids for {name} must be a list.")
+
+        normalized_employee_ids = []
+        seen_employee_ids = set()
+        employee_lookup = self._enabled_employee_lookup()
+        for raw_employee_id in employee_ids:
+            try:
+                employee_id = int(raw_employee_id)
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(f"Employee ids for {name} must be integers.")
+            if employee_id in seen_employee_ids:
+                continue
+            if employee_id not in employee_lookup:
+                raise serializers.ValidationError(f"Unknown or disabled employee id {employee_id} in {name}.")
+            seen_employee_ids.add(employee_id)
+            normalized_employee_ids.append(employee_id)
+
+        return {
+            "id": group_id,
+            "name": name,
+            "employee_ids": normalized_employee_ids,
+            "recipients": recipients,
+        }
+
+    def validate_leave_notification_employee_groups(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Employee groups must be a list.")
+
+        normalized = []
+        seen_group_ids = set()
+        for item in value:
+            group = self._validate_group_recipient_entry(item, field_name="employee group")
+            if group["id"] in seen_group_ids:
+                raise serializers.ValidationError(f"Duplicate employee group id: {group['id']}.")
+            seen_group_ids.add(group["id"])
+            normalized.append(group)
+        return normalized
+
+    def validate_leave_notification_employee_recipients(self, value):
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Employee recipient mappings must be a list.")
+
+        employee_lookup = self._enabled_employee_lookup()
+        instance = getattr(self, "instance", None)
+        groups = self.initial_data.get(
+            "leave_notification_employee_groups",
+            getattr(instance, "leave_notification_employee_groups", []),
+        )
+        normalized_groups = self.validate_leave_notification_employee_groups(groups)
+        available_group_ids = {group["id"] for group in normalized_groups}
+
+        normalized = []
+        seen_employee_ids = set()
+        for item in value:
+            if not isinstance(item, dict):
+                raise serializers.ValidationError("Each employee recipient mapping must be an object.")
+            try:
+                employee_id = int(item.get("employee_id"))
+            except (TypeError, ValueError):
+                raise serializers.ValidationError("Each employee recipient mapping must include a valid employee_id.")
+            if employee_id in seen_employee_ids:
+                raise serializers.ValidationError(f"Duplicate employee recipient mapping for employee {employee_id}.")
+            if employee_id not in employee_lookup:
+                raise serializers.ValidationError(f"Unknown or disabled employee id: {employee_id}.")
+
+            group_ids = item.get("group_ids", [])
+            if group_ids in (None, ""):
+                group_ids = []
+            if not isinstance(group_ids, list):
+                raise serializers.ValidationError(f"Group ids for employee {employee_id} must be a list.")
+            normalized_group_ids = []
+            seen_group_ids = set()
+            for raw_group_id in group_ids:
+                group_id = str(raw_group_id or "").strip()
+                if not group_id:
+                    continue
+                if group_id in seen_group_ids:
+                    continue
+                if group_id not in available_group_ids:
+                    raise serializers.ValidationError(f"Unknown employee group id {group_id} for employee {employee_id}.")
+                seen_group_ids.add(group_id)
+                normalized_group_ids.append(group_id)
+
+            normalized.append(
+                {
+                    "employee_id": employee_id,
+                    "recipients": self._validate_recipient_list(item.get("recipients", []), field_name=f"Recipients for employee {employee_id}"),
+                    "group_ids": normalized_group_ids,
+                }
+            )
+            seen_employee_ids.add(employee_id)
+
+        return normalized
+
+    def validate_user_activity_log_retention_days(self, value):
+        if value in (None, ""):
+            return None
+        allowed_values = {3, 7, 10, 30}
+        if value not in allowed_values:
+            raise serializers.ValidationError("Activity log retention must be one of: 3, 7, 10, 30 days.")
+        return value
 
     def _allowed_notification_domain(self):
         from_email = getattr(settings, "LEAVE_NOTIFICATION_FROM_EMAIL", "")
@@ -1355,11 +1465,7 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("Department recipients must be a list of department recipient mappings.")
 
-        department_lookup = {
-            department.code.upper(): department
-            for department in Department.objects.filter(is_enabled=True)
-            if department.code
-        }
+        department_lookup = {department.code.upper(): department for department in Department.objects.filter(is_enabled=True) if department.code}
         normalized = []
         seen_department_codes = set()
 
@@ -1426,6 +1532,14 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.tab_icon.url)
             return obj.tab_icon.url
+        return None
+
+    def get_sidebar_logo_url(self, obj):
+        if obj.sidebar_logo:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(obj.sidebar_logo.url)
+            return obj.sidebar_logo.url
         return None
 
 

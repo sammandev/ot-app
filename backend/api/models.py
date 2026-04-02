@@ -1096,6 +1096,7 @@ class SystemConfiguration(TimestampedModel):
 
     # App tab icon (favicon) — supports .ico, .svg, .png
     tab_icon = models.FileField(upload_to="system/", blank=True, null=True, help_text="Custom browser tab icon (.ico, .svg, .png)")
+    sidebar_logo = models.FileField(upload_to="system/", blank=True, null=True, help_text="Custom sidebar logo/image")
     notification_email_host = models.CharField(max_length=255, default="mail.pegatroncorp.com", help_text="SMTP host for notification emails")
     notification_email_port = models.PositiveIntegerField(default=25, help_text="SMTP port for notification emails")
     leave_notification_recipients = models.JSONField(default=list, blank=True, help_text="Internal recipients for leave notifications")
@@ -1103,6 +1104,9 @@ class SystemConfiguration(TimestampedModel):
     leave_notification_recipient_mode = models.CharField(max_length=20, default="global", help_text="Recipient mode for leave notifications: global, department, or custom")
     leave_notification_department_recipients = models.JSONField(default=list, blank=True, help_text="Department recipient mappings for leave notifications")
     leave_notification_custom_recipients = models.JSONField(default=list, blank=True, help_text="Custom recipients for leave notifications")
+    leave_notification_employee_recipients = models.JSONField(default=list, blank=True, help_text="Employee-specific recipient mappings for leave notifications")
+    leave_notification_employee_groups = models.JSONField(default=list, blank=True, help_text="Custom employee groups for leave notification routing")
+    user_activity_log_retention_days = models.PositiveIntegerField(null=True, blank=True, help_text="Automatically delete user activity logs older than this many days")
     leave_notification_subject_template = models.TextField(default="[PTB Calendar] Leave Request {action_label} - {employee_name} ({leave_day_label})", help_text="Subject template for leave notification emails")
     leave_notification_body_template = models.TextField(
         default="Hello Team,\n\nA leave request has been {action_label_lower} in PTB Calendar.\n\nEmployee: {employee_name} ({employee_id})\nDepartment: {department_name} ({department_code})\nLeave Dates: {leave_dates}\nTotal Days: {leave_day_count}\nAgent(s): {agents}\nNote: {note}\nSubmitted By: {submitted_by}\n{updated_by_line}\nPlease review the leave coverage details.",

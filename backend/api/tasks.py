@@ -200,3 +200,23 @@ def cleanup_expired_sessions():
     except Exception as e:
         logger.error("Error cleaning up sessions: %s", e, exc_info=True)
         return {"status": "error", "message": str(e)}
+
+
+@shared_task
+def cleanup_user_activity_logs():
+    """Delete user activity logs older than the configured retention period."""
+    try:
+        from api.models import SystemConfiguration, UserActivityLog
+
+        config, _ = SystemConfiguration.objects.get_or_create(pk=1)
+        retention_days = config.user_activity_log_retention_days
+        if not retention_days:
+            return {"status": "skipped", "reason": "retention_disabled"}
+
+        cutoff = timezone.now() - timezone.timedelta(days=retention_days)
+        deleted_count, _ = UserActivityLog.objects.filter(timestamp__lt=cutoff).delete()
+        logger.info("Cleaned up %s user activity logs older than %s days", deleted_count, retention_days)
+        return {"status": "success", "deleted_count": deleted_count, "retention_days": retention_days}
+    except Exception as e:
+        logger.error("Error cleaning up user activity logs: %s", e, exc_info=True)
+        return {"status": "error", "message": str(e)}

@@ -174,10 +174,12 @@ class SystemConfigurationView(APIView):
 
         config, created = SystemConfiguration.objects.get_or_create(pk=1)
 
-        # Handle tab_icon file upload from multipart form data
+        # Handle file uploads from multipart form data
         data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
         if "tab_icon" in request.FILES:
             data["tab_icon"] = request.FILES["tab_icon"]
+        if "sidebar_logo" in request.FILES:
+            data["sidebar_logo"] = request.FILES["sidebar_logo"]
 
         serializer = SystemConfigurationSerializer(config, data=data, partial=True, context={"request": request})
         if serializer.is_valid():
@@ -188,16 +190,23 @@ class SystemConfigurationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        """Remove the tab icon (reset to default)."""
+        """Remove uploaded branding assets (reset to defaults)."""
         user = request.user
         if not is_superadmin_user(user):
             return Response({"detail": "Only Super Admin can edit configuration."}, status=status.HTTP_403_FORBIDDEN)
 
         config, _ = SystemConfiguration.objects.get_or_create(pk=1)
-        if config.tab_icon:
-            config.tab_icon.delete(save=False)
-            config.tab_icon = None
-            config.save()
+        asset = request.query_params.get("asset", "tab_icon")
+        if asset == "sidebar_logo":
+            if config.sidebar_logo:
+                config.sidebar_logo.delete(save=False)
+                config.sidebar_logo = None
+                config.save(update_fields=["sidebar_logo", "updated_at"])
+        else:
+            if config.tab_icon:
+                config.tab_icon.delete(save=False)
+                config.tab_icon = None
+                config.save(update_fields=["tab_icon", "updated_at"])
         serializer = SystemConfigurationSerializer(config, context={"request": request})
         return Response(serializer.data)
 

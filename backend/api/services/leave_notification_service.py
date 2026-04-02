@@ -245,11 +245,62 @@ def build_leave_link_html(links):
 
 
 def resolve_leave_notification_recipients(config, employee):
-    mode = (config.leave_notification_recipient_mode or "global").lower()
-    if mode == "custom":
-        return normalize_recipient_list(config.leave_notification_custom_recipients)
+    def group_lookup():
+        groups = OrderedDict()
+        for entry in config.leave_notification_employee_groups or []:
+            if not isinstance(entry, dict):
+                continue
+            group_id = str(entry.get("id") or "").strip()
+            if not group_id:
+                continue
 
-    if mode == "department":
+            employee_ids = set()
+            for raw_employee_id in entry.get("employee_ids", []):
+                try:
+                    employee_id = int(raw_employee_id)
+                except (TypeError, ValueError):
+                    continue
+                employee_ids.add(employee_id)
+
+            groups[group_id] = {
+                "employee_ids": employee_ids,
+                "recipients": normalize_recipient_list(entry.get("recipients", [])),
+            }
+        return groups
+
+    employee_id = getattr(employee, "id", None)
+    available_groups = group_lookup()
+    employee_specific_recipients = []
+    linked_group_recipients = []
+
+    for entry in config.leave_notification_employee_recipients or []:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            mapping_employee_id = int(entry.get("employee_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if mapping_employee_id != employee_id:
+            continue
+
+        employee_specific_recipients = merge_recipient_lists(employee_specific_recipients, entry.get("recipients", []))
+        for raw_group_id in entry.get("group_ids", []):
+            group_id = str(raw_group_id or "").strip()
+            if not group_id:
+                continue
+            linked_group_recipients = merge_recipient_lists(linked_group_recipients, available_groups.get(group_id, {}).get("recipients", []))
+        break
+
+    matching_group_recipients = []
+    for group in available_groups.values():
+        if employee_id in group["employee_ids"]:
+            matching_group_recipients = merge_recipient_lists(matching_group_recipients, group["recipients"])
+
+    mode = (config.leave_notification_recipient_mode or "global").lower()
+    base_recipients = []
+    if mode == "custom":
+        base_recipients = normalize_recipient_list(config.leave_notification_custom_recipients)
+    elif mode == "department":
         employee_department = getattr(employee, "department", None)
         department_code = (getattr(employee_department, "code", "") or "").strip().upper()
         for entry in config.leave_notification_department_recipients or []:
@@ -257,10 +308,17 @@ def resolve_leave_notification_recipients(config, employee):
                 continue
             entry_department_code = str(entry.get("department_code") or "").strip().upper()
             if entry_department_code == department_code:
-                return normalize_recipient_list(entry.get("recipients", []))
-        return []
+                base_recipients = normalize_recipient_list(entry.get("recipients", []))
+                break
+    else:
+        base_recipients = normalize_recipient_list(config.leave_notification_recipients)
 
-    return normalize_recipient_list(config.leave_notification_recipients)
+    return merge_recipient_lists(
+        employee_specific_recipients,
+        linked_group_recipients,
+        matching_group_recipients,
+        base_recipients,
+    )
 
 
 def resolve_leave_agent_notification_recipients(leaves):

@@ -10,17 +10,17 @@
       'lg:translate-x-0': true,
     },
   ]" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
-    <div :class="[
+        <div :class="[
       'py-5 flex',
       !isShowingFull ? 'lg:justify-center' : 'justify-start',
     ]">
       <router-link to="/" class="flex items-center gap-3">
         <!-- Collapsed (not hovered, not mobile): show image only -->
-        <img v-if="!isShowingFull" src="/images/logo/pegatron-logo.jpg" alt="Pegatron Logo"
+        <img v-if="!isShowingFull" :src="sidebarLogoSrc" alt="Sidebar Logo"
           class="w-11 h-11 rounded-sm ring-2 ring-[#465FFF] dark:ring-gray-400" />
         <!-- Expanded or hovered or mobile: show image + text -->
         <div v-else class="flex items-center gap-3">
-          <img src="/images/logo/pegatron-logo.jpg" alt="Pegatron Logo"
+          <img :src="sidebarLogoSrc" alt="Sidebar Logo"
             class="w-11 h-11 rounded-sm ring-2 ring-[#465FFF] dark:ring-gray-400" />
           <div class="leading-tight">
             <p class="text-xl font-semibold text-gray-900 dark:text-white">{{ configStore.appAcronym }}</p>
@@ -219,6 +219,7 @@ type MenuGroup = {
 }
 
 const { isExpanded, isMobileOpen, isHovered, openSubmenu, isHidden, toggleExpanded } = useSidebar()
+const sidebarLogoSrc = computed(() => configStore.sidebarLogoUrl || '/images/logo/pegatron-logo.jpg')
 
 // Single computed for "is sidebar showing full-width content" — avoids
 // repeating `isExpanded || isHovered || isMobileOpen` in every template binding.

@@ -55,8 +55,9 @@
                     </div>
                 </div>
 
-                <!-- Tab Icon Upload -->
-                <div class="mt-6">
+                <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+                    <!-- Tab Icon Upload -->
+                    <div>
                     <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Browser Tab Icon (Favicon)
                     </label>
@@ -83,6 +84,37 @@
                             <p v-if="tabIconFile" class="text-xs font-medium text-brand-600 dark:text-brand-400">
                                 Selected: {{ tabIconFile.name }}
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Sidebar Logo Upload -->
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Sidebar Logo / Image
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <div class="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                                <img v-if="sidebarLogoPreview || configStore.sidebarLogoUrl" :src="sidebarLogoPreview || configStore.sidebarLogoUrl!" alt="Sidebar logo" class="h-12 w-12 rounded-sm object-contain" />
+                                <svg v-else class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex gap-2">
+                                    <label class="cursor-pointer rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                                        Choose File
+                                        <input type="file" accept=".svg,.png,.jpg,.jpeg,.webp" class="hidden" @change="handleSidebarLogoSelect" />
+                                    </label>
+                                    <button v-if="configStore.sidebarLogoUrl" @click="removeSidebarLogo" type="button"
+                                        class="rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+                                        Remove
+                                    </button>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Accepted: .svg, .png, .jpg, .jpeg, .webp (max 512KB)</p>
+                                <p v-if="sidebarLogoFile" class="text-xs font-medium text-brand-600 dark:text-brand-400">
+                                    Selected: {{ sidebarLogoFile.name }}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -147,14 +179,17 @@ const settingsForm = reactive({
 // Tab icon upload state
 const tabIconFile = ref<File | null>(null)
 const tabIconPreview = ref<string | null>(null)
+const sidebarLogoFile = ref<File | null>(null)
+const sidebarLogoPreview = ref<string | null>(null)
+
+const acceptedImageTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml', 'image/png', 'image/jpeg', 'image/webp']
 
 const handleTabIconSelect = (event: Event) => {
 	const input = event.target as HTMLInputElement
 	const file = input.files?.[0]
 	if (!file) return
 
-	const allowed = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/svg+xml', 'image/png']
-	if (!allowed.includes(file.type) && !file.name.endsWith('.ico')) {
+	if (!acceptedImageTypes.includes(file.type) && !file.name.endsWith('.ico')) {
 		showToast('Only .ico, .svg and .png files are accepted', 'error')
 		return
 	}
@@ -166,6 +201,25 @@ const handleTabIconSelect = (event: Event) => {
 
 	tabIconFile.value = file
 	tabIconPreview.value = URL.createObjectURL(file)
+}
+
+const handleSidebarLogoSelect = (event: Event) => {
+	const input = event.target as HTMLInputElement
+	const file = input.files?.[0]
+	if (!file) return
+
+	if (!acceptedImageTypes.includes(file.type) && !/\.(svg|png|jpe?g|webp)$/i.test(file.name)) {
+		showToast('Only .svg, .png, .jpg, .jpeg and .webp files are accepted', 'error')
+		return
+	}
+
+	if (file.size > MAX_ICON_FILE_SIZE_BYTES) {
+		showToast('File size must be under 512KB', 'error')
+		return
+	}
+
+	sidebarLogoFile.value = file
+	sidebarLogoPreview.value = URL.createObjectURL(file)
 }
 
 const removeTabIcon = async () => {
@@ -189,6 +243,26 @@ const removeTabIcon = async () => {
 	}
 }
 
+const removeSidebarLogo = async () => {
+	const confirmed = await confirmDialog.confirm({
+		title: 'Remove Sidebar Logo',
+		message: 'Are you sure you want to remove the custom sidebar logo?',
+		confirmLabel: 'Remove',
+		type: 'danger',
+	})
+	if (!confirmed) return
+
+	try {
+		await apiClient.delete('/v1/system/config/?asset=sidebar_logo')
+		sidebarLogoFile.value = null
+		sidebarLogoPreview.value = null
+		await configStore.fetchConfig(true)
+		showToast('Sidebar logo removed', 'success')
+	} catch {
+		showToast('Failed to remove sidebar logo', 'error')
+	}
+}
+
 const uploadTabIcon = async () => {
 	if (!tabIconFile.value) return
 	const formData = new FormData()
@@ -200,6 +274,19 @@ const uploadTabIcon = async () => {
 	})
 	tabIconFile.value = null
 	tabIconPreview.value = null
+}
+
+const uploadSidebarLogo = async () => {
+	if (!sidebarLogoFile.value) return
+	const formData = new FormData()
+	formData.append('sidebar_logo', sidebarLogoFile.value)
+	await apiClient.patch('/v1/system/config/', formData, {
+		headers: {
+			'Content-Type': 'multipart/form-data',
+		},
+	})
+	sidebarLogoFile.value = null
+	sidebarLogoPreview.value = null
 }
 
 const updateFavicon = (url: string | null) => {
@@ -221,8 +308,13 @@ const saveSettings = async () => {
 
 		if (tabIconFile.value) {
 			await uploadTabIcon()
-			await configStore.fetchConfig()
 		}
+
+		if (sidebarLogoFile.value) {
+			await uploadSidebarLogo()
+		}
+
+		await configStore.fetchConfig(true)
 
 		settingsForm.app_name = configStore.appName
 		settingsForm.app_acronym = configStore.appAcronym
@@ -241,6 +333,10 @@ const saveSettings = async () => {
 const loadConfigFromStore = () => {
 	settingsForm.app_name = configStore.appName
 	settingsForm.app_acronym = configStore.appAcronym
+	tabIconFile.value = null
+	tabIconPreview.value = null
+	sidebarLogoFile.value = null
+	sidebarLogoPreview.value = null
 }
 
 /** Initialize form values from config store */

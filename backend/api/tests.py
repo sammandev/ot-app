@@ -14,8 +14,9 @@ from openpyxl import Workbook
 
 from django.db import IntegrityError
 
-from api.models import BoardPresence, CalendarEvent, Department, Employee, EmployeeLeave, ExternalUser, OvertimeRequest, Project, PurchaseRequest, TaskAttachment, TaskGroup, TaskSubtask, TaskTimeLog, UserSession
-from api.services.leave_notification_service import ensure_leave_preview_token, resolve_leave_agent_notification_recipients
+from api.models import BoardPresence, CalendarEvent, Department, Employee, EmployeeLeave, ExternalUser, OvertimeRequest, Project, PurchaseRequest, SystemConfiguration, TaskAttachment, TaskGroup, TaskSubtask, TaskTimeLog, UserActivityLog, UserSession
+from api.services.leave_notification_service import ensure_leave_preview_token, resolve_leave_agent_notification_recipients, resolve_leave_notification_recipients
+from api.tasks import cleanup_user_activity_logs
 
 
 TEST_MEDIA_ROOT = Path(settings.BASE_DIR) / "test_media"
@@ -658,6 +659,80 @@ class LeaveNotificationRecipientResolutionTests(TestCase):
 
         self.assertCountEqual(recipients, ["local.agent@example.com", "external.one@example.com"])
         self.assertEqual(len(recipients), 2)
+
+    def test_resolve_leave_notification_recipients_merges_employee_group_and_global_recipients(self):
+        config = SystemConfiguration.objects.create(
+            leave_notification_recipient_mode="global",
+            leave_notification_recipients=["global@pegatroncorp.com"],
+            leave_notification_employee_groups=[
+                {
+                    "id": "ops-team",
+                    "name": "OPS Team",
+                    "employee_ids": [self.leave_owner.id],
+                    "recipients": ["group@pegatroncorp.com"],
+                }
+            ],
+            leave_notification_employee_recipients=[
+                {
+                    "employee_id": self.leave_owner.id,
+                    "recipients": ["owner@pegatroncorp.com"],
+                    "group_ids": ["ops-team"],
+                }
+            ],
+        )
+
+        recipients = resolve_leave_notification_recipients(config, self.leave_owner)
+
+        self.assertCountEqual(
+            recipients,
+            ["owner@pegatroncorp.com", "group@pegatroncorp.com", "global@pegatroncorp.com"],
+        )
+
+    def test_resolve_leave_notification_recipients_merges_group_membership_with_department_mode(self):
+        config = SystemConfiguration.objects.create(
+            leave_notification_recipient_mode="department",
+            leave_notification_department_recipients=[{"department_code": "OPS", "recipients": ["department@pegatroncorp.com"]}],
+            leave_notification_employee_groups=[
+                {
+                    "id": "coverage",
+                    "name": "Coverage",
+                    "employee_ids": [self.leave_owner.id],
+                    "recipients": ["coverage@pegatroncorp.com"],
+                }
+            ],
+        )
+
+        recipients = resolve_leave_notification_recipients(config, self.leave_owner)
+
+        self.assertCountEqual(recipients, ["coverage@pegatroncorp.com", "department@pegatroncorp.com"])
+
+
+class UserActivityLogCleanupTests(TestCase):
+    def setUp(self):
+        self.user = ExternalUser.objects.create(
+            external_id=901,
+            username="activity_admin",
+            email="activity_admin@example.com",
+            worker_id="ACT901",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+
+    def test_cleanup_user_activity_logs_deletes_only_logs_older_than_retention(self):
+        SystemConfiguration.objects.create(user_activity_log_retention_days=7)
+        old_log = UserActivityLog.objects.create(user=self.user, action="login")
+        recent_log = UserActivityLog.objects.create(user=self.user, action="logout")
+        UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=8))
+        UserActivityLog.objects.filter(pk=recent_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=2))
+
+        result = cleanup_user_activity_logs()
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["deleted_count"], 1)
+        self.assertFalse(UserActivityLog.objects.filter(pk=old_log.pk).exists())
+        self.assertTrue(UserActivityLog.objects.filter(pk=recent_log.pk).exists())
 
 
 class LeavePreviewTests(TestCase):
