@@ -143,6 +143,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
+import { compareDateOnlyStrings, parseDateOnly } from '@/utils/dateOnly'
 import {
 	formatLeaveSummaryDates,
 	getLeaveAgentDisplay,
@@ -268,14 +269,14 @@ const currentWeekHolidays = computed(() => {
 	const weekDates = weekDays.value.map((d) => d.fullDate)
 	return props.holidays
 		.filter((h) => weekDates.includes(h.date))
-		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+		.sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const currentWeekLeaves = computed(() => {
 	const weekDates = weekDays.value.map((d) => d.fullDate)
 	return props.leaves
 		.filter((l) => weekDates.includes(l.date))
-		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+		.sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const currentWeekLeaveSummaries = computed(() =>
@@ -304,15 +305,15 @@ const getDayHolidayStyle = (day: WeekDay): string => {
 }
 
 const formatDay = (dateStr: string): string => {
-	return new Date(dateStr).getDate().toString()
+	return parseDateOnly(dateStr).getDate().toString()
 }
 
 const formatDayName = (dateStr: string): string => {
-	return dayNamesFull.value[new Date(dateStr).getDay()] ?? ''
+	return dayNamesFull.value[parseDateOnly(dateStr).getDay()] ?? ''
 }
 
 const formatDayNameShort = (dateStr: string): string => {
-	return dayNamesShort.value[(new Date(dateStr).getDay() + 6) % 7] ?? ''
+	return dayNamesShort.value[(parseDateOnly(dateStr).getDay() + 6) % 7] ?? ''
 }
 
 // Get agent display text for a leave (names only - for calendar event display)

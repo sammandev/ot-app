@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -8,12 +8,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.test import APIClient
 from openpyxl import Workbook
 
 from django.db import IntegrityError
 
-from api.models import CalendarEvent, Department, Employee, EmployeeLeave, ExternalUser, OvertimeRequest, Project, PurchaseRequest, TaskAttachment, TaskSubtask, TaskTimeLog, UserSession
+from api.models import BoardPresence, CalendarEvent, Department, Employee, EmployeeLeave, ExternalUser, OvertimeRequest, Project, PurchaseRequest, TaskAttachment, TaskGroup, TaskSubtask, TaskTimeLog, UserSession
 from api.services.leave_notification_service import ensure_leave_preview_token, resolve_leave_agent_notification_recipients
 
 
@@ -225,6 +226,122 @@ class OvertimeRequestUniquenessTests(TestCase):
             self._create_request(datetime(2026, 3, 3).date())
 
 
+class PublicAuthEndpointCookieIsolationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.local_password = "secret123"
+        self.local_user = User.objects.create_user(
+            username="local_login_user",
+            password=self.local_password,
+            email="local_login_user@example.com",
+        )
+        self.external_user = ExternalUser.objects.create(
+            external_id=801,
+            username="external_login_user",
+            email="external_login_user@example.com",
+            worker_id="EX801",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.client.cookies["access_token"] = "stale.invalid.access.token"
+
+    @patch("api.views.auth.ExternalAuthService.get_user_info")
+    @patch("api.views.auth.ExternalAuthService.login")
+    def test_external_login_ignores_stale_access_cookie(self, mocked_login, mocked_get_user_info):
+        mocked_login.return_value = {
+            "access": "fresh.external.access",
+            "refresh": "fresh.external.refresh",
+            "user_data": {},
+        }
+        mocked_get_user_info.return_value = {
+            "id": self.external_user.external_id,
+            "username": self.external_user.username,
+            "email": self.external_user.email,
+            "first_name": "External",
+            "last_name": "User",
+            "is_active": True,
+            "is_superuser": False,
+            "is_staff": False,
+            "worker_id": self.external_user.worker_id,
+            "is_ptb_admin": False,
+            "groups": [],
+            "permissions": {},
+            "date_joined": aware_dt(2026, 1, 1),
+        }
+
+        response = self.client.post(
+            reverse("login-external"),
+            {"username": "external_login_user", "password": "correct-password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["username"], self.external_user.username)
+        mocked_login.assert_called_once_with("external_login_user", "correct-password")
+
+    def test_local_login_ignores_stale_access_cookie(self):
+        response = self.client.post(
+            reverse("login-local"),
+            {"username": self.local_user.username, "password": self.local_password},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user"]["username"], self.local_user.username)
+
+    @patch("api.views.auth.ExternalAuthService.get_user_info")
+    def test_exchange_external_token_uses_posted_token_not_stale_cookie(self, mocked_get_user_info):
+        mocked_get_user_info.return_value = {
+            "id": self.external_user.external_id,
+            "username": self.external_user.username,
+            "email": self.external_user.email,
+            "first_name": "External",
+            "last_name": "User",
+            "is_active": True,
+            "is_superuser": False,
+            "is_staff": False,
+            "worker_id": self.external_user.worker_id,
+            "is_ptb_admin": False,
+            "groups": [],
+            "permissions": {},
+            "date_joined": aware_dt(2026, 1, 1),
+        }
+
+        response = self.client.post(
+            reverse("exchange-token"),
+            {"token": "posted.valid.external.token"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        mocked_get_user_info.assert_called_once_with("posted.valid.external.token")
+
+    @patch("api.views.auth.ExternalAuthService.refresh_token")
+    def test_token_refresh_uses_refresh_cookie_not_stale_access_cookie(self, mocked_refresh):
+        self.client.cookies["refresh_token"] = "valid-refresh-token"
+        mocked_refresh.return_value = "fresh.external.access"
+
+        response = self.client.post(reverse("token-refresh"), format="json")
+
+        self.assertEqual(response.status_code, 200)
+        mocked_refresh.assert_called_once_with("valid-refresh-token")
+
+    @patch("api.views.auth.ExternalAuthService.login")
+    def test_external_login_still_returns_normal_invalid_credentials_error(self, mocked_login):
+        mocked_login.side_effect = AuthenticationFailed("Invalid username or password")
+
+        response = self.client.post(
+            reverse("login-external"),
+            {"username": "external_login_user", "password": "wrong-password"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.data["detail"], "Authentication failed.")
+
+
 class ExternalLeaveAgentLookupTests(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -356,27 +473,30 @@ class EmployeeLeaveExternalAgentPersistenceTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data[0]["agents"], [
-            {
-                "type": "employee",
-                "employee_id": self.local_agent.id,
-                "name": self.local_agent.name,
-                "emp_id": self.local_agent.emp_id,
-                "dept_code": self.department.code,
-            },
-            {
-                "type": "external",
-                "username": "Agent External",
-                "email": "agent.external@example.com",
-                "worker_id": "EXT001",
-                "site": "JKT",
-                "source": "external_lookup",
-            },
-            {
-                "type": "manual",
-                "name": "Manual Backup",
-            },
-        ])
+        self.assertEqual(
+            response.data[0]["agents"],
+            [
+                {
+                    "type": "employee",
+                    "employee_id": self.local_agent.id,
+                    "name": self.local_agent.name,
+                    "emp_id": self.local_agent.emp_id,
+                    "dept_code": self.department.code,
+                },
+                {
+                    "type": "external",
+                    "username": "Agent External",
+                    "email": "agent.external@example.com",
+                    "worker_id": "EXT001",
+                    "site": "JKT",
+                    "source": "external_lookup",
+                },
+                {
+                    "type": "manual",
+                    "name": "Manual Backup",
+                },
+            ],
+        )
         self.assertEqual(EmployeeLeave.objects.count(), 2)
         created_leave = EmployeeLeave.objects.order_by("date").first()
         self.assertEqual(created_leave.external_agents, self.external_agents_payload)
@@ -583,6 +703,62 @@ class LeavePreviewTests(TestCase):
         self.assertEqual(response.data["employee_id"], "MW2400549")
         self.assertEqual(response.data["employee_email"], "preview.employee@example.com")
 
+    def test_rotating_preview_token_invalidates_old_link(self):
+        first_token = ensure_leave_preview_token(self.leave.batch_key)
+        self.leave.notes = "Updated preview note"
+        self.leave.save(update_fields=["notes"])
+
+        from api.services.leave_notification_service import rotate_leave_preview_token
+
+        second_token = rotate_leave_preview_token(self.leave.batch_key)
+
+        first_response = self.client.get(reverse("employee-leave-preview"), {"token": first_token})
+        second_response = self.client.get(reverse("employee-leave-preview"), {"token": second_token})
+
+        self.assertEqual(first_response.status_code, 400)
+        self.assertEqual(second_response.status_code, 200)
+
+
+class DocumentMetadataSecurityTests(TestCase):
+    def test_fetch_link_metadata_rejects_private_ip_urls(self):
+        from api.services.document_metadata import fetch_link_metadata
+
+        metadata = fetch_link_metadata("http://127.0.0.1/internal")
+
+        self.assertEqual(metadata["metadata_status"], "failed")
+        self.assertIn("not allowed", metadata["metadata_error"].lower())
+
+    @patch("api.services.document_metadata.socket.getaddrinfo")
+    def test_fetch_link_metadata_rejects_hostnames_resolving_to_private_ip(self, mocked_getaddrinfo):
+        from api.services.document_metadata import fetch_link_metadata
+
+        mocked_getaddrinfo.return_value = [(None, None, None, None, ("10.0.0.5", 443))]
+
+        metadata = fetch_link_metadata("https://example.com/docs")
+
+        self.assertEqual(metadata["metadata_status"], "failed")
+        self.assertIn("internal networks", metadata["metadata_error"].lower())
+
+    @patch("api.services.document_metadata.socket.getaddrinfo")
+    @patch("api.services.document_metadata.MetadataSession.get")
+    def test_fetch_link_metadata_allows_safe_public_url(self, mocked_get, mocked_getaddrinfo):
+        from api.services.document_metadata import fetch_link_metadata
+
+        mocked_getaddrinfo.return_value = [(None, None, None, None, ("93.184.216.34", 443))]
+        response = Mock()
+        response.url = "https://example.com/docs"
+        response.headers = {"Content-Type": "text/html; charset=utf-8"}
+        response.encoding = "utf-8"
+        response.apparent_encoding = "utf-8"
+        response.iter_content.return_value = [b"<html><head><title>Docs</title></head><body></body></html>"]
+        response.raise_for_status.return_value = None
+        mocked_get.return_value = response
+
+        metadata = fetch_link_metadata("https://example.com/docs")
+
+        self.assertEqual(metadata["metadata_status"], "success")
+        self.assertEqual(metadata["link_title"], "Docs")
+
 
 class HealthEndpointSanitizationTests(TestCase):
     def setUp(self):
@@ -619,6 +795,7 @@ class PurchaseRequestImportTests(TestCase):
             is_active=True,
             is_staff=False,
             is_superuser=False,
+            role="developer",
             date_joined=aware_dt(2026, 1, 1),
         )
         self.client.force_authenticate(self.user)
@@ -800,3 +977,127 @@ class BoardPresenceHeartbeatTests(TestCase):
 
         self.assertEqual(second_response.status_code, 200)
         self.assertEqual(self.employee.board_presences.count(), 1)
+
+    def test_http_heartbeat_updates_existing_presence_row(self):
+        BoardPresence.objects.create(user=self.employee, channel_name="chan-old")
+
+        response = self.client.post(
+            "/api/v1/board-presence/heartbeat/",
+            {"editing_task_id": None, "channel_name": "chan-new"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.employee.board_presences.count(), 1)
+        self.assertEqual(self.employee.board_presences.first().channel_name, "chan-new")
+
+
+class TaskDeletionPermissionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.department = Department.objects.create(code="TD", name="Tasks")
+        self.project = Project.objects.create(name="Delete Test")
+        self.creator_employee = Employee.objects.create(name="Task Owner", emp_id="TD001", department=self.department)
+        self.developer_employee = Employee.objects.create(name="Task Developer", emp_id="TD002", department=self.department)
+        self.creator_user = ExternalUser.objects.create(
+            external_id=1401,
+            username="task_owner",
+            email="task_owner@example.com",
+            worker_id="TD001",
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.developer_user = ExternalUser.objects.create(
+            external_id=1402,
+            username="task_developer",
+            email="task_developer@example.com",
+            worker_id="TD002",
+            role="developer",
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.task = CalendarEvent.objects.create(
+            title="Delete Me",
+            event_type="task",
+            start=aware_dt(2026, 4, 1, 9, 0),
+            end=aware_dt(2026, 4, 1, 10, 0),
+            created_by=self.creator_employee,
+            project=self.project,
+        )
+
+    def test_developer_can_delete_task_created_by_another_user(self):
+        self.client.force_authenticate(self.developer_user)
+
+        response = self.client.delete(reverse("calendar-event-detail", args=[self.task.id]))
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(CalendarEvent.objects.filter(id=self.task.id).exists())
+
+
+class TaskGroupPermissionTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.department = Department.objects.create(code="TG", name="Task Groups")
+        self.owner_employee = Employee.objects.create(name="Group Owner", emp_id="TG001", department=self.department)
+        self.member_employee = Employee.objects.create(name="Group Member", emp_id="TG002", department=self.department)
+        self.owner_user = ExternalUser.objects.create(
+            external_id=1501,
+            username="group_owner",
+            email="group_owner@example.com",
+            worker_id="TG001",
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.member_user = ExternalUser.objects.create(
+            external_id=1502,
+            username="group_member",
+            email="group_member@example.com",
+            worker_id="TG002",
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.developer_user = ExternalUser.objects.create(
+            external_id=1503,
+            username="group_developer",
+            email="group_developer@example.com",
+            worker_id="TG999",
+            role="developer",
+            is_active=True,
+            is_staff=False,
+            is_superuser=False,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.group = TaskGroup.objects.create(name="Review Group", color="#6366F1", created_by=self.owner_user)
+        self.group.members.add(self.owner_employee, self.member_employee)
+
+    def test_member_cannot_delete_group(self):
+        self.client.force_authenticate(self.member_user)
+
+        response = self.client.delete(reverse("task-group-detail", args=[self.group.id]))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(TaskGroup.objects.filter(id=self.group.id).exists())
+
+    def test_developer_can_delete_group(self):
+        self.client.force_authenticate(self.developer_user)
+
+        response = self.client.delete(reverse("task-group-detail", args=[self.group.id]))
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(TaskGroup.objects.filter(id=self.group.id).exists())
+
+    def test_member_can_leave_group(self):
+        self.client.force_authenticate(self.member_user)
+
+        response = self.client.post(reverse("task-group-leave-group", args=[self.group.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(self.group.members.filter(id=self.member_employee.id).exists())

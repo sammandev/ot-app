@@ -1,3 +1,5 @@
+import ipaddress
+import socket
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 
@@ -12,6 +14,8 @@ REQUEST_HEADERS = {
     "User-Agent": "PTB-OT-DocumentsBot/1.0 (+internal)",
     "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
 }
+ALLOWED_URL_SCHEMES = {"http", "https"}
+BLOCKED_HOSTNAMES = {"localhost", "localhost.localdomain"}
 
 
 class LinkMetadataParser(HTMLParser):
@@ -75,12 +79,58 @@ def _absolute_url(base_url, maybe_relative_url):
     return urljoin(base_url, maybe_relative_url.strip())
 
 
+def _is_blocked_ip_address(hostname):
+    try:
+        ip = ipaddress.ip_address(hostname)
+        return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified
+    except ValueError:
+        return False
+
+
+def _validate_metadata_url(url):
+    parsed = urlparse(url)
+    scheme = (parsed.scheme or "").lower()
+    hostname = (parsed.hostname or "").strip().lower()
+
+    if scheme not in ALLOWED_URL_SCHEMES:
+        raise ValueError("Only http and https URLs are supported.")
+    if not hostname:
+        raise ValueError("A valid hostname is required.")
+    if hostname in BLOCKED_HOSTNAMES or hostname.endswith(".localhost"):
+        raise ValueError("Localhost URLs are not allowed.")
+    if _is_blocked_ip_address(hostname):
+        raise ValueError("Direct IP URLs to internal networks are not allowed.")
+
+    try:
+        resolved_addresses = {result[4][0] for result in socket.getaddrinfo(hostname, parsed.port or (443 if scheme == "https" else 80), type=socket.SOCK_STREAM)}
+    except socket.gaierror as exc:
+        raise ValueError("Unable to resolve URL hostname.") from exc
+
+    for address in resolved_addresses:
+        ip = ipaddress.ip_address(address)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            raise ValueError("URLs that resolve to internal networks are not allowed.")
+
+
+class MetadataSession(requests.Session):
+    def rebuild_auth(self, prepared_request, response):
+        return
+
+    def get_redirect_target(self, response):
+        redirect_url = super().get_redirect_target(response)
+        if redirect_url:
+            _validate_metadata_url(redirect_url)
+        return redirect_url
+
+
 def fetch_link_metadata(url):
     parsed_url = urlparse(url)
     host = parsed_url.netloc or parsed_url.path or url
 
     try:
-        response = requests.get(url, headers=REQUEST_HEADERS, timeout=METADATA_REQUEST_TIMEOUT, allow_redirects=True, stream=True)
+        _validate_metadata_url(url)
+        with MetadataSession() as session:
+            response = session.get(url, headers=REQUEST_HEADERS, timeout=METADATA_REQUEST_TIMEOUT, allow_redirects=True, stream=True)
         response.raise_for_status()
 
         content_type = (response.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
@@ -126,7 +176,7 @@ def fetch_link_metadata(url):
             "metadata_error": "",
             "metadata_fetched_at": timezone.now(),
         }
-    except requests.RequestException as exc:
+    except (requests.RequestException, ValueError) as exc:
         return {
             "normalized_url": url,
             "link_title": "",

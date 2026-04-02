@@ -378,7 +378,7 @@ class CalendarEventViewSet(viewsets.ModelViewSet):
     def _can_delete_task(self, user, instance):
         if instance.event_type != "task":
             return True
-        if is_ptb_admin(user) or is_superadmin_user(user):
+        if is_ptb_admin(user) or is_superadmin_user(user) or is_developer_user(user):
             return True
         employee = get_employee_for_user(user, raise_if_not_found=False)
         return employee is not None and instance.created_by_id == employee.id

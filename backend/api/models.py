@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 
 from cryptography.fernet import Fernet
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -456,6 +456,7 @@ class LeavePreviewToken(TimestampedModel):
     """Stores hashed public preview tokens for leave batches."""
 
     batch_key = models.UUIDField(unique=True, db_index=True)
+    version = models.PositiveIntegerField(default=1)
     token_hash = models.CharField(max_length=64, unique=True, db_index=True)
     last_accessed_at = models.DateTimeField(null=True, blank=True)
 
@@ -1103,7 +1104,10 @@ class SystemConfiguration(TimestampedModel):
     leave_notification_department_recipients = models.JSONField(default=list, blank=True, help_text="Department recipient mappings for leave notifications")
     leave_notification_custom_recipients = models.JSONField(default=list, blank=True, help_text="Custom recipients for leave notifications")
     leave_notification_subject_template = models.TextField(default="[PTB Calendar] Leave Request {action_label} - {employee_name} ({leave_day_label})", help_text="Subject template for leave notification emails")
-    leave_notification_body_template = models.TextField(default="Hello Team,\n\nA leave request has been {action_label_lower} in PTB Calendar.\n\nEmployee: {employee_name} ({employee_id})\nDepartment: {department_name} ({department_code})\nLeave Dates: {leave_dates}\nTotal Days: {leave_day_count}\nAgent(s): {agents}\nNote: {note}\nSubmitted By: {submitted_by}\n{updated_by_line}\nPlease review the leave coverage details.", help_text="Body template for leave notification emails")
+    leave_notification_body_template = models.TextField(
+        default="Hello Team,\n\nA leave request has been {action_label_lower} in PTB Calendar.\n\nEmployee: {employee_name} ({employee_id})\nDepartment: {department_name} ({department_code})\nLeave Dates: {leave_dates}\nTotal Days: {leave_day_count}\nAgent(s): {agents}\nNote: {note}\nSubmitted By: {submitted_by}\n{updated_by_line}\nPlease review the leave coverage details.",
+        help_text="Body template for leave notification emails",
+    )
     leave_notification_footer_template = models.TextField(default="Best regards,\n{sender_name}\n\nThis is an automated notification from PTB Calendar.", help_text="Footer template for leave notification emails")
 
     def save(self, *args, **kwargs):
@@ -1384,6 +1388,43 @@ class BoardPresence(models.Model):
 
     def __str__(self):
         return f"{self.user.name} - last seen {self.last_seen}"
+
+    @classmethod
+    def upsert_for_user(cls, *, user, editing_task_id=None, channel_name="", preserve_channel_if_blank=False):
+        def _apply(primary):
+            updates = []
+            if primary.editing_task_id != editing_task_id:
+                primary.editing_task_id = editing_task_id
+                updates.append("editing_task")
+
+            should_update_channel = channel_name != "" or not preserve_channel_if_blank
+            if should_update_channel and primary.channel_name != channel_name:
+                primary.channel_name = channel_name
+                updates.append("channel_name")
+
+            if updates:
+                updates.append("last_seen")
+                primary.save(update_fields=updates)
+            else:
+                cls.objects.filter(pk=primary.pk).update(last_seen=timezone.now())
+            return primary
+
+        with transaction.atomic():
+            presences = list(cls.objects.select_for_update().filter(user=user).order_by("id"))
+            if presences:
+                primary = presences[0]
+                duplicate_ids = [presence.id for presence in presences[1:]]
+                if duplicate_ids:
+                    cls.objects.filter(id__in=duplicate_ids).delete()
+                return _apply(primary)
+
+            try:
+                return cls.objects.create(user=user, editing_task_id=editing_task_id, channel_name=channel_name)
+            except IntegrityError:
+                primary = cls.objects.select_for_update().filter(user=user).order_by("id").first()
+                if primary is None:
+                    raise
+                return _apply(primary)
 
 
 class PersonalNote(TimestampedModel):

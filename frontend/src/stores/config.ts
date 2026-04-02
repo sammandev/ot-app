@@ -76,49 +76,49 @@ export const useConfigStore = defineStore('config', () => {
 			const data = response.data
 
 			if (data) {
-				appName.value = data.app_name || appName.value
-				appAcronym.value = data.app_acronym || appAcronym.value
-				version.value = data.version || version.value
-				buildDate.value = data.build_date || buildDate.value
-				tabIconUrl.value = data.tab_icon_url || null
+				appName.value = data.app_name ?? appName.value
+				appAcronym.value = data.app_acronym ?? appAcronym.value
+				version.value = data.version ?? version.value
+				buildDate.value = data.build_date ?? buildDate.value
+				tabIconUrl.value = data.tab_icon_url ?? null
 				// Event reminder settings
 				if (data.event_reminders_disabled_globally !== undefined) {
 					eventRemindersDisabledGlobally.value = data.event_reminders_disabled_globally
 				}
-				if (data.event_reminders_disabled_roles) {
+				if (data.event_reminders_disabled_roles !== undefined) {
 					eventRemindersDisabledRoles.value = data.event_reminders_disabled_roles
 				}
-				if (data.event_reminders_disabled_users) {
+				if (data.event_reminders_disabled_users !== undefined) {
 					eventRemindersDisabledUsers.value = data.event_reminders_disabled_users
 				}
-				if (data.notification_email_host) {
+				if (data.notification_email_host !== undefined) {
 					notificationEmailHost.value = data.notification_email_host
 				}
-				if (data.notification_email_port) {
+				if (data.notification_email_port !== undefined) {
 					notificationEmailPort.value = data.notification_email_port
 				}
-				if (data.leave_notification_recipients) {
+				if (data.leave_notification_recipients !== undefined) {
 					leaveNotificationRecipients.value = data.leave_notification_recipients
 				}
-				if (data.leave_notification_sender_name) {
+				if (data.leave_notification_sender_name !== undefined) {
 					leaveNotificationSenderName.value = data.leave_notification_sender_name
 				}
-				if (data.leave_notification_recipient_mode) {
+				if (data.leave_notification_recipient_mode !== undefined) {
 					leaveNotificationRecipientMode.value = data.leave_notification_recipient_mode
 				}
-				if (data.leave_notification_department_recipients) {
+				if (data.leave_notification_department_recipients !== undefined) {
 					leaveNotificationDepartmentRecipients.value = data.leave_notification_department_recipients
 				}
-				if (data.leave_notification_custom_recipients) {
+				if (data.leave_notification_custom_recipients !== undefined) {
 					leaveNotificationCustomRecipients.value = data.leave_notification_custom_recipients
 				}
-				if (data.leave_notification_subject_template) {
+				if (data.leave_notification_subject_template !== undefined) {
 					leaveNotificationSubjectTemplate.value = data.leave_notification_subject_template
 				}
-				if (data.leave_notification_body_template) {
+				if (data.leave_notification_body_template !== undefined) {
 					leaveNotificationBodyTemplate.value = data.leave_notification_body_template
 				}
-				if (data.leave_notification_footer_template) {
+				if (data.leave_notification_footer_template !== undefined) {
 					leaveNotificationFooterTemplate.value = data.leave_notification_footer_template
 				}
 			}

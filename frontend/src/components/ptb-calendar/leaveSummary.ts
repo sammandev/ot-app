@@ -1,4 +1,5 @@
 import type { EmployeeLeave, LeaveAgent } from '@/services/api/holiday'
+import { compareDateOnlyStrings, parseDateOnly } from '@/utils/dateOnly'
 
 export const LEAVE_AGENT_FALLBACK = '-'
 
@@ -59,7 +60,7 @@ export const getLeaveBatch = (leaves: EmployeeLeave[], reference: EmployeeLeave 
 
 	const relatedLeaves = leaves
 		.filter((leave) => areLeavesInSameBatch(reference, leave))
-		.sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+		.sort((left, right) => compareDateOnlyStrings(left.date, right.date))
 
 	return relatedLeaves.length > 0 ? relatedLeaves : [reference]
 }
@@ -90,7 +91,10 @@ export const formatLeaveSummaryDates = (
 ): string => {
 	const preview = dates
 		.slice(0, maxVisible)
-		.map((dateStr) => `${weekdayLabels[new Date(dateStr).getDay()] ?? ''}-${new Date(dateStr).getDate()}`)
+		.map((dateStr) => {
+			const date = parseDateOnly(dateStr)
+			return `${weekdayLabels[date.getDay()] ?? ''}-${date.getDate()}`
+		})
 
 	if (dates.length > maxVisible) {
 		preview.push(`+${dates.length - maxVisible}`)
@@ -108,7 +112,7 @@ export const summarizeLeavesByEmployee = (
 ): LeaveEmployeeSummary[] => {
 	const summaries = new Map<number, LeaveEmployeeSummary & { agentParts: Set<string> }>()
 
-	for (const leave of [...leaves].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
+	for (const leave of [...leaves].sort((a, b) => compareDateOnlyStrings(a.date, b.date))) {
 		const existing = summaries.get(leave.employee)
 		if (!existing) {
 			summaries.set(leave.employee, {
@@ -136,13 +140,14 @@ export const summarizeLeavesByEmployee = (
 	return [...summaries.values()]
 		.map(({ agentParts, ...summary }) => ({
 			...summary,
-			dates: [...summary.dates].sort((a, b) => new Date(a).getTime() - new Date(b).getTime()),
+			dates: [...summary.dates].sort(compareDateOnlyStrings),
 			agentDisplay: agentParts.size > 0 ? [...agentParts].join(', ') : noneLabel,
 		}))
 		.sort((a, b) => {
-			const firstDateDiff =
-				new Date(a.dates[0] ?? a.representativeLeave.date).getTime() -
-				new Date(b.dates[0] ?? b.representativeLeave.date).getTime()
+			const firstDateDiff = compareDateOnlyStrings(
+				a.dates[0] ?? a.representativeLeave.date,
+				b.dates[0] ?? b.representativeLeave.date,
+			)
 			if (firstDateDiff !== 0) {
 				return firstDateDiff
 			}

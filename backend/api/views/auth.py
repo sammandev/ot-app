@@ -46,6 +46,7 @@ class LocalLoginView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     throttle_classes = [LoginRateThrottle]
 
     @swagger_auto_schema(
@@ -183,6 +184,7 @@ class ExternalLoginView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
     throttle_classes = [LoginRateThrottle]
 
     @swagger_auto_schema(
@@ -379,6 +381,7 @@ class TokenVerifyView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     @swagger_auto_schema(
         operation_summary="Verify token source",
@@ -566,6 +569,7 @@ class TokenRefreshView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     @swagger_auto_schema(
         operation_summary="Refresh access token",
@@ -752,6 +756,7 @@ class ExchangeExternalTokenView(APIView):
     """
 
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     @swagger_auto_schema(
         operation_summary="Exchange external token for httpOnly cookies",

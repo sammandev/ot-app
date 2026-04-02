@@ -1,5 +1,6 @@
 import { type ComputedRef, computed, type Ref, ref } from 'vue'
 
+import { extractApiError } from '@/utils/extractApiError'
 import type { Employee } from '@/services/api/employee'
 import { type TaskGroup, taskGroupAPI } from '@/services/api/task'
 
@@ -28,6 +29,7 @@ export function useKanbanGroups(
 		members: [] as number[],
 	})
 	const syncingDepartments = ref(false)
+    const groupActionError = ref<string | null>(null)
 
 	// ── Computeds ──────────────────────────────────────────────────────
 	const filteredGroupMembers = computed(() => {
@@ -71,6 +73,7 @@ export function useKanbanGroups(
 	}
 
 	async function saveGroup() {
+		groupActionError.value = null
 		try {
 			const payload = {
 				name: groupForm.value.name,
@@ -86,6 +89,7 @@ export function useKanbanGroups(
 			taskGroups.value.push(newGroup)
 			closeGroupModal()
 		} catch (error) {
+			groupActionError.value = extractApiError(error, 'Failed to create group')
 			console.error('Failed to create group:', error)
 		}
 	}
@@ -134,6 +138,7 @@ export function useKanbanGroups(
 
 	async function saveEditGroup() {
 		if (!editingGroup.value) return
+		groupActionError.value = null
 		try {
 			const payload = {
 				name: editGroupForm.value.name,
@@ -150,11 +155,13 @@ export function useKanbanGroups(
 
 			cancelEditGroup()
 		} catch (error) {
+			groupActionError.value = extractApiError(error, 'Failed to update group')
 			console.error('Failed to update group:', error)
 		}
 	}
 
 	async function deleteGroup(groupId: number) {
+		groupActionError.value = null
 		if (
 			!confirm('Are you sure you want to delete this group? Tasks in this group will be unassigned.')
 		)
@@ -167,7 +174,22 @@ export function useKanbanGroups(
 				cancelEditGroup()
 			}
 		} catch (error) {
+			groupActionError.value = extractApiError(error, 'Failed to delete group')
 			console.error('Failed to delete group:', error)
+		}
+	}
+
+	async function leaveGroup(groupId: number) {
+		groupActionError.value = null
+		try {
+			const updatedGroup = await taskGroupAPI.leaveGroup(groupId)
+			const index = taskGroups.value.findIndex((g) => g.id === groupId)
+			if (index !== -1) {
+				taskGroups.value[index] = updatedGroup
+			}
+		} catch (error) {
+			groupActionError.value = extractApiError(error, 'Failed to leave group')
+			console.error('Failed to leave group:', error)
 		}
 	}
 
@@ -205,6 +227,7 @@ export function useKanbanGroups(
 		editingGroup,
 		editGroupForm,
 		syncingDepartments,
+		groupActionError,
 		openListGroupsModal,
 		closeListGroupsModal,
 		// Edit group
@@ -213,6 +236,7 @@ export function useKanbanGroups(
 		toggleEditGroupMember,
 		saveEditGroup,
 		deleteGroup,
+		leaveGroup,
 		syncDepartmentGroups,
 	}
 }

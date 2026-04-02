@@ -323,6 +323,7 @@ import {
 import { disconnectCalendarWebSocket, useCalendarWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useEmployeeStore } from '@/stores/employee'
+import { compareDateOnlyStrings } from '@/utils/dateOnly'
 import { extractApiError } from '@/utils/extractApiError'
 
 const authStore = useAuthStore()
@@ -415,7 +416,7 @@ const selectedLeaveGroup = computed(() => {
 
 const getSelectedLeaveBatch = (leave: EmployeeLeave | null) => getLeaveBatch(leaves.value, leave)
 const deleteLeaveOptions = computed<EmployeeLeave[]>(() =>
-	[...deleteLeaveBatch.value].sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime()),
+	[...deleteLeaveBatch.value].sort((left, right) => compareDateOnlyStrings(left.date, right.date)),
 )
 const deleteLeaveSelectedIds = computed(() => {
 	if (deleteLeaveScope.value === 'batch') {
@@ -530,7 +531,7 @@ const mergeLeavesById = (baseLeaves: EmployeeLeave[], incomingLeaves: EmployeeLe
 		}
 	}
 	return mergedLeaves.sort((left, right) => {
-		const dateDiff = new Date(left.date).getTime() - new Date(right.date).getTime()
+		const dateDiff = compareDateOnlyStrings(left.date, right.date)
 		if (dateDiff !== 0) return dateDiff
 		return left.id - right.id
 	})

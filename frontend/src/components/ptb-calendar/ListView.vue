@@ -126,9 +126,10 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ChevronRightIcon } from '@/icons'
 import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
+import { compareDateOnlyStrings, parseDateOnly } from '@/utils/dateOnly'
 import {
-    formatLeaveSummaryDates,
-    LEAVE_AGENT_FALLBACK,
+	formatLeaveSummaryDates,
+	LEAVE_AGENT_FALLBACK,
     summarizeLeavesByEmployee,
 } from './leaveSummary'
 
@@ -183,11 +184,11 @@ const dateWeekdayLabels = computed(() => [
 ])
 
 const sortedHolidays = computed(() => {
-	return [...props.holidays].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+	return [...props.holidays].sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const sortedLeaves = computed(() => {
-	return [...props.leaves].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+	return [...props.leaves].sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const leaveSummaries = computed(() => summarizeLeavesByEmployee(sortedLeaves.value, LEAVE_AGENT_FALLBACK))
@@ -212,18 +213,18 @@ const isToday = (dateStr: string): boolean => {
 }
 
 const formatDay = (dateStr: string): string => {
-	return new Date(dateStr).getDate().toString()
+	return parseDateOnly(dateStr).getDate().toString()
 }
 
 const formatMonth = (dateStr: string): string => {
-	return monthNames.value[new Date(dateStr).getMonth()] ?? ''
+	return monthNames.value[parseDateOnly(dateStr).getMonth()] ?? ''
 }
 
 const formatFullDate = (dateStr: string): string => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
+	return parseDateOnly(dateStr).toLocaleDateString('en-US', {
+		weekday: 'short',
+		year: 'numeric',
+		month: 'short',
         day: 'numeric',
     })
 }

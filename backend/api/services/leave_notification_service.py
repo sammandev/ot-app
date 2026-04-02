@@ -23,9 +23,7 @@ DEFAULT_LEAVE_NOTIFICATION_BODY_TEMPLATE = (
     "Submitted by: {submitted_by}\n"
     "{updated_by_line}\n"
 )
-DEFAULT_LEAVE_NOTIFICATION_FOOTER_TEMPLATE = (
-    "Please review the leave coverage details. The current Preview link will no longer be valid if the leave data is updated. This is an automated notification from PTB Calendar."
-)
+DEFAULT_LEAVE_NOTIFICATION_FOOTER_TEMPLATE = "Please review the leave coverage details. The current Preview link will no longer be valid if the leave data is updated. This is an automated notification from PTB Calendar."
 
 ALLOWED_LEAVE_NOTIFICATION_TEMPLATE_VARIABLES = {
     "action_label",
@@ -48,6 +46,7 @@ ALLOWED_LEAVE_NOTIFICATION_TEMPLATE_VARIABLES = {
 TEMPLATE_VARIABLE_PATTERN = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
 SYSTEM_MANAGED_LINK_LINE_PATTERN = re.compile(r"^(details|preview)\s*:\s*.*$", re.IGNORECASE)
 LEAVE_PREVIEW_SIGNING_SALT = "api.leave-preview"
+LEAVE_PREVIEW_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 
 
 class SafeNotificationTemplateContext(dict):
@@ -135,26 +134,44 @@ def format_actor_timestamp(username, value):
     return f"{actor_name} | {timestamp} ({format_timezone_label(localized)})"
 
 
-def build_leave_preview_token(batch_key):
-    return signing.dumps({"batch_key": str(batch_key)}, salt=LEAVE_PREVIEW_SIGNING_SALT)
+def build_leave_preview_token(batch_key, version):
+    return signing.dumps({"batch_key": str(batch_key), "version": int(version)}, salt=LEAVE_PREVIEW_SIGNING_SALT)
 
 
 def resolve_leave_preview_token(token):
-    payload = signing.loads(token, salt=LEAVE_PREVIEW_SIGNING_SALT)
+    payload = signing.loads(token, salt=LEAVE_PREVIEW_SIGNING_SALT, max_age=LEAVE_PREVIEW_MAX_AGE_SECONDS)
     batch_key = str(payload.get("batch_key") or "").strip()
+    version = int(payload.get("version") or 0)
     if not batch_key:
         raise signing.BadSignature("Missing batch_key")
-    return batch_key
+    if version <= 0:
+        raise signing.BadSignature("Missing token version")
+    return batch_key, version
 
 
 def ensure_leave_preview_token(batch_key):
     from api.models import LeavePreviewToken
 
-    raw_token = build_leave_preview_token(batch_key)
-    LeavePreviewToken.objects.update_or_create(
-        batch_key=batch_key,
-        defaults={"token_hash": LeavePreviewToken.hash_token(raw_token)},
-    )
+    token_record, created = LeavePreviewToken.objects.get_or_create(batch_key=batch_key, defaults={"version": 1, "token_hash": ""})
+    if not created and token_record.version <= 0:
+        token_record.version = 1
+
+    raw_token = build_leave_preview_token(batch_key, token_record.version)
+    token_hash = LeavePreviewToken.hash_token(raw_token)
+    if token_record.token_hash != token_hash:
+        token_record.token_hash = token_hash
+        token_record.save(update_fields=["version", "token_hash", "updated_at"])
+    return raw_token
+
+
+def rotate_leave_preview_token(batch_key):
+    from api.models import LeavePreviewToken
+
+    token_record, _ = LeavePreviewToken.objects.get_or_create(batch_key=batch_key, defaults={"version": 0, "token_hash": ""})
+    token_record.version += 1
+    raw_token = build_leave_preview_token(batch_key, token_record.version)
+    token_record.token_hash = LeavePreviewToken.hash_token(raw_token)
+    token_record.save(update_fields=["version", "token_hash", "updated_at"])
     return raw_token
 
 
@@ -204,24 +221,24 @@ def build_leave_link_html(links):
     if links.get("details_url"):
         items.append(
             "<tr>"
-            "<td style=\"padding:10px 14px;border-bottom:1px solid #e5e7eb;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;\">Details</td>"
-            f"<td style=\"padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#1f2937;\"><a href=\"{escape(links['details_url'])}\" style=\"color:#2563eb;text-decoration:none;word-break:break-all;\">{escape(links['details_url'])}</a></td>"
+            '<td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;">Details</td>'
+            f'<td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#1f2937;"><a href="{escape(links["details_url"])}" style="color:#2563eb;text-decoration:none;word-break:break-all;">{escape(links["details_url"])}</a></td>'
             "</tr>"
         )
     if links.get("preview_url"):
         items.append(
             "<tr>"
-            "<td style=\"padding:10px 14px;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;\">Preview</td>"
-            f"<td style=\"padding:10px 14px;color:#1f2937;\"><a href=\"{escape(links['preview_url'])}\" style=\"color:#2563eb;text-decoration:none;word-break:break-all;\">{escape(links['preview_url'])}</a></td>"
+            '<td style="padding:10px 14px;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;">Preview</td>'
+            f'<td style="padding:10px 14px;color:#1f2937;"><a href="{escape(links["preview_url"])}" style="color:#2563eb;text-decoration:none;word-break:break-all;">{escape(links["preview_url"])}</a></td>'
             "</tr>"
         )
 
     return (
-        "<div style=\"margin:0 0 18px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;\">"
-        "<table role=\"presentation\" style=\"width:100%;border-collapse:collapse;\">"
+        '<div style="margin:0 0 18px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">'
+        '<table role="presentation" style="width:100%;border-collapse:collapse;">'
         f"{''.join(items)}"
         "</table>"
-        "<div style=\"padding:12px 14px;border-top:1px solid #e5e7eb;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.6;\">"
+        '<div style="padding:12px 14px;border-top:1px solid #e5e7eb;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.6;">'
         "The current Preview link will no longer be valid if this leave data is updated or deleted."
         "</div></div>"
     )
@@ -323,16 +340,11 @@ def _text_to_html(text):
             label, value = line.split(":", 1)
             rows.append(
                 "<tr>"
-                f"<td style=\"padding:10px 14px;border-bottom:1px solid #e5e7eb;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;\">{escape(label.strip())}</td>"
-                f"<td style=\"padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#1f2937;\">{escape(value.strip() or '-')}</td>"
+                f'<td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;width:180px;font-weight:600;color:#111827;background:#f9fafb;vertical-align:top;">{escape(label.strip())}</td>'
+                f'<td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#1f2937;">{escape(value.strip() or "-")}</td>'
                 "</tr>"
             )
-        return (
-            "<div style=\"margin:0 0 18px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;\">"
-            "<table role=\"presentation\" style=\"width:100%;border-collapse:collapse;\">"
-            f"{''.join(rows)}"
-            "</table></div>"
-        )
+        return f'<div style="margin:0 0 18px;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;"><table role="presentation" style="width:100%;border-collapse:collapse;">{"".join(rows)}</table></div>'
 
     paragraphs = []
     for block in text.split("\n\n"):
@@ -347,19 +359,14 @@ def _text_to_html(text):
             continue
 
         escaped_block = escape(block).replace("\n", "<br>")
-        paragraphs.append(f"<p style=\"margin:0 0 16px;line-height:1.6;color:#1f2937;\">{escaped_block}</p>")
+        paragraphs.append(f'<p style="margin:0 0 16px;line-height:1.6;color:#1f2937;">{escaped_block}</p>')
     return "".join(paragraphs)
 
 
 def send_leave_notification_email_message(*, leave_ids, action, actor_username=None):
     from api.models import EmployeeLeave, SystemConfiguration
 
-    leaves = list(
-        EmployeeLeave.objects.filter(id__in=leave_ids)
-        .select_related("employee", "employee__department", "created_by")
-        .prefetch_related("agents")
-        .order_by("date")
-    )
+    leaves = list(EmployeeLeave.objects.filter(id__in=leave_ids).select_related("employee", "employee__department", "created_by").prefetch_related("agents").order_by("date"))
     if not leaves:
         return {"status": "skipped", "reason": "no_leaves"}
 
@@ -391,11 +398,11 @@ def send_leave_notification_email_message(*, leave_ids, action, actor_username=N
     link_text = build_leave_link_text(links)
     plain_message = "\n\n".join(part for part in [sanitized_body, link_text, footer] if part).strip()
     html_message = (
-        "<div style=\"font-family:Segoe UI,Arial,sans-serif;background:#f3f4f6;padding:24px;\">"
-        "<div style=\"max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;\">"
-        f"<div style=\"padding:24px 28px;border-bottom:1px solid #e5e7eb;background:#111827;color:#ffffff;\"><h2 style=\"margin:0;font-size:20px;font-weight:600;\">{escape(subject)}</h2></div>"
-        f"<div style=\"padding:28px;\">{_text_to_html(sanitized_body)}{build_leave_link_html(links)}"
-        f"<div style=\"margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;\">{_text_to_html(footer)}</div>"
+        '<div style="font-family:Segoe UI,Arial,sans-serif;background:#f3f4f6;padding:24px;">'
+        '<div style="max-width:720px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">'
+        f'<div style="padding:24px 28px;border-bottom:1px solid #e5e7eb;background:#111827;color:#ffffff;"><h2 style="margin:0;font-size:20px;font-weight:600;">{escape(subject)}</h2></div>'
+        f'<div style="padding:28px;">{_text_to_html(sanitized_body)}{build_leave_link_html(links)}'
+        f'<div style="margin-top:24px;padding-top:20px;border-top:1px solid #e5e7eb;">{_text_to_html(footer)}</div>'
         "</div></div></div>"
     )
 

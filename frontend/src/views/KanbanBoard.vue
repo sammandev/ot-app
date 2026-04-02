@@ -551,10 +551,13 @@
             :list-groups-tab="listGroupsTab" :editing-group="editingGroupTask" :syncing-departments="syncingDepartments"
             :task-groups="taskGroups" :group-form="groupForm" :edit-group-form="editGroupForm"
             :group-member-search="groupMemberSearch" :filtered-group-members="filteredGroupMembers"
-            :all-employees="sortedEmployees" :get-employee-name="getEmployeeName" @close-group-modal="closeGroupModal"
+            :all-employees="sortedEmployees" :get-employee-name="getEmployeeName"
+            :current-user-id="authStore.user?.id ?? null" :current-user-employee-id="currentUserEmployeeId"
+            :is-super-admin="authStore.isSuperAdmin" :is-developer="authStore.isDeveloper"
+            :group-action-error="groupActionError" @close-group-modal="closeGroupModal"
             @save-group="saveGroup" @close-list-groups-modal="closeListGroupsModal" @open-group-modal="openGroupModal"
             @sync-department-groups="syncDepartmentGroups" @start-edit-group="startEditGroup"
-            @delete-group="deleteGroup" @cancel-edit-group="cancelEditGroup" @save-edit-group="saveEditGroup"
+            @delete-group="deleteGroup" @leave-group="leaveGroup" @cancel-edit-group="cancelEditGroup" @save-edit-group="saveEditGroup"
             @update:list-groups-tab="handleListGroupsTabUpdate"
             @update:group-member-search="groupMemberSearch = $event" />
 
@@ -713,6 +716,7 @@ const {
 	editingGroup,
 	editGroupForm,
 	syncingDepartments,
+	groupActionError,
 	openListGroupsModal,
 	closeListGroupsModal,
 	startEditGroup,
@@ -720,6 +724,7 @@ const {
 	toggleEditGroupMember,
 	saveEditGroup,
 	deleteGroup,
+	leaveGroup,
 	syncDepartmentGroups,
 } = useKanbanGroups(taskGroups, sortedEmployees)
 

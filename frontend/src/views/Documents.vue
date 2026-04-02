@@ -808,6 +808,7 @@ import {
   type DocumentSummary,
 } from '@/services/api/documents'
 import { extractApiError } from '@/utils/extractApiError'
+import { toSafeExternalUrl } from '@/utils/safeUrl'
 
 type DocumentFormState = {
   source_type: DocumentSourceType
@@ -1413,13 +1414,18 @@ async function editFromDetails() {
 }
 
 function handleOpen(item: DocumentSummary | DocumentDetail) {
-  const targetUrl = item.is_external ? item.external_url : item.file_url
-  if (!targetUrl) return
+	const targetUrl = item.is_external ? item.external_url : item.file_url
+	if (!targetUrl) return
 
-  if (item.is_external) {
-    window.open(targetUrl, '_blank', 'noopener,noreferrer')
-    return
-  }
+	if (item.is_external) {
+		const safeUrl = toSafeExternalUrl(targetUrl)
+		if (!safeUrl) {
+			showToast(t('documents.copyFailed'), 'error')
+			return
+		}
+		window.open(safeUrl, '_blank', 'noopener,noreferrer')
+		return
+	}
 
   const anchor = window.document.createElement('a')
   anchor.href = targetUrl
@@ -1431,9 +1437,11 @@ function handleOpen(item: DocumentSummary | DocumentDetail) {
 }
 
 async function copyDocumentLink(document: DocumentSummary | DocumentDetail) {
-  const targetUrl = document.external_url || document.file_url
-  if (!targetUrl) return
-  const copied = await copyTextToClipboard(targetUrl)
+	const targetUrl = document.is_external
+		? toSafeExternalUrl(document.external_url)
+		: document.file_url
+	if (!targetUrl) return
+	const copied = await copyTextToClipboard(targetUrl)
   if (copied) {
     showToast(t('documents.copySuccess'), 'success')
     return

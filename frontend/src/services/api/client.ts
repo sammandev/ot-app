@@ -11,6 +11,7 @@ import axios, {
 	type InternalAxiosRequestConfig,
 } from 'axios'
 import router from '@/router'
+import { shouldSkipRefreshForUrl } from '@/services/api/authRequestGuards'
 import { useAuthStore } from '@/stores/auth'
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
@@ -105,13 +106,13 @@ apiClient.interceptors.response.use(
 			_retry?: boolean
 		} = error.config
 
-		// If 401 and not already retried, try to refresh token
-		// Critical: Do not retry if the failed request was the refresh request itself
-		const refreshUrl = '/auth/token/refresh/'
+		// If 401 and not already retried, try to refresh token.
+		// Auth establishment/diagnostic endpoints must surface their own failure
+		// instead of being re-routed through refresh logic.
 		if (
 			error.response?.status === 401 &&
 			!originalRequest._retry &&
-			!originalRequest.url?.includes(refreshUrl)
+			!shouldSkipRefreshForUrl(originalRequest.url)
 		) {
 			originalRequest._retry = true
 

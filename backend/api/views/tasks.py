@@ -507,22 +507,12 @@ class BoardPresenceViewSet(viewsets.ModelViewSet):
         editing_task_id = request.data.get("editing_task_id")
         channel_name = request.data.get("channel_name", "")
 
-        existing = BoardPresence.objects.filter(user=employee).first()
-        if existing:
-            updates = []
-            if existing.editing_task_id != editing_task_id:
-                existing.editing_task_id = editing_task_id
-                updates.append("editing_task")
-            if channel_name and existing.channel_name != channel_name:
-                existing.channel_name = channel_name
-                updates.append("channel_name")
-            if updates:
-                updates.append("last_seen")
-                existing.save(update_fields=updates)
-            else:
-                BoardPresence.objects.filter(pk=existing.pk).update(last_seen=timezone.now())
-        else:
-            BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=channel_name)
+        BoardPresence.upsert_for_user(
+            user=employee,
+            editing_task_id=editing_task_id,
+            channel_name=channel_name,
+            preserve_channel_if_blank=True,
+        )
 
         # Get all current viewers (excluding self)
         from datetime import timedelta
@@ -554,6 +544,18 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = TaskGroupSerializer
     pagination_class = DynamicPagination
+
+    @staticmethod
+    def _can_manage_group_membership(user, group):
+        return group.created_by_id == getattr(user, "id", None) or getattr(user, "is_ptb_admin", False) or is_superadmin_user(user)
+
+    @staticmethod
+    def _can_delete_group(user, group):
+        return group.created_by_id == getattr(user, "id", None) or is_developer_user(user) or is_superadmin_user(user)
+
+    @staticmethod
+    def _get_request_employee(user):
+        return get_employee_for_user(user, raise_if_not_found=False)
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -589,6 +591,8 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         if instance.is_department_group:
             raise PermissionDenied("Department groups cannot be deleted.")
+        if not self._can_delete_group(self.request.user, instance):
+            raise PermissionDenied("Only the group creator, Super Admin, or Developer can delete this group.")
         instance.delete()
 
     def _notify_group_members(self, group, members):
@@ -655,7 +659,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
     def add_member(self, request, pk=None):
         """Add a member to the group. Only the group creator or admin can modify membership."""
         group = self.get_object()
-        if group.created_by != request.user and not getattr(request.user, "is_ptb_admin", False):
+        if not self._can_manage_group_membership(request.user, group):
             raise PermissionDenied("Only the group creator or an admin can modify membership.")
         employee_id = request.data.get("employee_id")
 
@@ -675,7 +679,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
     def remove_member(self, request, pk=None):
         """Remove a member from the group. Only the group creator or admin can modify membership."""
         group = self.get_object()
-        if group.created_by != request.user and not getattr(request.user, "is_ptb_admin", False):
+        if not self._can_manage_group_membership(request.user, group):
             raise PermissionDenied("Only the group creator or an admin can modify membership.")
         employee_id = request.data.get("employee_id")
 
@@ -688,6 +692,18 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
             return Response(self.get_serializer(group).data)
         except Employee.DoesNotExist:
             return Response({"detail": "Employee not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=["post"], url_path="leave-group")
+    def leave_group(self, request, pk=None):
+        group = self.get_object()
+        employee = self._get_request_employee(request.user)
+        if employee is None:
+            return Response({"detail": "Employee not found"}, status=status.HTTP_400_BAD_REQUEST)
+        if not group.members.filter(pk=employee.pk).exists():
+            return Response({"detail": "You are not a member of this group."}, status=status.HTTP_400_BAD_REQUEST)
+
+        group.members.remove(employee)
+        return Response(self.get_serializer(group).data)
 
     @action(detail=False, methods=["post"])
     def reorder(self, request):

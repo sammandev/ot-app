@@ -76,6 +76,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { XIcon } from '@/icons'
 import type { EmployeeLeave } from '@/services/api/holiday'
+import { parseDateOnly } from '@/utils/dateOnly'
 import {
 	formatLeaveSummaryDates,
 	getLeaveAgentDisplay,
@@ -112,7 +113,7 @@ const weekdayLabels = computed(() => [
 
 const relevantLeaves = computed(() =>
 	(props.relatedLeaves.length > 0 ? props.relatedLeaves : [props.leave]).sort(
-		(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+		(a, b) => parseDateOnly(a.date).getTime() - parseDateOnly(b.date).getTime(),
 	),
 )
 
@@ -123,11 +124,13 @@ const agentDisplay = computed(() => {
 	for (const relatedLeave of relevantLeaves.value) {
 		const display = getLeaveAgentDisplay(relatedLeave, LEAVE_AGENT_FALLBACK)
 		if (display !== LEAVE_AGENT_FALLBACK) {
-			display
+			const parts = display
 				.split(',')
 				.map((part) => part.trim())
 				.filter(Boolean)
-				.forEach((part) => agentNames.add(part))
+			for (const part of parts) {
+				agentNames.add(part)
+			}
 		}
 	}
 	return agentNames.size > 0 ? [...agentNames].join(', ') : LEAVE_AGENT_FALLBACK
@@ -146,7 +149,7 @@ const leaveMonthLabel = computed(() => {
 				new Intl.DateTimeFormat(undefined, {
 					month: 'short',
 					year: 'numeric',
-				}).format(new Date(dateValue)),
+				}).format(parseDateOnly(dateValue)),
 			),
 		),
 	)

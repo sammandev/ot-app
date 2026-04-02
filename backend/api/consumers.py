@@ -664,42 +664,13 @@ class BoardConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer
     def update_presence(self, employee, editing_task_id):
         from .models import BoardPresence
 
-        existing = BoardPresence.objects.filter(user=employee).first()
-        if existing:
-            updates = []
-            if existing.editing_task_id != editing_task_id:
-                existing.editing_task_id = editing_task_id
-                updates.append("editing_task")
-            if existing.channel_name != self.channel_name:
-                existing.channel_name = self.channel_name
-                updates.append("channel_name")
-            updates.append("last_seen")
-            existing.save(update_fields=updates)
-            return
-
-        BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
+        BoardPresence.upsert_for_user(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
 
     @database_sync_to_async
     def touch_presence(self, employee, editing_task_id):
         from .models import BoardPresence
 
-        existing = BoardPresence.objects.filter(user=employee).first()
-        if existing:
-            if existing.editing_task_id != editing_task_id or existing.channel_name != self.channel_name:
-                updates = []
-                if existing.editing_task_id != editing_task_id:
-                    existing.editing_task_id = editing_task_id
-                    updates.append("editing_task")
-                if existing.channel_name != self.channel_name:
-                    existing.channel_name = self.channel_name
-                    updates.append("channel_name")
-                updates.append("last_seen")
-                existing.save(update_fields=updates)
-            else:
-                BoardPresence.objects.filter(pk=existing.pk).update(last_seen=timezone.now())
-            return
-
-        BoardPresence.objects.create(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
+        BoardPresence.upsert_for_user(user=employee, editing_task_id=editing_task_id, channel_name=self.channel_name)
 
     @database_sync_to_async
     def remove_presence(self, employee):
@@ -840,6 +811,7 @@ class TaskDetailConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketCon
         presences = BoardPresence.objects.filter(last_seen__gte=cutoff, editing_task_id=self.task_id).select_related("user")
 
         return [{"user_id": p.user.id, "user_name": p.user.name} for p in presences]
+
 
 class CalendarConsumer(_RateLimitMixin, _TokenAuthMixin, AsyncJsonWebsocketConsumer):
     """

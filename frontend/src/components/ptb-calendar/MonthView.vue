@@ -154,6 +154,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EmployeeLeave, Holiday } from '@/services/api/holiday'
+import { compareDateOnlyStrings, parseDateOnly } from '@/utils/dateOnly'
 import {
 	formatLeaveSummaryDates,
 	getLeaveAgentDisplay,
@@ -327,7 +328,7 @@ const calendarWeeks = computed<CalendarWeek[]>(() => {
 	for (let i = 0; i < allDays.length; i += 7) {
 		const weekDaysSlice = allDays.slice(i, i + 7)
 		// Get week number from the first day of this week
-		const firstDayOfWeek = new Date(weekDaysSlice[0]?.fullDate || '')
+		const firstDayOfWeek = parseDateOnly(weekDaysSlice[0]?.fullDate || '')
 		const weekNum = getWeekNumber(firstDayOfWeek)
 		weeks.push({
 			weekNumber: weekNum,
@@ -343,19 +344,19 @@ const calendarWeeks = computed<CalendarWeek[]>(() => {
 const currentMonthHolidays = computed(() => {
 	return props.holidays
 		.filter((h) => {
-			const date = new Date(h.date)
+			const date = parseDateOnly(h.date)
 			return date.getMonth() === props.month && date.getFullYear() === props.year
 		})
-		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+		.sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const currentMonthLeaves = computed(() => {
 	return props.leaves
 		.filter((l) => {
-			const date = new Date(l.date)
+			const date = parseDateOnly(l.date)
 			return date.getMonth() === props.month && date.getFullYear() === props.year
 		})
-		.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+		.sort((a, b) => compareDateOnlyStrings(a.date, b.date))
 })
 
 const currentMonthLeaveSummaries = computed(() =>
@@ -384,15 +385,15 @@ const getDayHolidayStyle = (day: CalendarDay): string => {
 }
 
 const formatDay = (dateStr: string): string => {
-	return new Date(dateStr).getDate().toString()
+	return parseDateOnly(dateStr).getDate().toString()
 }
 
 const formatDayName = (dateStr: string): string => {
-	return dayNames.value[new Date(dateStr).getDay()] ?? ''
+	return dayNames.value[parseDateOnly(dateStr).getDay()] ?? ''
 }
 
 const formatDayNameShort = (dateStr: string): string => {
-	return dayNamesShort.value[(new Date(dateStr).getDay() + 6) % 7] ?? ''
+	return dayNamesShort.value[(parseDateOnly(dateStr).getDay() + 6) % 7] ?? ''
 }
 
 // Get agent display text for a leave (names only - for calendar cell)

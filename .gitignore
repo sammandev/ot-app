@@ -68,6 +68,8 @@ data/excel/
 unimportant/
 analysis-docs/
 plans/
+.agents/
+opencode.json
 
 # Docker / runtime
 *.pid

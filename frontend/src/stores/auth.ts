@@ -92,12 +92,14 @@ type CookieStoreLike = {
 
 async function clearExternalAccessTokenCookie() {
 	const store = (window as Window & { cookieStore?: CookieStoreLike }).cookieStore
-	if (!store) {
-		console.warn('[Auth] Cookie Store API unavailable; unable to clear external access_token cookie')
+	if (store) {
+		await store.delete({ name: 'access_token', path: '/' })
 		return
 	}
 
-	await store.delete({ name: 'access_token', path: '/' })
+	console.warn('[Auth] Cookie Store API unavailable; falling back to document.cookie cleanup')
+	document.cookie = 'access_token=; Max-Age=0; path=/'
+	document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'
 }
 
 export const useAuthStore = defineStore('auth', () => {

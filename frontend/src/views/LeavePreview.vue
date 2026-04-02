@@ -134,6 +134,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { employeeLeaveAPI, type EmployeeLeavePreview } from '@/services/api/holiday'
+import { formatDateOnlyLocal, parseDateOnly } from '@/utils/dateOnly'
 import { extractApiError } from '@/utils/extractApiError'
 
 const route = useRoute()
@@ -153,7 +154,7 @@ const previewDatesLabel = computed(() => {
 })
 
 const sortedDates = computed<string[]>(() =>
-  [...(preview.value?.dates ?? [])].sort((left, right) => new Date(left).getTime() - new Date(right).getTime()),
+  [...(preview.value?.dates ?? [])].sort(),
 )
 
 const calendarWeekdayLabels: string[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -174,14 +175,7 @@ type PreviewCalendarMonth = {
   cells: PreviewCalendarCell[]
 }
 
-const formatLocalDate = (value: Date) => {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const todayDateStr = computed(() => formatLocalDate(new Date()))
+const todayDateStr = computed(() => formatDateOnlyLocal(new Date()))
 
 const buildCalendarMonth = (year: number, monthIndex: number, leaveDates: string[], todayIso: string): PreviewCalendarMonth => {
   const firstDate = new Date(year, monthIndex, 1)
@@ -238,7 +232,7 @@ const previewCalendarMonths = computed<PreviewCalendarMonth[]>(() => {
   const seenMonths = new Set<string>()
 
   for (const dateValue of sortedDates.value) {
-    const date = new Date(dateValue)
+    const date = parseDateOnly(dateValue)
     const key = `${date.getFullYear()}-${date.getMonth()}`
     if (seenMonths.has(key)) continue
     seenMonths.add(key)

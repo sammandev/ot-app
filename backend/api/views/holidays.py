@@ -3,13 +3,13 @@ import uuid
 from collections import OrderedDict
 
 from django.contrib.auth import get_user_model
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
@@ -30,7 +30,7 @@ from ..serializers import (
 )
 from ..services.external_auth import ExternalAuthService, ExternalServiceError
 from .helpers import get_employee_for_user, is_developer_user, is_ptb_admin, is_superadmin_user  # noqa: F401
-from ..services.leave_notification_service import format_actor_timestamp, resolve_leave_preview_token
+from ..services.leave_notification_service import format_actor_timestamp, resolve_leave_preview_token, rotate_leave_preview_token
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -156,11 +156,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         if isinstance(request.auth, str) and request.auth.strip():
             return request.auth
 
-        session = (
-            request.user.sessions.filter(is_active=True)
-            .order_by("-created_at")
-            .first()
-        )
+        session = request.user.sessions.filter(is_active=True).order_by("-created_at").first()
         if session is None or session.is_token_expired():
             return None
 
@@ -208,14 +204,24 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
             from ..consumers import broadcast_calendar_update
 
             if created_ids:
-                for leave_obj in EmployeeLeave.objects.filter(pk__in=created_ids).select_related("employee", "employee__department", "created_by").prefetch_related(models.Prefetch("agents", queryset=Employee.objects.select_related("department"))).order_by("date", "employee__name"):
+                for leave_obj in (
+                    EmployeeLeave.objects.filter(pk__in=created_ids)
+                    .select_related("employee", "employee__department", "created_by")
+                    .prefetch_related(models.Prefetch("agents", queryset=Employee.objects.select_related("department")))
+                    .order_by("date", "employee__name")
+                ):
                     try:
                         broadcast_calendar_update("created", "leave", EmployeeLeaveSerializer(leave_obj).data)
                     except Exception as exc:
                         logger.debug("Calendar broadcast failed (non-critical): %s", exc)
 
             if updated_ids:
-                for leave_obj in EmployeeLeave.objects.filter(pk__in=updated_ids).select_related("employee", "employee__department", "created_by").prefetch_related(models.Prefetch("agents", queryset=Employee.objects.select_related("department"))).order_by("date", "employee__name"):
+                for leave_obj in (
+                    EmployeeLeave.objects.filter(pk__in=updated_ids)
+                    .select_related("employee", "employee__department", "created_by")
+                    .prefetch_related(models.Prefetch("agents", queryset=Employee.objects.select_related("department")))
+                    .order_by("date", "employee__name")
+                ):
                     try:
                         broadcast_calendar_update("updated", "leave", EmployeeLeaveSerializer(leave_obj).data)
                     except Exception as exc:
@@ -228,6 +234,18 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
                     logger.debug("Calendar broadcast failed (non-critical): %s", exc)
 
         transaction.on_commit(_broadcast)
+
+    @staticmethod
+    def _rotate_leave_preview_token_on_commit(batch_key):
+        if not batch_key:
+            return
+
+        transaction.on_commit(lambda: rotate_leave_preview_token(batch_key))
+
+    def _rotate_leave_preview_tokens_on_commit(self, batch_keys):
+        unique_batch_keys = [batch_key for batch_key in OrderedDict((key, True) for key in batch_keys if key).keys()]
+        for batch_key in unique_batch_keys:
+            self._rotate_leave_preview_token_on_commit(batch_key)
 
     def _schedule_leave_created_side_effects(self, leave, request_user, send_email=True):
         from ..consumers import send_notification_to_user
@@ -452,23 +470,30 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         batch_key = uuid.uuid4()
         actor_username = getattr(request.user, "username", None) or "Unknown"
         with transaction.atomic():
-            for leave_date in dates:
-                leave = EmployeeLeave.objects.create(
-                    employee=employee,
-                    date=leave_date,
-                    batch_key=batch_key,
-                    notes=notes,
-                    external_agents=external_agents,
-                    agent_names=agent_names,
-                    created_by=created_by,
+            try:
+                for leave_date in dates:
+                    leave = EmployeeLeave.objects.create(
+                        employee=employee,
+                        date=leave_date,
+                        batch_key=batch_key,
+                        notes=notes,
+                        external_agents=external_agents,
+                        agent_names=agent_names,
+                        created_by=created_by,
+                    )
+                    if agents:
+                        leave.agents.set(agents)
+                    leaves.append(leave)
+                    self._schedule_leave_created_side_effects(leave, request.user, send_email=False)
+            except IntegrityError:
+                return Response(
+                    {"detail": "One or more leave dates already exist for this employee. Refresh and try again."},
+                    status=status.HTTP_409_CONFLICT,
                 )
-                if agents:
-                    leave.agents.set(agents)
-                leaves.append(leave)
-                self._schedule_leave_created_side_effects(leave, request.user, send_email=False)
 
             leave_ids = [leave.id for leave in leaves]
             transaction.on_commit(lambda: self._queue_leave_email_notification(leave_ids, "created", actor_username))
+            self._rotate_leave_preview_token_on_commit(batch_key)
 
         response_serializer = EmployeeLeaveSerializer(leaves, many=True)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
@@ -480,12 +505,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
 
         validated_data = serializer.validated_data
         leave_ids = validated_data["leave_ids"]
-        target_leaves = list(
-            EmployeeLeave.objects.filter(pk__in=leave_ids)
-            .select_related("employee", "employee__department", "created_by")
-            .prefetch_related("agents")
-            .order_by("date", "id")
-        )
+        target_leaves = list(EmployeeLeave.objects.filter(pk__in=leave_ids).select_related("employee", "employee__department", "created_by").prefetch_related("agents").order_by("date", "id"))
         if len(target_leaves) != len(leave_ids):
             return Response({"detail": "Some leave records could not be found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -498,12 +518,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         external_agents = validated_data.get("external_agents", [])
         agent_names = validated_data.get("agent_names")
 
-        conflicting_dates = list(
-            EmployeeLeave.objects.filter(employee=employee, date__in=dates)
-            .exclude(pk__in=leave_ids)
-            .order_by("date")
-            .values_list("date", flat=True)
-        )
+        conflicting_dates = list(EmployeeLeave.objects.filter(employee=employee, date__in=dates).exclude(pk__in=leave_ids).order_by("date").values_list("date", flat=True))
         if conflicting_dates:
             formatted_dates = ", ".join(date_value.isoformat() for date_value in conflicting_dates)
             return Response(
@@ -521,37 +536,44 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         actor_username = getattr(request.user, "username", None) or "Unknown"
 
         with transaction.atomic():
-            for leave_date in dates:
-                leave = existing_by_date.pop(leave_date, None)
-                if leave is None:
-                    leave = EmployeeLeave.objects.create(
-                        employee=employee,
-                        date=leave_date,
-                        batch_key=batch_key,
-                        notes=notes,
-                        external_agents=external_agents,
-                        agent_names=agent_names,
-                        created_by=original_creator,
-                    )
-                    created_ids.append(leave.id)
-                else:
-                    leave.employee = employee
-                    leave.batch_key = batch_key
-                    leave.notes = notes
-                    leave.external_agents = external_agents
-                    leave.agent_names = agent_names
-                    leave.save()
-                    updated_ids.append(leave.id)
+            try:
+                for leave_date in dates:
+                    leave = existing_by_date.pop(leave_date, None)
+                    if leave is None:
+                        leave = EmployeeLeave.objects.create(
+                            employee=employee,
+                            date=leave_date,
+                            batch_key=batch_key,
+                            notes=notes,
+                            external_agents=external_agents,
+                            agent_names=agent_names,
+                            created_by=original_creator,
+                        )
+                        created_ids.append(leave.id)
+                    else:
+                        leave.employee = employee
+                        leave.batch_key = batch_key
+                        leave.notes = notes
+                        leave.external_agents = external_agents
+                        leave.agent_names = agent_names
+                        leave.save()
+                        updated_ids.append(leave.id)
 
-                leave.agents.set(agents)
-                final_leaves.append(leave)
+                    leave.agents.set(agents)
+                    final_leaves.append(leave)
 
-            for obsolete_leave in existing_by_date.values():
-                deleted_ids.append(obsolete_leave.id)
-                obsolete_leave.delete()
+                for obsolete_leave in existing_by_date.values():
+                    deleted_ids.append(obsolete_leave.id)
+                    obsolete_leave.delete()
 
-            final_leave_ids = [leave.id for leave in final_leaves]
-            transaction.on_commit(lambda: self._queue_leave_email_notification(final_leave_ids, "updated", actor_username))
+                final_leave_ids = [leave.id for leave in final_leaves]
+                transaction.on_commit(lambda: self._queue_leave_email_notification(final_leave_ids, "updated", actor_username))
+                self._rotate_leave_preview_token_on_commit(batch_key)
+            except IntegrityError:
+                return Response(
+                    {"detail": "One or more leave dates already exist for this employee. Refresh and try again."},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
         self._broadcast_leave_batch_changes(created_ids=created_ids, updated_ids=updated_ids, deleted_ids=deleted_ids)
 
@@ -571,20 +593,32 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         self._assert_can_manage_leaves(request.user, target_leaves)
 
         deleted_ids = [leave.id for leave in target_leaves]
+        batch_keys = [leave.batch_key for leave in target_leaves if leave.batch_key]
         with transaction.atomic():
             EmployeeLeave.objects.filter(pk__in=deleted_ids).delete()
+            self._rotate_leave_preview_tokens_on_commit(batch_keys)
 
         self._broadcast_leave_batch_changes(deleted_ids=deleted_ids)
         return Response({"deleted_ids": deleted_ids}, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         user = self.request.user
-        leave = serializer.save(created_by=self._resolve_external_user(user), batch_key=uuid.uuid4())
+        batch_key = uuid.uuid4()
+        try:
+            leave = serializer.save(created_by=self._resolve_external_user(user), batch_key=batch_key)
+        except IntegrityError as exc:
+            raise ValidationError({"detail": "A leave record already exists for this employee on that date."}) from exc
+        self._rotate_leave_preview_token_on_commit(batch_key)
         self._schedule_leave_created_side_effects(leave, user)
 
     def perform_update(self, serializer):
         self._assert_can_manage_leaves(self.request.user, [serializer.instance])
-        instance = serializer.save(batch_key=serializer.instance.batch_key or uuid.uuid4())
+        batch_key = serializer.instance.batch_key or uuid.uuid4()
+        try:
+            instance = serializer.save(batch_key=batch_key)
+        except IntegrityError as exc:
+            raise ValidationError({"detail": "A leave record already exists for this employee on that date."}) from exc
+        self._rotate_leave_preview_token_on_commit(batch_key)
         self._schedule_leave_updated_side_effects(instance, self.request.user)
 
     @action(detail=False, methods=["get"], permission_classes=[AllowAny], url_path="preview")
@@ -596,21 +630,16 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Preview token is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            batch_key = resolve_leave_preview_token(token)
+            batch_key, token_version = resolve_leave_preview_token(token)
         except Exception:
             return Response({"detail": "Preview link is invalid."}, status=status.HTTP_400_BAD_REQUEST)
 
         token_hash = LeavePreviewToken.hash_token(token)
-        token_record = LeavePreviewToken.objects.filter(batch_key=batch_key, token_hash=token_hash).first()
+        token_record = LeavePreviewToken.objects.filter(batch_key=batch_key, version=token_version, token_hash=token_hash).first()
         if token_record is None:
             return Response({"detail": "Preview link is invalid."}, status=status.HTTP_400_BAD_REQUEST)
 
-        leaves = list(
-            EmployeeLeave.objects.filter(batch_key=batch_key)
-            .select_related("employee", "employee__department", "created_by")
-            .prefetch_related("agents")
-            .order_by("date", "id")
-        )
+        leaves = list(EmployeeLeave.objects.filter(batch_key=batch_key).select_related("employee", "employee__department", "created_by").prefetch_related("agents").order_by("date", "id"))
         if not leaves:
             return Response({"detail": "Leave preview is no longer available."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -621,12 +650,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
         department = getattr(leave.employee, "department", None)
         employee_email = "-"
         if leave.employee.emp_id:
-            matched_external_user = (
-                ExternalUser.objects.filter(worker_id=leave.employee.emp_id, is_active=True)
-                .exclude(email__isnull=True)
-                .exclude(email="")
-                .first()
-            )
+            matched_external_user = ExternalUser.objects.filter(worker_id=leave.employee.emp_id, is_active=True).exclude(email__isnull=True).exclude(email="").first()
             if matched_external_user is not None:
                 employee_email = matched_external_user.email
         structured_agent_names = []
@@ -666,7 +690,10 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         self._assert_can_manage_leaves(self.request.user, [instance])
         leave_id = instance.id
-        instance.delete()
+        batch_key = instance.batch_key
+        with transaction.atomic():
+            instance.delete()
+            self._rotate_leave_preview_token_on_commit(batch_key)
         try:
             from ..consumers import broadcast_calendar_update
 

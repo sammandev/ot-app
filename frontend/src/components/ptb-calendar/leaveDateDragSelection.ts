@@ -1,3 +1,5 @@
+import { compareDateOnlyStrings, formatDateOnlyLocal, parseDateOnly } from '@/utils/dateOnly'
+
 interface FlatpickrInstance {
 	calendarContainer?: HTMLElement
 	setDate: (dates: string[], triggerChange: boolean) => void
@@ -20,15 +22,6 @@ const DAY_SELECTOR = '.flatpickr-day'
 const PREVIEW_BACKGROUND = 'rgba(16, 185, 129, 0.18)'
 const PREVIEW_SHADOW = 'inset 0 0 0 2px rgba(16, 185, 129, 0.55)'
 
-const padTwoDigits = (value: number): string => (value < 10 ? `0${value}` : String(value))
-
-const formatDateStr = (date: Date): string => {
-	const year = date.getFullYear()
-	const month = padTwoDigits(date.getMonth() + 1)
-	const day = padTwoDigits(date.getDate())
-	return `${year}-${month}-${day}`
-}
-
 const sortUniqueDateStrings = (dates: string[]) => {
 	const uniqueDates: string[] = []
 	for (let index = 0; index < dates.length; index += 1) {
@@ -37,19 +30,19 @@ const sortUniqueDateStrings = (dates: string[]) => {
 		uniqueDates.push(dateValue)
 	}
 
-	return uniqueDates.sort((left, right) => new Date(left).getTime() - new Date(right).getTime())
+	return uniqueDates.sort(compareDateOnlyStrings)
 }
 
 const getRangeDates = (startDate: string, endDate: string): string[] => {
-	const start = new Date(startDate)
-	const end = new Date(endDate)
+	const start = parseDateOnly(startDate)
+	const end = parseDateOnly(endDate)
 	const minDate = start <= end ? start : end
 	const maxDate = start <= end ? end : start
 	const dates: string[] = []
 	const current = new Date(minDate.getTime())
 
 	while (current <= maxDate) {
-		dates.push(formatDateStr(current))
+		dates.push(formatDateOnlyLocal(current))
 		current.setDate(current.getDate() + 1)
 	}
 
@@ -97,7 +90,7 @@ const paintPreview = (container: HTMLElement, startDate: string, endDate: string
 		if (!isSelectableDay(dayElement)) continue
 		const dateObj = dayElement.dateObj
 		if (!dateObj) continue
-		if (!rangeDateLookup[formatDateStr(dateObj)]) continue
+		if (!rangeDateLookup[formatDateOnlyLocal(dateObj)]) continue
 		dayElement.dataset.leaveDragPreview = 'true'
 		dayElement.style.backgroundColor = PREVIEW_BACKGROUND
 		dayElement.style.boxShadow = PREVIEW_SHADOW
@@ -153,7 +146,7 @@ export const attachLeaveDateDragSelection = (
 		const dateObj = dayElement.dateObj
 		if (!dateObj) return
 
-		dragStart = formatDateStr(dateObj)
+		dragStart = formatDateOnlyLocal(dateObj)
 		dragEnd = dragStart
 		isDragging = true
 		paintPreview(container, dragStart, dragEnd)
@@ -167,7 +160,7 @@ export const attachLeaveDateDragSelection = (
 		const dateObj = dayElement.dateObj
 		if (!dateObj) return
 
-		dragEnd = formatDateStr(dateObj)
+		dragEnd = formatDateOnlyLocal(dateObj)
 		paintPreview(container, dragStart, dragEnd)
 	}
 

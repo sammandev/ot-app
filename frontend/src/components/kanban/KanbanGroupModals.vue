@@ -109,13 +109,17 @@
             <div class="flex-1 overflow-y-auto p-6">
                 <!-- All Groups Tab -->
                 <div v-if="listGroupsTab === 'all'" class="space-y-3">
-                    <div v-if="taskGroups.length === 0" class="text-center py-12 text-gray-400">
+                     <div v-if="taskGroups.length === 0" class="text-center py-12 text-gray-400">
                         <FolderIcon class="w-10 h-10 mx-auto mb-2 text-gray-400" />
                         <p>{{ t('kanban.noGroupsYet') }}</p>
                         <button @click="$emit('close-list-groups-modal'); $emit('open-group-modal')"
                             class="mt-4 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700">
                             {{ t('kanban.createFirstGroup') }}
                         </button>
+                     </div>
+
+                    <div v-if="groupActionError" class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+                        {{ groupActionError }}
                     </div>
 
                     <div v-for="group in taskGroups" :key="group.id"
@@ -154,20 +158,25 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                                <button v-if="!group.is_department_group" @click="$emit('start-edit-group', group)"
-                                    class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-brand-600"
-                                    title="Edit Group">
-                                    <PencilIcon class="w-4 h-4" />
+                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                                    <button v-if="!group.is_department_group && canEditGroup(group)" @click="$emit('start-edit-group', group)"
+                                     class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 hover:text-brand-600"
+                                     title="Edit Group">
+                                     <PencilIcon class="w-4 h-4" />
+                                    </button>
+                                <button v-if="!group.is_department_group && canDeleteGroup(group)" @click="$emit('delete-group', group.id)"
+                                     class="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-600"
+                                     title="Delete Group">
+                                     <TrashIcon class="w-4 h-4" />
                                 </button>
-                                <button v-if="!group.is_department_group" @click="$emit('delete-group', group.id)"
-                                    class="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg text-gray-500 hover:text-red-600"
-                                    title="Delete Group">
-                                    <TrashIcon class="w-4 h-4" />
+                                <button v-else-if="!group.is_department_group && canLeaveGroup(group)" @click="$emit('leave-group', group.id)"
+                                    class="p-2 hover:bg-amber-100 dark:hover:bg-amber-900/20 rounded-lg text-gray-500 hover:text-amber-600"
+                                    title="Leave Group">
+                                    <XIcon class="w-4 h-4" />
                                 </button>
-                            </div>
-                        </div>
-                    </div>
+                             </div>
+                         </div>
+                     </div>
                 </div>
 
                 <!-- Edit Group Tab -->
@@ -239,7 +248,22 @@ import MemberSelector from './MemberSelector.vue'
 
 const { t } = useI18n()
 
-defineProps<{
+defineEmits<{
+	'close-group-modal': []
+	'save-group': []
+	'close-list-groups-modal': []
+	'open-group-modal': []
+	'sync-department-groups': []
+	'start-edit-group': [group: TaskGroup]
+	'delete-group': [id: number]
+	'leave-group': [id: number]
+	'cancel-edit-group': []
+	'save-edit-group': []
+	'update:listGroupsTab': [value: string]
+	'update:groupMemberSearch': [value: string]
+}>()
+
+const props = defineProps<{
 	showGroupModal: boolean
 	showListGroupsModal: boolean
 	listGroupsTab: string
@@ -252,19 +276,21 @@ defineProps<{
 	filteredGroupMembers: Employee[]
 	allEmployees: Employee[]
 	getEmployeeName: (id: number) => string
+	currentUserId: number | null
+	currentUserEmployeeId: number | null
+	isSuperAdmin: boolean
+	isDeveloper: boolean
+	groupActionError: string | null
 }>()
 
-defineEmits<{
-	'close-group-modal': []
-	'save-group': []
-	'close-list-groups-modal': []
-	'open-group-modal': []
-	'sync-department-groups': []
-	'start-edit-group': [group: TaskGroup]
-	'delete-group': [id: number]
-	'cancel-edit-group': []
-	'save-edit-group': []
-	'update:listGroupsTab': [value: string]
-	'update:groupMemberSearch': [value: string]
-}>()
+const canDeleteGroup = (group: TaskGroup) =>
+	props.isSuperAdmin || props.isDeveloper || group.created_by === props.currentUserId
+
+const canEditGroup = (group: TaskGroup) => group.created_by === props.currentUserId
+
+const canLeaveGroup = (group: TaskGroup) =>
+	!!props.currentUserEmployeeId &&
+	group.members.includes(props.currentUserEmployeeId) &&
+	group.created_by !== props.currentUserId &&
+	!canDeleteGroup(group)
 </script>

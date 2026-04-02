@@ -162,7 +162,7 @@ export interface TaskGroup {
 	created_by: number
 	created_by_username?: string
 	members: number[]
-	member_names?: string[]
+	member_names?: Array<{ id: number; name: string; emp_id: string }>
 	is_private: boolean
 	order: number
 	task_count?: number
@@ -252,6 +252,11 @@ export const taskGroupAPI = {
 		const response = await apiClient.post<TaskGroup>(`/v1/task-groups/${id}/remove_member/`, {
 			employee_id: employeeId,
 		})
+		return response.data
+	},
+
+	async leaveGroup(id: number) {
+		const response = await apiClient.post<TaskGroup>(`/v1/task-groups/${id}/leave-group/`)
 		return response.data
 	},
 

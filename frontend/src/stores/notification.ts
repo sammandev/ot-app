@@ -6,6 +6,7 @@ import {
 	type PaginatedNotifications,
 } from '@/services/api/notification'
 import { useAuthStore } from '@/stores/auth'
+import { getUnreadFallbackCount } from '@/stores/notificationUnread'
 
 // Debounce utility function that preserves return values for async functions
 function debounce<T extends (...args: Parameters<T>) => void>(
@@ -90,16 +91,14 @@ export const useNotificationStore = defineStore('notification', () => {
 		notifications.value.find((notification) => notification.id === id)
 
 	// Prefer server unread count; local list acts as a fallback.
-	const unreadCount = computed(() => {
-		const unreadIds = new Set<number>()
-		for (const notification of dropdownNotifications.value) {
-			if (!notification.is_read) unreadIds.add(notification.id)
-		}
-		for (const notification of notifications.value) {
-			if (!notification.is_read) unreadIds.add(notification.id)
-		}
-		return Math.max(serverUnreadCount.value, unreadIds.size)
-	})
+	const unreadCount = computed(() =>
+		getUnreadFallbackCount(
+			dropdownNotifications.value,
+			notifications.value,
+			currentArchivedMode.value,
+			serverUnreadCount.value,
+		),
+	)
 
 	const sortedNotifications = computed(() => sortNotifications(notifications.value))
 	const sortedDropdownNotifications = computed(() => sortNotifications(dropdownNotifications.value))
