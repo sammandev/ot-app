@@ -1,4 +1,4 @@
-.PHONY: help install dev start test lint format check fix migrate makemigrations collectstatic shell createsuperuser celery
+.PHONY: help install dev start test lint format check fix migrate makemigrations collectstatic shell createsuperuser celery celery-beat
 
 help:
 	@echo "Available commands:"
@@ -16,6 +16,7 @@ help:
 	@echo "  make shell          - Open Django shell"
 	@echo "  make createsuperuser- Create admin superuser"
 	@echo "  make celery         - Start Celery worker"
+	@echo "  make celery-beat    - Start Celery beat scheduler"
 
 install:
 	uv pip install -e .
@@ -58,3 +59,6 @@ createsuperuser:
 
 celery:
 	uv run celery -A backend worker -l info
+
+celery-beat:
+	uv run celery -A backend beat -l info

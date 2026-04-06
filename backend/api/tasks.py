@@ -8,12 +8,15 @@ import threading
 from datetime import time as datetime_time
 
 from celery import shared_task
+from django.core.cache import cache
 from django.utils import timezone
 
 from api.services.activity_log_service import purge_user_activity_logs_older_than
 from api.services.leave_notification_service import send_leave_notification_email_message
 
 logger = logging.getLogger(__name__)
+
+USER_ACTIVITY_LOG_CLEANUP_LOCK_KEY = "user_activity_log_cleanup:last_run_date"
 
 
 def should_run_user_activity_logs_cleanup(*, now=None):
@@ -26,10 +29,24 @@ def should_run_user_activity_logs_cleanup(*, now=None):
 
     cleanup_time = config.user_activity_log_cleanup_time or datetime_time(0, 15)
     current_time = timezone.localtime(now or timezone.now())
-    if current_time.hour != cleanup_time.hour or current_time.minute != cleanup_time.minute:
+    scheduled_at = current_time.replace(
+        hour=cleanup_time.hour,
+        minute=cleanup_time.minute,
+        second=0,
+        microsecond=0,
+    )
+    if current_time < scheduled_at:
         return False, {
             "status": "skipped",
             "reason": "outside_schedule",
+            "scheduled_time": cleanup_time.strftime("%H:%M"),
+        }
+
+    run_date_key = current_time.date().isoformat()
+    if cache.get(USER_ACTIVITY_LOG_CLEANUP_LOCK_KEY) == run_date_key:
+        return False, {
+            "status": "skipped",
+            "reason": "already_ran_today",
             "scheduled_time": cleanup_time.strftime("%H:%M"),
         }
 
@@ -37,6 +54,7 @@ def should_run_user_activity_logs_cleanup(*, now=None):
         "status": "ready",
         "retention_days": retention_days,
         "scheduled_time": cleanup_time.strftime("%H:%M"),
+        "run_date": run_date_key,
     }
 
 
@@ -243,6 +261,7 @@ def cleanup_user_activity_logs():
             state["retention_days"],
             state["scheduled_time"],
         )
+        cache.set(USER_ACTIVITY_LOG_CLEANUP_LOCK_KEY, state["run_date"], timeout=60 * 60 * 48)
         return {
             "status": "success",
             "deleted_count": result["deleted_count"],

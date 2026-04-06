@@ -853,6 +853,32 @@ class UserActivityLogCleanupTests(TestCase):
         self.assertEqual(state["retention_days"], 14)
         self.assertEqual(state["scheduled_time"], "09:30")
 
+    @patch("api.tasks.timezone.now")
+    def test_should_run_user_activity_logs_cleanup_allows_late_execution_same_day(self, mocked_task_now):
+        mocked_task_now.return_value = aware_dt(2026, 4, 2, 9, 31)
+        SystemConfiguration.objects.create(user_activity_log_retention_days=14, user_activity_log_cleanup_time=time(9, 30))
+
+        should_run, state = should_run_user_activity_logs_cleanup()
+
+        self.assertTrue(should_run)
+        self.assertEqual(state["scheduled_time"], "09:30")
+
+    @patch("api.services.activity_log_service.timezone.now")
+    @patch("api.tasks.timezone.now")
+    def test_cleanup_user_activity_logs_runs_once_per_day_after_scheduled_time(self, mocked_task_now, mocked_service_now):
+        mocked_task_now.return_value = aware_dt(2026, 4, 2, 9, 31)
+        mocked_service_now.return_value = aware_dt(2026, 4, 2, 9, 31)
+        SystemConfiguration.objects.create(user_activity_log_retention_days=7, user_activity_log_cleanup_time=time(9, 30))
+        old_log = UserActivityLog.objects.create(user=self.user, action="login")
+        UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=8))
+
+        first_result = cleanup_user_activity_logs()
+        second_result = cleanup_user_activity_logs()
+
+        self.assertEqual(first_result["status"], "success")
+        self.assertEqual(second_result["status"], "skipped")
+        self.assertEqual(second_result["reason"], "already_ran_today")
+
     def test_system_config_accepts_custom_positive_activity_log_retention_days(self):
         self.client.force_authenticate(self.superadmin)
 

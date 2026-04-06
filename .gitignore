@@ -70,6 +70,7 @@ analysis-docs/
 plans/
 .agents/
 opencode.json
+.claude/
 
 # Docker / runtime
 *.pid
