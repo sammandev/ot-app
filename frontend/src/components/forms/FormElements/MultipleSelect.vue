@@ -103,9 +103,18 @@
               role="option"
               :aria-selected="isSelected(item)"
             >
-              <span class="grow">{{ item.label }}</span>
+              <span v-if="showCheckboxes" class="mr-3 flex h-5 w-5 shrink-0 items-center justify-center">
+                <input
+                  type="checkbox"
+                  tabindex="-1"
+                  :checked="isSelected(item)"
+                  @click.prevent
+                  class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/30 dark:border-gray-600 dark:bg-gray-900 dark:text-brand-400"
+                />
+              </span>
+              <span class="grow truncate">{{ item.label }}</span>
               <svg
-                v-if="isSelected(item)"
+                v-if="!showCheckboxes && isSelected(item)"
                 class="h-5 w-5 text-gray-400 dark:text-gray-300"
                 fill="none"
                 stroke="currentColor"
@@ -149,6 +158,7 @@ const props = withDefaults(
     searchable?: boolean
     searchPlaceholder?: string
     emptyText?: string
+		showCheckboxes?: boolean
 	}>(),
 	{
 		modelValue: () => [],
@@ -156,6 +166,7 @@ const props = withDefaults(
     searchable: false,
     searchPlaceholder: 'Search options...',
     emptyText: 'No options found.',
+		showCheckboxes: false,
 	},
 )
 
@@ -173,6 +184,7 @@ const placeholder = computed(() => props.placeholder)
 const searchable = computed(() => props.searchable)
 const searchPlaceholder = computed(() => props.searchPlaceholder)
 const emptyText = computed(() => props.emptyText)
+const showCheckboxes = computed(() => props.showCheckboxes)
 
 const filteredOptions = computed(() => {
   if (!props.searchable || !searchQuery.value.trim()) {

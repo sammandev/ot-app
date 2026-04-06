@@ -9,6 +9,8 @@ import { useEmployeeStore } from '@/stores/employee'
 
 import type { PriorityLevel, TaskStatus } from './useKanbanHelpers'
 
+export type TaskScope = 'all' | 'mine'
+
 export function useKanbanFilters(
 	events: Ref<CalendarEvent[]>,
 	projects: Ref<Project[]>,
@@ -26,6 +28,12 @@ export function useKanbanFilters(
 	const selectedLabel = ref<string[]>([])
 	const selectedPriority = ref<PriorityLevel[]>([])
 	const selectedGroup = ref<number[]>([])
+	const storedScope = localStorage.getItem('kanban-task-scope')
+	const taskScope = ref<TaskScope>(storedScope === 'all' || storedScope === 'mine' ? storedScope : 'all')
+	watch(taskScope, (value) => localStorage.setItem('kanban-task-scope', value))
+	const isElevatedTaskManager = computed(
+		() => authStore.isPtbAdmin || authStore.isSuperAdmin || authStore.isDeveloper,
+	)
 
 	const currentUserEmployeeId = computed(() => {
 		const currentUser = authStore.user
@@ -77,7 +85,7 @@ export function useKanbanFilters(
 		count += selectedPriority.value.length
 		count += selectedGroup.value.length
 
-		if (authStore.isPtbAdmin) {
+		if (isElevatedTaskManager.value) {
 			count += selectedEmployee.value.length
 			count += selectedDepartment.value.length
 		}
@@ -92,7 +100,7 @@ export function useKanbanFilters(
 	})
 
 	const visibleTasks = computed(() => {
-		const isPtbAdmin = authStore.isPtbAdmin
+		const canSeeAllTasks = isElevatedTaskManager.value && taskScope.value === 'all'
 		const userEmpId = currentUserEmployeeId.value
 		const selectedProjectSet = new Set(selectedProject.value)
 		const selectedLabelSet = new Set(selectedLabel.value)
@@ -102,13 +110,21 @@ export function useKanbanFilters(
 		const selectedDepartmentSet = new Set(selectedDepartment.value)
 
 		const deptEmployeeIdSet =
-			isPtbAdmin && selectedDepartmentSet.size > 0
+			isElevatedTaskManager.value && selectedDepartmentSet.size > 0
 				? new Set(
 						employeeStore.employees
 							.filter((employee) => selectedDepartmentSet.has(employee.department))
 							.map((employee) => employee.id),
 				  )
 				: new Set<number>()
+
+		const matchesUserScope = (task: CalendarEvent) => {
+			if (!userEmpId) return false
+			const isCreator = task.created_by === userEmpId
+			const isAssigned = task.assigned_to?.includes(userEmpId)
+			const isInUserGroup = !!task.group && userGroupIdSet.value.has(task.group)
+			return isCreator || !!isAssigned || isInUserGroup
+		}
 
 		return events.value.filter((task) => {
 			if (selectedProjectSet.size > 0 && (!task.project || !selectedProjectSet.has(task.project))) {
@@ -138,7 +154,7 @@ export function useKanbanFilters(
 				return false
 			}
 
-			if (isPtbAdmin && selectedEmployeeSet.size > 0) {
+			if (isElevatedTaskManager.value && selectedEmployeeSet.size > 0) {
 				const isCreator = !!task.created_by && selectedEmployeeSet.has(task.created_by)
 				const isAssigned = task.assigned_to?.some((employeeId) => selectedEmployeeSet.has(employeeId))
 				if (!isCreator && !isAssigned) {
@@ -146,7 +162,7 @@ export function useKanbanFilters(
 				}
 			}
 
-			if (isPtbAdmin && selectedDepartmentSet.size > 0) {
+			if (isElevatedTaskManager.value && selectedDepartmentSet.size > 0) {
 				const creatorInDepartment = task.created_by ? deptEmployeeIdSet.has(task.created_by) : false
 				const assigneeInDepartment =
 					task.assigned_to?.some((employeeId) => deptEmployeeIdSet.has(employeeId)) ?? false
@@ -155,14 +171,8 @@ export function useKanbanFilters(
 				}
 			}
 
-			if (!isPtbAdmin) {
-				if (!userEmpId) return false
-				const isCreator = task.created_by === userEmpId
-				const isAssigned = task.assigned_to?.includes(userEmpId)
-				const isInUserGroup = !!task.group && userGroupIdSet.value.has(task.group)
-				if (!isCreator && !isAssigned && !isInUserGroup) {
-					return false
-				}
+			if (!canSeeAllTasks && !matchesUserScope(task)) {
+				return false
 			}
 
 			return true
@@ -188,7 +198,7 @@ export function useKanbanFilters(
 
 	function clearFilters() {
 		selectedProject.value = []
-		if (authStore.isPtbAdmin) {
+		if (isElevatedTaskManager.value) {
 			selectedEmployee.value = []
 			selectedDepartment.value = []
 		}
@@ -208,6 +218,7 @@ export function useKanbanFilters(
 			selectedLabel,
 			selectedPriority,
 			selectedGroup,
+			taskScope,
 			userGroupIds,
 		],
 		() => updateColumnTasks(),
@@ -233,6 +244,8 @@ export function useKanbanFilters(
 		selectedLabel,
 		selectedPriority,
 		selectedGroup,
+		taskScope,
+		isElevatedTaskManager,
 		currentUserEmployeeId,
 		userGroupIds,
 		sortedProjects,

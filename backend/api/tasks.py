@@ -5,13 +5,39 @@ Async task processing for long-running operations
 
 import logging
 import threading
+from datetime import time as datetime_time
 
 from celery import shared_task
 from django.utils import timezone
 
+from api.services.activity_log_service import purge_user_activity_logs_older_than
 from api.services.leave_notification_service import send_leave_notification_email_message
 
 logger = logging.getLogger(__name__)
+
+
+def should_run_user_activity_logs_cleanup(*, now=None):
+    from api.models import SystemConfiguration
+
+    config, _ = SystemConfiguration.objects.get_or_create(pk=1)
+    retention_days = config.user_activity_log_retention_days
+    if not retention_days:
+        return False, {"status": "skipped", "reason": "retention_disabled"}
+
+    cleanup_time = config.user_activity_log_cleanup_time or datetime_time(0, 15)
+    current_time = timezone.localtime(now or timezone.now())
+    if current_time.hour != cleanup_time.hour or current_time.minute != cleanup_time.minute:
+        return False, {
+            "status": "skipped",
+            "reason": "outside_schedule",
+            "scheduled_time": cleanup_time.strftime("%H:%M"),
+        }
+
+    return True, {
+        "status": "ready",
+        "retention_days": retention_days,
+        "scheduled_time": cleanup_time.strftime("%H:%M"),
+    }
 
 
 def deliver_leave_notification_email(leave_ids, action, actor_username=None):
@@ -206,17 +232,24 @@ def cleanup_expired_sessions():
 def cleanup_user_activity_logs():
     """Delete user activity logs older than the configured retention period."""
     try:
-        from api.models import SystemConfiguration, UserActivityLog
+        should_run, state = should_run_user_activity_logs_cleanup()
+        if not should_run:
+            return state
 
-        config, _ = SystemConfiguration.objects.get_or_create(pk=1)
-        retention_days = config.user_activity_log_retention_days
-        if not retention_days:
-            return {"status": "skipped", "reason": "retention_disabled"}
-
-        cutoff = timezone.now() - timezone.timedelta(days=retention_days)
-        deleted_count, _ = UserActivityLog.objects.filter(timestamp__lt=cutoff).delete()
-        logger.info("Cleaned up %s user activity logs older than %s days", deleted_count, retention_days)
-        return {"status": "success", "deleted_count": deleted_count, "retention_days": retention_days}
+        result = purge_user_activity_logs_older_than(state["retention_days"])
+        logger.info(
+            "Cleaned up %s user activity logs older than %s days at %s",
+            result["deleted_count"],
+            state["retention_days"],
+            state["scheduled_time"],
+        )
+        return {
+            "status": "success",
+            "deleted_count": result["deleted_count"],
+            "retention_days": state["retention_days"],
+            "scheduled_time": state["scheduled_time"],
+            "cutoff": result["cutoff"].isoformat(),
+        }
     except Exception as e:
         logger.error("Error cleaning up user activity logs: %s", e, exc_info=True)
         return {"status": "error", "message": str(e)}

@@ -22,6 +22,8 @@ export interface LeaveNotificationEmployeeRecipient {
 	group_ids: string[]
 }
 
+export type ActivityLogCleanupTime = `${number}${number}:${number}${number}`
+
 interface SystemConfig {
 	app_name?: string
 	app_acronym?: string
@@ -38,10 +40,10 @@ interface SystemConfig {
 	leave_notification_sender_name?: string
 	leave_notification_recipient_mode?: LeaveNotificationRecipientMode
 	leave_notification_department_recipients?: LeaveNotificationDepartmentRecipient[]
-	leave_notification_custom_recipients?: string[]
 	leave_notification_employee_recipients?: LeaveNotificationEmployeeRecipient[]
 	leave_notification_employee_groups?: LeaveNotificationEmployeeGroup[]
 	user_activity_log_retention_days?: number | null
+	user_activity_log_cleanup_time?: ActivityLogCleanupTime
 	leave_notification_subject_template?: string
 	leave_notification_body_template?: string
 	leave_notification_footer_template?: string
@@ -67,10 +69,10 @@ export const useConfigStore = defineStore('config', () => {
 	const leaveNotificationSenderName = ref('OMS')
 	const leaveNotificationRecipientMode = ref<LeaveNotificationRecipientMode>('global')
 	const leaveNotificationDepartmentRecipients = ref<LeaveNotificationDepartmentRecipient[]>([])
-	const leaveNotificationCustomRecipients = ref<string[]>([])
 	const leaveNotificationEmployeeRecipients = ref<LeaveNotificationEmployeeRecipient[]>([])
 	const leaveNotificationEmployeeGroups = ref<LeaveNotificationEmployeeGroup[]>([])
 	const userActivityLogRetentionDays = ref<number | null>(null)
+	const userActivityLogCleanupTime = ref<ActivityLogCleanupTime>('00:15')
 	const leaveNotificationSubjectTemplate = ref(
 		'[PTB Calendar] Leave Request {action_label} - {employee_name} ({leave_day_label})',
 	)
@@ -131,9 +133,6 @@ export const useConfigStore = defineStore('config', () => {
 				if (data.leave_notification_department_recipients !== undefined) {
 					leaveNotificationDepartmentRecipients.value = data.leave_notification_department_recipients
 				}
-				if (data.leave_notification_custom_recipients !== undefined) {
-					leaveNotificationCustomRecipients.value = data.leave_notification_custom_recipients
-				}
 				if (data.leave_notification_employee_recipients !== undefined) {
 					leaveNotificationEmployeeRecipients.value = data.leave_notification_employee_recipients
 				}
@@ -142,6 +141,9 @@ export const useConfigStore = defineStore('config', () => {
 				}
 				if (data.user_activity_log_retention_days !== undefined) {
 					userActivityLogRetentionDays.value = data.user_activity_log_retention_days
+				}
+				if (data.user_activity_log_cleanup_time !== undefined) {
+					userActivityLogCleanupTime.value = data.user_activity_log_cleanup_time
 				}
 				if (data.leave_notification_subject_template !== undefined) {
 					leaveNotificationSubjectTemplate.value = data.leave_notification_subject_template
@@ -182,10 +184,10 @@ export const useConfigStore = defineStore('config', () => {
 				leaveNotificationSenderName.value = data.leave_notification_sender_name ?? leaveNotificationSenderName.value
 				leaveNotificationRecipientMode.value = data.leave_notification_recipient_mode ?? leaveNotificationRecipientMode.value
 				leaveNotificationDepartmentRecipients.value = data.leave_notification_department_recipients ?? leaveNotificationDepartmentRecipients.value
-				leaveNotificationCustomRecipients.value = data.leave_notification_custom_recipients ?? leaveNotificationCustomRecipients.value
 				leaveNotificationEmployeeRecipients.value = data.leave_notification_employee_recipients ?? leaveNotificationEmployeeRecipients.value
 				leaveNotificationEmployeeGroups.value = data.leave_notification_employee_groups ?? leaveNotificationEmployeeGroups.value
 				userActivityLogRetentionDays.value = data.user_activity_log_retention_days ?? userActivityLogRetentionDays.value
+				userActivityLogCleanupTime.value = data.user_activity_log_cleanup_time ?? userActivityLogCleanupTime.value
 				leaveNotificationSubjectTemplate.value = data.leave_notification_subject_template ?? leaveNotificationSubjectTemplate.value
 				leaveNotificationBodyTemplate.value = data.leave_notification_body_template ?? leaveNotificationBodyTemplate.value
 				leaveNotificationFooterTemplate.value = data.leave_notification_footer_template ?? leaveNotificationFooterTemplate.value
@@ -217,10 +219,10 @@ export const useConfigStore = defineStore('config', () => {
 		leaveNotificationSenderName,
 		leaveNotificationRecipientMode,
 		leaveNotificationDepartmentRecipients,
-		leaveNotificationCustomRecipients,
 		leaveNotificationEmployeeRecipients,
 		leaveNotificationEmployeeGroups,
 		userActivityLogRetentionDays,
+		userActivityLogCleanupTime,
 		leaveNotificationSubjectTemplate,
 		leaveNotificationBodyTemplate,
 		leaveNotificationFooterTemplate,

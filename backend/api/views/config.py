@@ -23,11 +23,13 @@ from ..models import (
 )
 from ..pagination import StandardPageNumberPagination
 from ..permissions import IsSuperAdmin
+from ..services.activity_log_service import purge_user_activity_logs_older_than
 from ..serializers import (
     ReleaseNoteSerializer,
     SMBConfigurationSerializer,
     SystemConfigurationSerializer,
     UserActivityLogSerializer,
+    UserActivityLogPurgeSerializer,
     UserReportAdminSerializer,
     UserReportSerializer,
 )
@@ -165,12 +167,12 @@ class SystemConfigurationView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        # Strict Super Admin Check
+        # Developer and Super Admin share this elevated configuration access.
         user = request.user
         is_super_admin = is_superadmin_user(user)
 
         if not is_super_admin:
-            return Response({"detail": "Only Super Admin can edit configuration."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Only Developer or Super Admin can edit configuration."}, status=status.HTTP_403_FORBIDDEN)
 
         config, created = SystemConfiguration.objects.get_or_create(pk=1)
 
@@ -193,7 +195,7 @@ class SystemConfigurationView(APIView):
         """Remove uploaded branding assets (reset to defaults)."""
         user = request.user
         if not is_superadmin_user(user):
-            return Response({"detail": "Only Super Admin can edit configuration."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Only Developer or Super Admin can edit configuration."}, status=status.HTTP_403_FORBIDDEN)
 
         config, _ = SystemConfiguration.objects.get_or_create(pk=1)
         asset = request.query_params.get("asset", "tab_icon")
@@ -222,6 +224,22 @@ class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = UserActivityLog.objects.none()  # Overridden by get_queryset
     serializer_class = UserActivityLogSerializer
     pagination_class = StandardPageNumberPagination
+
+    def _resolve_external_user(self, user):
+        ext_user = None
+
+        if isinstance(user, ExternalUser):
+            ext_user = user
+        else:
+            worker_id = getattr(user, "worker_id", None)
+            if worker_id:
+                ext_user = ExternalUser.objects.filter(worker_id=worker_id).first()
+            if not ext_user:
+                username = getattr(user, "username", None)
+                if username:
+                    ext_user = ExternalUser.objects.filter(username__iexact=username).first()
+
+        return ext_user
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False) or not self.request.user.is_authenticated:
@@ -270,19 +288,7 @@ class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         Any authenticated user can log their own page views.
         Payload: { "page": "/dashboard", "title": "Dashboard" }
         """
-        user = request.user
-        ext_user = None
-
-        if isinstance(user, ExternalUser):
-            ext_user = user
-        else:
-            worker_id = getattr(user, "worker_id", None)
-            if worker_id:
-                ext_user = ExternalUser.objects.filter(worker_id=worker_id).first()
-            if not ext_user:
-                username = getattr(user, "username", None)
-                if username:
-                    ext_user = ExternalUser.objects.filter(username__iexact=username).first()
+        ext_user = self._resolve_external_user(request.user)
 
         if not ext_user:
             return Response({"detail": "User not resolvable"}, status=status.HTTP_400_BAD_REQUEST)
@@ -302,6 +308,38 @@ class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="purge")
+    def purge(self, request):
+        if not is_superadmin_user(request.user):
+            return Response({"detail": "Only Developer or Super Admin can purge activity logs."}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = UserActivityLogPurgeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        result = purge_user_activity_logs_older_than(serializer.validated_data["days"])
+        activity_user = self._resolve_external_user(request.user)
+        if activity_user:
+            UserActivityLog.log_activity(
+                user=activity_user,
+                action="delete",
+                resource="user_activity_logs",
+                details={
+                    "requested_days": result["days"],
+                    "deleted_count": result["deleted_count"],
+                    "cutoff": result["cutoff"].isoformat(),
+                },
+                request=request,
+            )
+
+        return Response(
+            {
+                "status": "success",
+                "deleted_count": result["deleted_count"],
+                "days": result["days"],
+                "cutoff": result["cutoff"].isoformat(),
+            }
+        )
 
 
 class SMBConfigurationViewSet(viewsets.ModelViewSet):

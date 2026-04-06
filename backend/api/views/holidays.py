@@ -149,6 +149,29 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
             return None
         return ExternalUser.objects.filter(username=username).first()
 
+    @staticmethod
+    def _resolve_preview_employee_email(employee):
+        employee_id = str(getattr(employee, "emp_id", "") or "").strip()
+        if not employee_id:
+            return "-"
+
+        matched_emails = {}
+        for raw_email in (
+            ExternalUser.objects.filter(worker_id=employee_id, is_active=True)
+            .exclude(email__isnull=True)
+            .exclude(email="")
+            .values_list("email", flat=True)
+        ):
+            email = str(raw_email or "").strip()
+            if not email:
+                continue
+            matched_emails.setdefault(email.lower(), email)
+
+        if len(matched_emails) != 1:
+            return "-"
+
+        return next(iter(matched_emails.values()))
+
     def _get_external_lookup_token(self, request):
         if not isinstance(request.user, ExternalUser):
             return None
@@ -648,11 +671,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
 
         leave = leaves[0]
         department = getattr(leave.employee, "department", None)
-        employee_email = "-"
-        if leave.employee.emp_id:
-            matched_external_user = ExternalUser.objects.filter(worker_id=leave.employee.emp_id, is_active=True).exclude(email__isnull=True).exclude(email="").first()
-            if matched_external_user is not None:
-                employee_email = matched_external_user.email
+        employee_email = self._resolve_preview_employee_email(leave.employee)
         structured_agent_names = []
         custom_agent_names = []
         unique_notes = []

@@ -985,6 +985,9 @@ export default {
 		newTask: 'New Task',
 		newGroup: 'New Group',
 		listGroups: 'List Groups',
+		groupList: 'Group List',
+		allTasks: 'All Tasks',
+		myTasks: 'My Tasks',
 		// Filter panel
 		department: 'Department',
 		allDepartments: 'All Departments',
@@ -1009,6 +1012,8 @@ export default {
 		allLabels: 'All Labels',
 		group: 'Group',
 		allGroups: 'All Groups',
+		showingAllTasks: 'Showing all tasks',
+		showingMyTasks: 'Showing my tasks',
 		showingTasksFor: 'Showing tasks for:',
 		// Task cards
 		isEditing: 'is editing',

@@ -245,6 +245,22 @@ def build_leave_link_html(links):
 
 
 def resolve_leave_notification_recipients(config, employee):
+    mode = (config.leave_notification_recipient_mode or "global").lower()
+
+    if mode == "global":
+        return normalize_recipient_list(config.leave_notification_recipients)
+
+    if mode == "department":
+        employee_department = getattr(employee, "department", None)
+        department_code = (getattr(employee_department, "code", "") or "").strip().upper()
+        for entry in config.leave_notification_department_recipients or []:
+            if not isinstance(entry, dict):
+                continue
+            entry_department_code = str(entry.get("department_code") or "").strip().upper()
+            if entry_department_code == department_code:
+                return normalize_recipient_list(entry.get("recipients", []))
+        return []
+
     def group_lookup():
         groups = OrderedDict()
         for entry in config.leave_notification_employee_groups or []:
@@ -296,28 +312,10 @@ def resolve_leave_notification_recipients(config, employee):
         if employee_id in group["employee_ids"]:
             matching_group_recipients = merge_recipient_lists(matching_group_recipients, group["recipients"])
 
-    mode = (config.leave_notification_recipient_mode or "global").lower()
-    base_recipients = []
-    if mode == "custom":
-        base_recipients = normalize_recipient_list(config.leave_notification_custom_recipients)
-    elif mode == "department":
-        employee_department = getattr(employee, "department", None)
-        department_code = (getattr(employee_department, "code", "") or "").strip().upper()
-        for entry in config.leave_notification_department_recipients or []:
-            if not isinstance(entry, dict):
-                continue
-            entry_department_code = str(entry.get("department_code") or "").strip().upper()
-            if entry_department_code == department_code:
-                base_recipients = normalize_recipient_list(entry.get("recipients", []))
-                break
-    else:
-        base_recipients = normalize_recipient_list(config.leave_notification_recipients)
-
     return merge_recipient_lists(
         employee_specific_recipients,
         linked_group_recipients,
         matching_group_recipients,
-        base_recipients,
     )
 
 

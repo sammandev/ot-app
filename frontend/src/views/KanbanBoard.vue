@@ -11,6 +11,25 @@
                     <!-- Live Presence Indicator -->
                     <PresenceIndicator :viewers="boardWs.viewers.value" :connected="boardWs.connected.value" />
 
+                    <div v-if="canSwitchTaskScope" class="inline-flex rounded-lg border border-gray-300 bg-white p-1 dark:border-gray-700 dark:bg-gray-800">
+                        <button @click="taskScope = 'all'" :class="[
+                            'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                            taskScope === 'all'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                        ]">
+                            {{ t('kanban.allTasks') }}
+                        </button>
+                        <button @click="taskScope = 'mine'" :class="[
+                            'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                            taskScope === 'mine'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                        ]">
+                            {{ t('kanban.myTasks') }}
+                        </button>
+                    </div>
+
                     <!-- Filter Toggle Button (for all users) -->
                     <button @click="showFilters = !showFilters"
                         class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2">
@@ -27,24 +46,17 @@
                         <PlusIcon class="w-5 h-5" />
                         <span>{{ t('kanban.newTask') }}</span>
                     </button>
-                    <button v-if="canCreate" @click="openGroupModal"
+                    <button @click="openGroupListModal('all')"
                         class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2">
                         <UserGroupIcon class="w-5 h-5" />
-                        <span>{{ t('kanban.newGroup') }}</span>
-                    </button>
-                    <button @click="openListGroupsModal"
-                        class="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                        </svg>
-                        <span>{{ t('kanban.listGroups') }}</span>
+                        <span>{{ t('kanban.groupList') }}</span>
                     </button>
                 </div>
             </div>
 
             <!-- Filter Panel -->
-            <KanbanFilterPanel :show-filters="showFilters" :is-ptb-admin="authStore.isPtbAdmin"
+            <KanbanFilterPanel :show-filters="showFilters" :is-elevated-task-manager="isElevatedTaskManager"
+                :task-scope="taskScope"
                 :selected-department="selectedDepartment" :selected-employee="selectedEmployee"
                 :selected-project="selectedProject" :selected-status="selectedStatus"
                 :selected-priority="selectedPriority" :selected-label="selectedLabel" :selected-group="selectedGroup"
@@ -547,18 +559,18 @@
         </div>
 
         <!-- Group Modals -->
-        <KanbanGroupModals :show-group-modal="showGroupModal" :show-list-groups-modal="showListGroupsModal"
-            :list-groups-tab="listGroupsTab" :editing-group="editingGroupTask" :syncing-departments="syncingDepartments"
+        <KanbanGroupModals :show-group-list-modal="showGroupListModal"
+            :group-modal-tab="groupModalTab" :editing-group="editingGroupTask" :syncing-departments="syncingDepartments"
             :task-groups="taskGroups" :group-form="groupForm" :edit-group-form="editGroupForm"
             :group-member-search="groupMemberSearch" :filtered-group-members="filteredGroupMembers"
             :all-employees="sortedEmployees" :get-employee-name="getEmployeeName"
             :current-user-id="authStore.user?.id ?? null" :current-user-employee-id="currentUserEmployeeId"
             :is-super-admin="authStore.isSuperAdmin" :is-developer="authStore.isDeveloper"
-            :group-action-error="groupActionError" @close-group-modal="closeGroupModal"
-            @save-group="saveGroup" @close-list-groups-modal="closeListGroupsModal" @open-group-modal="openGroupModal"
+            :group-action-error="groupActionError" @close-group-list-modal="closeGroupListModal"
+            @save-group="saveGroup"
             @sync-department-groups="syncDepartmentGroups" @start-edit-group="startEditGroup"
             @delete-group="deleteGroup" @leave-group="leaveGroup" @cancel-edit-group="cancelEditGroup" @save-edit-group="saveEditGroup"
-            @update:list-groups-tab="handleListGroupsTabUpdate"
+            @update:group-modal-tab="handleGroupModalTabUpdate"
             @update:group-member-search="groupMemberSearch = $event" />
 
         <!-- Task Detail Drawer (Comments & Activity) -->
@@ -644,6 +656,8 @@ const {
 	selectedLabel,
 	selectedPriority,
 	selectedGroup,
+    taskScope,
+    isElevatedTaskManager,
 	currentUserEmployeeId,
 	userGroupIds,
 	sortedProjects,
@@ -654,6 +668,8 @@ const {
 	columnTasksMap,
 	clearFilters,
 } = useKanbanFilters(events, projects, taskGroups)
+
+const canSwitchTaskScope = computed(() => isElevatedTaskManager.value)
 
 const {
 	showModal,
@@ -701,27 +717,20 @@ const {
 )
 
 const {
-	showGroupModal,
+    showGroupListModal,
+    groupModalTab,
 	groupForm,
 	groupMemberSearch,
-	openGroupModal,
-	closeGroupModal,
+    openGroupListModal,
+    closeGroupListModal,
 	filteredGroupMembers,
-	toggleGroupMember,
-	selectAllGroupMembers,
-	deselectAllGroupMembers,
 	saveGroup,
-	showListGroupsModal,
-	listGroupsTab,
 	editingGroup,
 	editGroupForm,
 	syncingDepartments,
 	groupActionError,
-	openListGroupsModal,
-	closeListGroupsModal,
 	startEditGroup,
 	cancelEditGroup,
-	toggleEditGroupMember,
 	saveEditGroup,
 	deleteGroup,
 	leaveGroup,
@@ -739,10 +748,6 @@ const {
 	getTaskEditors,
 	getTaskEditingIndicator,
 } = useKanbanWebSocket(events, boardWs)
-
-const isElevatedTaskManager = computed(
-    () => authStore.isPtbAdmin || authStore.isSuperAdmin || authStore.isDeveloper,
-)
 
 const canDeleteTaskRecord = (task: CalendarEvent) => {
     if (isElevatedTaskManager.value) return true
@@ -766,10 +771,18 @@ const handleSelectedPriorityUpdate = (values: string[]) => {
     )
 }
 
-const handleListGroupsTabUpdate = (value: string) => {
-	if (value === 'all' || value === 'edit') {
-		listGroupsTab.value = value
-	}
+const handleGroupModalTabUpdate = (value: 'all' | 'create' | 'edit') => {
+    if (value === 'all') {
+        cancelEditGroup()
+        return
+    }
+    if (value === 'create') {
+        openGroupListModal('create')
+        return
+    }
+    if (value === 'edit' && editingGroup.value !== null) {
+        groupModalTab.value = 'edit'
+    }
 }
 
 // ── Flatpickr Setup (UI-specific, stays in component) ───────────────

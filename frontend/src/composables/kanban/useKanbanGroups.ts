@@ -8,8 +8,8 @@ export function useKanbanGroups(
 	taskGroups: Ref<TaskGroup[]>,
 	sortedEmployees: ComputedRef<Employee[]>,
 ) {
-	// ── Group Modal State ─────────────────────────────────────────────
-	const showGroupModal = ref(false)
+	const showGroupListModal = ref(false)
+	const groupModalTab = ref<'all' | 'create' | 'edit'>('all')
 	const groupForm = ref({
 		name: '',
 		description: '',
@@ -18,9 +18,6 @@ export function useKanbanGroups(
 	})
 	const groupMemberSearch = ref('')
 
-	// ── List Groups Modal State ────────────────────────────────────────
-	const showListGroupsModal = ref(false)
-	const listGroupsTab = ref<'all' | 'edit'>('all')
 	const editingGroup = ref<number | null>(null)
 	const editGroupForm = ref({
 		name: '',
@@ -29,7 +26,7 @@ export function useKanbanGroups(
 		members: [] as number[],
 	})
 	const syncingDepartments = ref(false)
-    const groupActionError = ref<string | null>(null)
+	const groupActionError = ref<string | null>(null)
 
 	// ── Computeds ──────────────────────────────────────────────────────
 	const filteredGroupMembers = computed(() => {
@@ -38,38 +35,34 @@ export function useKanbanGroups(
 		return sortedEmployees.value.filter((e) => e.name.toLowerCase().includes(query))
 	})
 
-	// ── Create Group ───────────────────────────────────────────────────
-	function openGroupModal() {
+	function resetGroupForm() {
 		groupForm.value = {
 			name: '',
 			description: '',
 			color: '#6366F1',
 			members: [],
 		}
-		groupMemberSearch.value = ''
-		showGroupModal.value = true
 	}
 
-	function closeGroupModal() {
-		showGroupModal.value = false
-		groupMemberSearch.value = ''
-	}
-
-	function toggleGroupMember(empId: number) {
-		const index = groupForm.value.members.indexOf(empId)
-		if (index > -1) {
-			groupForm.value.members.splice(index, 1)
-		} else {
-			groupForm.value.members.push(empId)
+	function openGroupListModal(tab: 'all' | 'create' | 'edit' = 'all') {
+		groupActionError.value = null
+		if (tab === 'create') {
+			resetGroupForm()
 		}
+		if (tab !== 'edit') {
+			editingGroup.value = null
+		}
+		groupModalTab.value = tab
+		groupMemberSearch.value = ''
+		showGroupListModal.value = true
 	}
 
-	function selectAllGroupMembers() {
-		groupForm.value.members = sortedEmployees.value.map((e) => e.id)
-	}
-
-	function deselectAllGroupMembers() {
-		groupForm.value.members = []
+	function closeGroupListModal() {
+		showGroupListModal.value = false
+		groupModalTab.value = 'all'
+		editingGroup.value = null
+		groupActionError.value = null
+		groupMemberSearch.value = ''
 	}
 
 	async function saveGroup() {
@@ -87,30 +80,17 @@ export function useKanbanGroups(
 				taskGroups.value = []
 			}
 			taskGroups.value.push(newGroup)
-			closeGroupModal()
+			resetGroupForm()
+			groupMemberSearch.value = ''
+			groupModalTab.value = 'all'
 		} catch (error) {
 			groupActionError.value = extractApiError(error, 'Failed to create group')
 			console.error('Failed to create group:', error)
 		}
 	}
 
-	// ── List Groups Modal ─────────────────────────────────────────────
-	function openListGroupsModal() {
-		listGroupsTab.value = 'all'
-		editingGroup.value = null
-		groupMemberSearch.value = ''
-		showListGroupsModal.value = true
-	}
-
-	function closeListGroupsModal() {
-		showListGroupsModal.value = false
-		editingGroup.value = null
-		listGroupsTab.value = 'all'
-		groupMemberSearch.value = ''
-	}
-
-	// ── Edit Group ─────────────────────────────────────────────────────
 	function startEditGroup(group: TaskGroup) {
+		groupActionError.value = null
 		editingGroup.value = group.id
 		editGroupForm.value = {
 			name: group.name,
@@ -118,22 +98,14 @@ export function useKanbanGroups(
 			color: group.color || '#6366F1',
 			members: [...(group.members || [])],
 		}
-		listGroupsTab.value = 'edit'
+		groupModalTab.value = 'edit'
+		showGroupListModal.value = true
 	}
 
 	function cancelEditGroup() {
 		editingGroup.value = null
-		listGroupsTab.value = 'all'
+		groupModalTab.value = 'all'
 		groupMemberSearch.value = ''
-	}
-
-	function toggleEditGroupMember(empId: number) {
-		const index = editGroupForm.value.members.indexOf(empId)
-		if (index > -1) {
-			editGroupForm.value.members.splice(index, 1)
-		} else {
-			editGroupForm.value.members.push(empId)
-		}
 	}
 
 	async function saveEditGroup() {
@@ -210,30 +182,20 @@ export function useKanbanGroups(
 	}
 
 	return {
-		// Create group
-		showGroupModal,
+		showGroupListModal,
+		groupModalTab,
 		groupForm,
 		groupMemberSearch,
-		openGroupModal,
-		closeGroupModal,
+		openGroupListModal,
+		closeGroupListModal,
 		filteredGroupMembers,
-		toggleGroupMember,
-		selectAllGroupMembers,
-		deselectAllGroupMembers,
 		saveGroup,
-		// List groups
-		showListGroupsModal,
-		listGroupsTab,
 		editingGroup,
 		editGroupForm,
 		syncingDepartments,
 		groupActionError,
-		openListGroupsModal,
-		closeListGroupsModal,
-		// Edit group
 		startEditGroup,
 		cancelEditGroup,
-		toggleEditGroupMember,
 		saveEditGroup,
 		deleteGroup,
 		leaveGroup,

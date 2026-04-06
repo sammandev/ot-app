@@ -25,9 +25,9 @@ app.conf.beat_schedule = {
         "task": "api.tasks.cleanup_expired_sessions",
         "schedule": crontab(minute=0, hour=0),
     },
-    "cleanup-user-activity-logs-daily": {
+    "cleanup-user-activity-logs-scheduler": {
         "task": "api.tasks.cleanup_user_activity_logs",
-        "schedule": crontab(minute=15, hour=0),
+        "schedule": crontab(),
     },
 }
 

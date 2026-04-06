@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -15,8 +15,9 @@ from openpyxl import Workbook
 from django.db import IntegrityError
 
 from api.models import BoardPresence, CalendarEvent, Department, Employee, EmployeeLeave, ExternalUser, OvertimeRequest, Project, PurchaseRequest, SystemConfiguration, TaskAttachment, TaskGroup, TaskSubtask, TaskTimeLog, UserActivityLog, UserSession
+from api.services.activity_log_service import purge_user_activity_logs_older_than
 from api.services.leave_notification_service import ensure_leave_preview_token, resolve_leave_agent_notification_recipients, resolve_leave_notification_recipients
-from api.tasks import cleanup_user_activity_logs
+from api.tasks import cleanup_user_activity_logs, should_run_user_activity_logs_cleanup
 
 
 TEST_MEDIA_ROOT = Path(settings.BASE_DIR) / "test_media"
@@ -660,7 +661,7 @@ class LeaveNotificationRecipientResolutionTests(TestCase):
         self.assertCountEqual(recipients, ["local.agent@example.com", "external.one@example.com"])
         self.assertEqual(len(recipients), 2)
 
-    def test_resolve_leave_notification_recipients_merges_employee_group_and_global_recipients(self):
+    def test_resolve_leave_notification_recipients_global_mode_ignores_employee_group_overrides(self):
         config = SystemConfiguration.objects.create(
             leave_notification_recipient_mode="global",
             leave_notification_recipients=["global@pegatroncorp.com"],
@@ -685,10 +686,10 @@ class LeaveNotificationRecipientResolutionTests(TestCase):
 
         self.assertCountEqual(
             recipients,
-            ["owner@pegatroncorp.com", "group@pegatroncorp.com", "global@pegatroncorp.com"],
+            ["global@pegatroncorp.com"],
         )
 
-    def test_resolve_leave_notification_recipients_merges_group_membership_with_department_mode(self):
+    def test_resolve_leave_notification_recipients_department_mode_ignores_group_membership(self):
         config = SystemConfiguration.objects.create(
             leave_notification_recipient_mode="department",
             leave_notification_department_recipients=[{"department_code": "OPS", "recipients": ["department@pegatroncorp.com"]}],
@@ -704,11 +705,57 @@ class LeaveNotificationRecipientResolutionTests(TestCase):
 
         recipients = resolve_leave_notification_recipients(config, self.leave_owner)
 
-        self.assertCountEqual(recipients, ["coverage@pegatroncorp.com", "department@pegatroncorp.com"])
+        self.assertCountEqual(recipients, ["department@pegatroncorp.com"])
+
+    def test_resolve_leave_notification_recipients_custom_mode_uses_employee_rule_and_groups_only(self):
+        config = SystemConfiguration.objects.create(
+            leave_notification_recipient_mode="custom",
+            leave_notification_recipients=["global@pegatroncorp.com"],
+            leave_notification_department_recipients=[{"department_code": "OPS", "recipients": ["department@pegatroncorp.com"]}],
+            leave_notification_employee_groups=[
+                {
+                    "id": "ops-team",
+                    "name": "OPS Team",
+                    "employee_ids": [self.leave_owner.id],
+                    "recipients": ["group@pegatroncorp.com"],
+                }
+            ],
+            leave_notification_employee_recipients=[
+                {
+                    "employee_id": self.leave_owner.id,
+                    "recipients": ["owner@pegatroncorp.com"],
+                    "group_ids": ["ops-team"],
+                }
+            ],
+        )
+
+        recipients = resolve_leave_notification_recipients(config, self.leave_owner)
+
+        self.assertCountEqual(recipients, ["owner@pegatroncorp.com", "group@pegatroncorp.com"])
+
+    def test_resolve_leave_notification_recipients_custom_mode_returns_empty_without_match(self):
+        other_employee = Employee.objects.create(name="Other Employee", emp_id="OWN002", department=self.department)
+        config = SystemConfiguration.objects.create(
+            leave_notification_recipient_mode="custom",
+            leave_notification_recipients=["global@pegatroncorp.com"],
+            leave_notification_employee_groups=[
+                {
+                    "id": "ops-team",
+                    "name": "OPS Team",
+                    "employee_ids": [self.leave_owner.id],
+                    "recipients": ["group@pegatroncorp.com"],
+                }
+            ],
+        )
+
+        recipients = resolve_leave_notification_recipients(config, other_employee)
+
+        self.assertEqual(recipients, [])
 
 
 class UserActivityLogCleanupTests(TestCase):
     def setUp(self):
+        self.client = APIClient()
         self.user = ExternalUser.objects.create(
             external_id=901,
             username="activity_admin",
@@ -719,9 +766,59 @@ class UserActivityLogCleanupTests(TestCase):
             is_staff=False,
             date_joined=aware_dt(2026, 1, 1),
         )
+        self.superadmin = ExternalUser.objects.create(
+            external_id=902,
+            username="activity_superadmin",
+            email="activity_superadmin@example.com",
+            worker_id="ACT902",
+            is_active=True,
+            is_superuser=False,
+            is_staff=True,
+            role=ExternalUser.Role.SUPERADMIN,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.developer = ExternalUser.objects.create(
+            external_id=904,
+            username="activity_developer",
+            email="activity_developer@example.com",
+            worker_id="ACT904",
+            is_active=True,
+            is_superuser=False,
+            is_staff=True,
+            role=ExternalUser.Role.DEVELOPER,
+            date_joined=aware_dt(2026, 1, 1),
+        )
+        self.regular_user = ExternalUser.objects.create(
+            external_id=903,
+            username="activity_member",
+            email="activity_member@example.com",
+            worker_id="ACT903",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            role=ExternalUser.Role.USER,
+            date_joined=aware_dt(2026, 1, 1),
+        )
 
-    def test_cleanup_user_activity_logs_deletes_only_logs_older_than_retention(self):
-        SystemConfiguration.objects.create(user_activity_log_retention_days=7)
+    def test_purge_user_activity_logs_older_than_deletes_only_logs_older_than_threshold(self):
+        old_log = UserActivityLog.objects.create(user=self.user, action="login")
+        recent_log = UserActivityLog.objects.create(user=self.user, action="logout")
+        UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=9))
+        UserActivityLog.objects.filter(pk=recent_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=2))
+
+        result = purge_user_activity_logs_older_than(7)
+
+        self.assertEqual(result["deleted_count"], 1)
+        self.assertEqual(result["days"], 7)
+        self.assertFalse(UserActivityLog.objects.filter(pk=old_log.pk).exists())
+        self.assertTrue(UserActivityLog.objects.filter(pk=recent_log.pk).exists())
+
+    @patch("api.services.activity_log_service.timezone.now")
+    @patch("api.tasks.timezone.now")
+    def test_cleanup_user_activity_logs_deletes_only_logs_older_than_retention(self, mocked_task_now, mocked_service_now):
+        mocked_task_now.return_value = aware_dt(2026, 4, 2, 0, 15)
+        mocked_service_now.return_value = aware_dt(2026, 4, 2, 0, 15)
+        SystemConfiguration.objects.create(user_activity_log_retention_days=7, user_activity_log_cleanup_time=time(0, 15))
         old_log = UserActivityLog.objects.create(user=self.user, action="login")
         recent_log = UserActivityLog.objects.create(user=self.user, action="logout")
         UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=8))
@@ -733,6 +830,119 @@ class UserActivityLogCleanupTests(TestCase):
         self.assertEqual(result["deleted_count"], 1)
         self.assertFalse(UserActivityLog.objects.filter(pk=old_log.pk).exists())
         self.assertTrue(UserActivityLog.objects.filter(pk=recent_log.pk).exists())
+
+    @patch("api.tasks.timezone.now")
+    def test_cleanup_user_activity_logs_skips_outside_configured_schedule(self, mocked_task_now):
+        mocked_task_now.return_value = aware_dt(2026, 4, 2, 0, 14)
+        SystemConfiguration.objects.create(user_activity_log_retention_days=7, user_activity_log_cleanup_time=time(0, 15))
+
+        result = cleanup_user_activity_logs()
+
+        self.assertEqual(result["status"], "skipped")
+        self.assertEqual(result["reason"], "outside_schedule")
+        self.assertEqual(result["scheduled_time"], "00:15")
+
+    @patch("api.tasks.timezone.now")
+    def test_should_run_user_activity_logs_cleanup_uses_configured_time(self, mocked_task_now):
+        mocked_task_now.return_value = aware_dt(2026, 4, 2, 9, 30)
+        SystemConfiguration.objects.create(user_activity_log_retention_days=14, user_activity_log_cleanup_time=time(9, 30))
+
+        should_run, state = should_run_user_activity_logs_cleanup()
+
+        self.assertTrue(should_run)
+        self.assertEqual(state["retention_days"], 14)
+        self.assertEqual(state["scheduled_time"], "09:30")
+
+    def test_system_config_accepts_custom_positive_activity_log_retention_days(self):
+        self.client.force_authenticate(self.superadmin)
+
+        response = self.client.patch(
+            reverse("system-config-v1"),
+            {"user_activity_log_retention_days": 14},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_activity_log_retention_days"], 14)
+        self.assertEqual(SystemConfiguration.objects.get(pk=1).user_activity_log_retention_days, 14)
+
+    def test_system_config_accepts_custom_activity_log_cleanup_time(self):
+        self.client.force_authenticate(self.superadmin)
+
+        response = self.client.patch(
+            reverse("system-config-v1"),
+            {"user_activity_log_cleanup_time": "09:30"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_activity_log_cleanup_time"], "09:30")
+        self.assertEqual(SystemConfiguration.objects.get(pk=1).user_activity_log_cleanup_time, time(9, 30))
+
+    def test_developer_can_update_activity_log_cleanup_settings(self):
+        self.client.force_authenticate(self.developer)
+
+        response = self.client.patch(
+            reverse("system-config-v1"),
+            {
+                "user_activity_log_retention_days": 10,
+                "user_activity_log_cleanup_time": "08:45",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["user_activity_log_retention_days"], 10)
+        self.assertEqual(response.data["user_activity_log_cleanup_time"], "08:45")
+
+    def test_developer_can_purge_activity_logs(self):
+        old_log = UserActivityLog.objects.create(user=self.user, action="login")
+        UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=8))
+        self.client.force_authenticate(self.developer)
+
+        response = self.client.post(reverse("activity-log-purge"), {"days": 7}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "success")
+        self.assertFalse(UserActivityLog.objects.filter(pk=old_log.pk).exists())
+
+    def test_purge_endpoint_deletes_old_logs_and_records_audit_entry(self):
+        old_log = UserActivityLog.objects.create(user=self.user, action="login")
+        recent_log = UserActivityLog.objects.create(user=self.user, action="logout")
+        UserActivityLog.objects.filter(pk=old_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=8))
+        UserActivityLog.objects.filter(pk=recent_log.pk).update(timestamp=timezone.now() - timezone.timedelta(days=1))
+        self.client.force_authenticate(self.superadmin)
+
+        response = self.client.post(reverse("activity-log-purge"), {"days": 7}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "success")
+        self.assertEqual(response.data["deleted_count"], 1)
+        self.assertEqual(response.data["days"], 7)
+        self.assertFalse(UserActivityLog.objects.filter(pk=old_log.pk).exists())
+        self.assertTrue(UserActivityLog.objects.filter(pk=recent_log.pk).exists())
+        self.assertTrue(
+            UserActivityLog.objects.filter(
+                user=self.superadmin,
+                action="delete",
+                resource="user_activity_logs",
+            ).exists()
+        )
+
+    def test_purge_endpoint_rejects_non_superadmin(self):
+        self.client.force_authenticate(self.regular_user)
+
+        response = self.client.post(reverse("activity-log-purge"), {"days": 7}, format="json")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_purge_endpoint_validates_positive_days(self):
+        self.client.force_authenticate(self.superadmin)
+
+        response = self.client.post(reverse("activity-log-purge"), {"days": 0}, format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("days", response.data.get("details", {}))
 
 
 class LeavePreviewTests(TestCase):
@@ -777,6 +987,42 @@ class LeavePreviewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["employee_id"], "MW2400549")
         self.assertEqual(response.data["employee_email"], "preview.employee@example.com")
+
+    def test_preview_uses_email_when_duplicate_worker_id_rows_share_same_email(self):
+        ExternalUser.objects.create(
+            external_id=503,
+            username="preview_employee_duplicate",
+            email="preview.employee@example.com",
+            worker_id="MW2400549",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            date_joined=aware_dt(2026, 1, 2),
+        )
+        token = ensure_leave_preview_token(self.leave.batch_key)
+
+        response = self.client.get(reverse("employee-leave-preview"), {"token": token})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["employee_email"], "preview.employee@example.com")
+
+    def test_preview_hides_email_when_duplicate_worker_id_rows_disagree(self):
+        ExternalUser.objects.create(
+            external_id=504,
+            username="preview_employee_conflict",
+            email="other.preview.employee@example.com",
+            worker_id="MW2400549",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            date_joined=aware_dt(2026, 1, 3),
+        )
+        token = ensure_leave_preview_token(self.leave.batch_key)
+
+        response = self.client.get(reverse("employee-leave-preview"), {"token": token})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["employee_email"], "-")
 
     def test_rotating_preview_token_invalidates_old_link(self):
         first_token = ensure_leave_preview_token(self.leave.batch_key)

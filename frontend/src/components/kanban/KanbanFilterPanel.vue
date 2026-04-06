@@ -2,7 +2,7 @@
     <div v-if="showFilters"
         class="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div v-if="isPtbAdmin" class="min-w-0 space-y-2">
+            <div v-if="isElevatedTaskManager" class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.department') }}
                 </label>
@@ -11,7 +11,7 @@
                     :empty-text="t('common.noData')" />
             </div>
 
-            <div v-if="isPtbAdmin" class="min-w-0 space-y-2">
+            <div v-if="isElevatedTaskManager" class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.employee') }}
                 </label>
@@ -148,7 +148,8 @@ const { t, te } = useI18n()
 
 const props = defineProps<{
 	showFilters: boolean
-	isPtbAdmin: boolean
+    isElevatedTaskManager: boolean
+    taskScope: 'all' | 'mine'
 	selectedDepartment: number[]
 	selectedEmployee: number[]
 	selectedProject: number[]
@@ -184,26 +185,29 @@ const searchEmployeesLabel = computed(() =>
 const searchGroupsLabel = computed(() =>
 	te('kanban.searchGroups') ? t('kanban.searchGroups') : t('common.search'),
 )
-const showingAllTasksLabel = computed(() =>
-	te('kanban.showingAllTasks') ? t('kanban.showingAllTasks') : t('kanban.showingTasksFor'),
-)
+const showingAllTasksLabel = computed(() => {
+    if (props.isElevatedTaskManager && props.taskScope === 'all') {
+        return te('kanban.showingAllTasks') ? t('kanban.showingAllTasks') : t('kanban.showingTasksFor')
+    }
+    return te('kanban.showingMyTasks') ? t('kanban.showingMyTasks') : t('kanban.showingTasksFor')
+})
 
 const departmentOptions = computed<OptionItem[]>(() =>
-	props.sortedDepartments.map((department) => ({
+    props.sortedDepartments.map((department: Department) => ({
 		value: department.id,
 		label: department.name,
 	})),
 )
 
 const employeeOptions = computed<OptionItem[]>(() =>
-	props.filteredEmployees.map((employee) => ({
+    props.filteredEmployees.map((employee: Employee) => ({
 		value: employee.id,
 		label: employee.name,
 	})),
 )
 
 const projectOptions = computed<OptionItem[]>(() =>
-	props.sortedProjects.map((project) => ({
+    props.sortedProjects.map((project: Project) => ({
 		value: project.id,
 		label: project.name,
 	})),
@@ -230,7 +234,7 @@ const labelOptions = computed<OptionItem[]>(() =>
 )
 
 const groupOptions = computed<OptionItem[]>(() =>
-	props.taskGroups.map((group) => ({
+    props.taskGroups.map((group: TaskGroup) => ({
 		value: group.id,
 		label: group.name,
 	})),
@@ -248,58 +252,58 @@ function fromOptionItems(values: OptionItem[]) {
 
 const departmentSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedDepartment, departmentOptions.value),
-	set: (value) => emit('update:selectedDepartment', fromOptionItems(value).map(Number)),
+    set: (value: OptionItem[]) => emit('update:selectedDepartment', fromOptionItems(value).map(Number)),
 })
 
 const employeeSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedEmployee, employeeOptions.value),
-	set: (value) => emit('update:selectedEmployee', fromOptionItems(value).map(Number)),
+    set: (value: OptionItem[]) => emit('update:selectedEmployee', fromOptionItems(value).map(Number)),
 })
 
 const projectSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedProject, projectOptions.value),
-	set: (value) => emit('update:selectedProject', fromOptionItems(value).map(Number)),
+    set: (value: OptionItem[]) => emit('update:selectedProject', fromOptionItems(value).map(Number)),
 })
 
 const statusSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedStatus, statusOptions.value),
-    set: (value) => emit('update:selectedStatus', fromOptionItems(value).map(String) as TaskStatus[]),
+    set: (value: OptionItem[]) => emit('update:selectedStatus', fromOptionItems(value).map(String) as TaskStatus[]),
 })
 
 const prioritySelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedPriority, priorityOptions.value),
-    set: (value) =>
+    set: (value: OptionItem[]) =>
         emit('update:selectedPriority', fromOptionItems(value).map(String) as PriorityLevel[]),
 })
 
 const labelSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedLabel, labelOptions.value),
-	set: (value) => emit('update:selectedLabel', fromOptionItems(value).map(String)),
+    set: (value: OptionItem[]) => emit('update:selectedLabel', fromOptionItems(value).map(String)),
 })
 
 const groupSelection = computed<OptionItem[]>({
 	get: () => toOptionItems(props.selectedGroup, groupOptions.value),
-	set: (value) => emit('update:selectedGroup', fromOptionItems(value).map(Number)),
+    set: (value: OptionItem[]) => emit('update:selectedGroup', fromOptionItems(value).map(Number)),
 })
 
 function departmentName(id: number) {
-	return props.sortedDepartments.find((department) => department.id === id)?.name ?? String(id)
+    return props.sortedDepartments.find((department: Department) => department.id === id)?.name ?? String(id)
 }
 
 function employeeName(id: number) {
-	return props.sortedEmployees.find((employee) => employee.id === id)?.name ?? String(id)
+    return props.sortedEmployees.find((employee: Employee) => employee.id === id)?.name ?? String(id)
 }
 
 function projectName(id: number) {
-	return props.sortedProjects.find((project) => project.id === id)?.name ?? String(id)
+    return props.sortedProjects.find((project: Project) => project.id === id)?.name ?? String(id)
 }
 
 function groupName(id: number) {
-	return props.taskGroups.find((group) => group.id === id)?.name ?? String(id)
+    return props.taskGroups.find((group: TaskGroup) => group.id === id)?.name ?? String(id)
 }
 
 function groupChipStyle(groupId: number) {
-	const color = props.taskGroups.find((group) => group.id === groupId)?.color || '#6366F1'
+    const color = props.taskGroups.find((group: TaskGroup) => group.id === groupId)?.color || '#6366F1'
 	return {
 		backgroundColor: `${color}20`,
 		borderColor: `${color}66`,
@@ -319,30 +323,30 @@ function priorityLabel(priority: PriorityLevel) {
 }
 
 function removeDepartment(id: number) {
-	emit('update:selectedDepartment', props.selectedDepartment.filter((value) => value !== id))
+    emit('update:selectedDepartment', props.selectedDepartment.filter((value: number) => value !== id))
 }
 
 function removeEmployee(id: number) {
-	emit('update:selectedEmployee', props.selectedEmployee.filter((value) => value !== id))
+    emit('update:selectedEmployee', props.selectedEmployee.filter((value: number) => value !== id))
 }
 
 function removeProject(id: number) {
-	emit('update:selectedProject', props.selectedProject.filter((value) => value !== id))
+    emit('update:selectedProject', props.selectedProject.filter((value: number) => value !== id))
 }
 
 function removeStatus(status: TaskStatus) {
-	emit('update:selectedStatus', props.selectedStatus.filter((value) => value !== status))
+    emit('update:selectedStatus', props.selectedStatus.filter((value: TaskStatus) => value !== status))
 }
 
 function removePriority(priority: PriorityLevel) {
-	emit('update:selectedPriority', props.selectedPriority.filter((value) => value !== priority))
+    emit('update:selectedPriority', props.selectedPriority.filter((value: PriorityLevel) => value !== priority))
 }
 
 function removeLabel(label: string) {
-	emit('update:selectedLabel', props.selectedLabel.filter((value) => value !== label))
+    emit('update:selectedLabel', props.selectedLabel.filter((value: string) => value !== label))
 }
 
 function removeGroup(id: number) {
-	emit('update:selectedGroup', props.selectedGroup.filter((value) => value !== id))
+    emit('update:selectedGroup', props.selectedGroup.filter((value: number) => value !== id))
 }
 </script>

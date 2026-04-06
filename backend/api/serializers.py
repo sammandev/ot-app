@@ -1239,6 +1239,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 class SystemConfigurationSerializer(serializers.ModelSerializer):
     tab_icon_url = serializers.SerializerMethodField()
     sidebar_logo_url = serializers.SerializerMethodField()
+    user_activity_log_cleanup_time = serializers.TimeField(required=False, format="%H:%M", input_formats=["%H:%M", "%H:%M:%S"])
 
     class Meta:
         model = SystemConfiguration
@@ -1260,10 +1261,10 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             "leave_notification_sender_name",
             "leave_notification_recipient_mode",
             "leave_notification_department_recipients",
-            "leave_notification_custom_recipients",
             "leave_notification_employee_recipients",
             "leave_notification_employee_groups",
             "user_activity_log_retention_days",
+            "user_activity_log_cleanup_time",
             "leave_notification_subject_template",
             "leave_notification_body_template",
             "leave_notification_footer_template",
@@ -1389,9 +1390,13 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
     def validate_user_activity_log_retention_days(self, value):
         if value in (None, ""):
             return None
-        allowed_values = {3, 7, 10, 30}
-        if value not in allowed_values:
-            raise serializers.ValidationError("Activity log retention must be one of: 3, 7, 10, 30 days.")
+        if value < 1:
+            raise serializers.ValidationError("Activity log retention must be a positive number of days.")
+        return value
+
+    def validate_user_activity_log_cleanup_time(self, value):
+        if value is None:
+            raise serializers.ValidationError("Activity log cleanup time is required.")
         return value
 
     def _allowed_notification_domain(self):
@@ -1433,7 +1438,6 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             invalid = ", ".join(unsupported)
             raise serializers.ValidationError(f"Unsupported template variables: {invalid}. Allowed variables: {allowed}.")
         return template
-
     def validate_notification_email_host(self, value):
         host = (value or "").strip()
         if not host:
@@ -1455,9 +1459,6 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
         if not sender_name:
             raise serializers.ValidationError("Leave notification sender name cannot be empty.")
         return sender_name
-
-    def validate_leave_notification_custom_recipients(self, value):
-        return self._validate_recipient_list(value, field_name="Leave notification custom recipients")
 
     def validate_leave_notification_department_recipients(self, value):
         if value in (None, ""):
@@ -1500,6 +1501,16 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
         attrs = super().validate(attrs)
         instance = getattr(self, "instance", None)
 
+        notification_fields = {
+            "leave_notification_recipient_mode",
+            "leave_notification_recipients",
+            "leave_notification_department_recipients",
+            "leave_notification_employee_recipients",
+            "leave_notification_employee_groups",
+        }
+        if not any(field in attrs for field in notification_fields):
+            return attrs
+
         mode = attrs.get(
             "leave_notification_recipient_mode",
             getattr(instance, "leave_notification_recipient_mode", "global"),
@@ -1512,17 +1523,23 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             "leave_notification_department_recipients",
             getattr(instance, "leave_notification_department_recipients", []),
         )
-        custom_recipients = attrs.get(
-            "leave_notification_custom_recipients",
-            getattr(instance, "leave_notification_custom_recipients", []),
+        employee_recipients = attrs.get(
+            "leave_notification_employee_recipients",
+            getattr(instance, "leave_notification_employee_recipients", []),
+        )
+        employee_groups = attrs.get(
+            "leave_notification_employee_groups",
+            getattr(instance, "leave_notification_employee_groups", []),
         )
 
         if mode == "global" and not global_recipients:
             raise serializers.ValidationError({"leave_notification_recipients": "Global mode requires at least one recipient."})
         if mode == "department" and not department_recipients:
             raise serializers.ValidationError({"leave_notification_department_recipients": "Department mode requires at least one department recipient mapping."})
-        if mode == "custom" and not custom_recipients:
-            raise serializers.ValidationError({"leave_notification_custom_recipients": "Custom mode requires at least one recipient."})
+        if mode == "custom" and not employee_recipients and not employee_groups:
+            raise serializers.ValidationError(
+                {"leave_notification_employee_groups": "Custom mode requires at least one employee group or employee-specific rule."}
+            )
 
         return attrs
 
@@ -1541,6 +1558,10 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.sidebar_logo.url)
             return obj.sidebar_logo.url
         return None
+
+
+class UserActivityLogPurgeSerializer(serializers.Serializer):
+    days = serializers.IntegerField(min_value=1)
 
 
 class UserActivityLogSerializer(serializers.ModelSerializer):
