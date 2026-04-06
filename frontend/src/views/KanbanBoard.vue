@@ -566,15 +566,15 @@
             :all-employees="sortedEmployees" :get-employee-name="getEmployeeName"
             :current-user-id="authStore.user?.id ?? null" :current-user-employee-id="currentUserEmployeeId"
             :is-super-admin="authStore.isSuperAdmin" :is-developer="authStore.isDeveloper"
-            :group-action-error="groupActionError" @close-group-list-modal="closeGroupListModal"
+            :group-action-error="groupActionError" @close-group-list-modal="handleCloseGroupListModal"
             @save-group="saveGroup"
-            @sync-department-groups="syncDepartmentGroups" @start-edit-group="startEditGroup"
+            @sync-department-groups="syncDepartmentGroups" @start-edit-group="handleStartEditGroup"
             @delete-group="deleteGroup" @leave-group="leaveGroup" @cancel-edit-group="cancelEditGroup" @save-edit-group="saveEditGroup"
             @update:group-modal-tab="handleGroupModalTabUpdate"
             @update:group-member-search="groupMemberSearch = $event" />
 
         <!-- Task Detail Drawer (Comments & Activity) -->
-        <TaskDetailDrawer :task="selectedTask" :is-open="showTaskDetail" @close="closeTaskDetail" />
+        <TaskDetailDrawer :task="selectedTask" :is-open="showTaskDetail" @close="handleCloseTaskDetail" />
     </AdminLayout>
 </template>
 
@@ -582,6 +582,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
 import KanbanFilterPanel from '@/components/kanban/KanbanFilterPanel.vue'
 import KanbanGroupModals from '@/components/kanban/KanbanGroupModals.vue'
@@ -622,9 +623,9 @@ import {
 	UserGroupIcon,
 	WarningIcon,
 } from '@/icons'
-import type { CalendarEvent } from '@/services/api/calendar'
+import { calendarAPI, type CalendarEvent } from '@/services/api/calendar'
 import type { Project } from '@/services/api/project'
-import type { TaskGroup } from '@/services/api/task'
+import { taskGroupAPI, type TaskGroup } from '@/services/api/task'
 import { useBoardWebSocket } from '@/services/websocket'
 import { useAuthStore } from '@/stores/auth'
 import { useDepartmentStore } from '@/stores/department'
@@ -633,6 +634,8 @@ import { useEmployeeStore } from '@/stores/employee'
 const authStore = useAuthStore()
 const { t } = useI18n()
 const { showToast } = useToast()
+const route = useRoute()
+const router = useRouter()
 const employeeStore = useEmployeeStore()
 const departmentStore = useDepartmentStore()
 const { canCreate, canUpdate, canDelete } = usePagePermission('kanban')
@@ -785,6 +788,50 @@ const handleGroupModalTabUpdate = (value: 'all' | 'create' | 'edit') => {
     }
 }
 
+const clearNotificationQuery = async (key: 'taskId' | 'groupId') => {
+	if (!route.query[key]) return
+	const nextQuery = { ...route.query }
+	delete nextQuery[key]
+	await router.replace({ query: nextQuery })
+}
+
+const openFromQuery = async () => {
+	const taskId = Number(route.query.taskId)
+	if (taskId && !Number.isNaN(taskId)) {
+		try {
+			const task = await calendarAPI.get(taskId)
+			openTaskDetail(task)
+			return
+		} catch (error) {
+			console.error('Failed to load task from route query:', error)
+		}
+	}
+
+	const groupId = Number(route.query.groupId)
+	if (groupId && !Number.isNaN(groupId)) {
+		try {
+			const group = await taskGroupAPI.get(groupId)
+			startEditGroup(group)
+		} catch (error) {
+			console.error('Failed to load task group from route query:', error)
+		}
+	}
+}
+
+const handleCloseTaskDetail = () => {
+	closeTaskDetail()
+	void clearNotificationQuery('taskId')
+}
+
+const handleStartEditGroup = (group: TaskGroup) => {
+	startEditGroup(group)
+}
+
+const handleCloseGroupListModal = () => {
+	closeGroupListModal()
+	void clearNotificationQuery('groupId')
+}
+
 // ── Flatpickr Setup (UI-specific, stays in component) ───────────────
 const { flatpickrInstances, attachMonthScroll, attachTimeScroll, destroyFlatpickrs } =
 	useFlatpickrScroll()
@@ -837,6 +884,7 @@ onMounted(async () => {
 			employeeStore.fetchEmployees(),
 			departmentStore.fetchDepartments(),
 		])
+		await openFromQuery()
 	} finally {
 		loading.value = false
 	}

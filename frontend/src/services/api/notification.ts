@@ -21,6 +21,10 @@ export interface Notification {
 	event_type?: string // 'meeting', 'task', 'leave', 'holiday', 'purchase_request'
 	computed_event_type?: string // Computed event type from linked event
 	meeting_url?: string | null // URL for meetings
+	target_data?: {
+		route?: string
+		query?: Record<string, string | number | boolean | null | undefined>
+	} | null
 }
 
 export interface PaginatedNotifications {

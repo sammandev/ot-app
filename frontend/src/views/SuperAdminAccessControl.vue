@@ -37,6 +37,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import AccessControlTab from '@/components/super-admin/AccessControlTab.vue'
 import ActivityLogsTab from '@/components/super-admin/ActivityLogsTab.vue'
@@ -51,6 +52,8 @@ import { useConfigStore } from '@/stores/config'
 
 const { t } = useI18n()
 const configStore = useConfigStore()
+const route = useRoute()
+const router = useRouter()
 
 const activeTab = ref(localStorage.getItem(STORAGE_KEY_SUPERADMIN_TAB) || 'access')
 const users = ref<UserAccessControl[]>([])
@@ -71,6 +74,15 @@ const tabs = [
 	{ key: 'reports', label: 'User Reports' },
 ]
 
+const tabKeys = new Set(tabs.map((tab) => tab.key))
+
+const syncTabFromRoute = () => {
+	const routeTab = typeof route.query.tab === 'string' ? route.query.tab : null
+	if (routeTab && tabKeys.has(routeTab)) {
+		activeTab.value = routeTab
+	}
+}
+
 onMounted(async () => {
 	try {
 		const loadedUsers: UserAccessControl[] = []
@@ -88,6 +100,7 @@ onMounted(async () => {
 		settingsTabRef.value?.initFromConfig?.()
         emailNotificationsTabRef.value?.initFromConfig?.()
 		remindersTabRef.value?.initFromConfig?.()
+		syncTabFromRoute()
 	} catch (error) {
 		console.error('Failed to load system config', error)
 	}
@@ -95,5 +108,8 @@ onMounted(async () => {
 
 watch(activeTab, (tab) => {
 	localStorage.setItem(STORAGE_KEY_SUPERADMIN_TAB, tab)
+	if (route.query.tab !== tab) {
+		void router.replace({ query: { ...route.query, tab } })
+	}
 })
 </script>

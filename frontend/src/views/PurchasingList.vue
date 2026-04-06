@@ -614,6 +614,7 @@
 import flatpickr from 'flatpickr'
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
@@ -626,6 +627,8 @@ const { showToast } = useToast()
 const { canCreate, canUpdate, canDelete } = usePagePermission('purchasing')
 const { t } = useI18n()
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
 // Format number: strip trailing zeros (1.00 → 1, 1.50 → 1.5)
 const formatNumber = (val: number | string | null | undefined): string => {
@@ -803,6 +806,28 @@ const openImportModal = () => {
         return
     }
     showImportModal.value = true
+}
+
+const clearRequestQuery = async () => {
+	if (!route.query.requestId) return
+	const nextQuery = { ...route.query }
+	delete nextQuery.requestId
+	await router.replace({ query: nextQuery })
+}
+
+const openRequestFromQuery = async () => {
+	const requestId = Number(route.query.requestId)
+	if (!requestId || Number.isNaN(requestId)) return
+
+	try {
+		const request = await purchaseRequestAPI.get(requestId)
+		selectedRequest.value = request
+		showEditModal.value = false
+		showDetailModal.value = true
+	} catch (error) {
+		console.error('Failed to load purchase request from route query:', error)
+		showToast(t('purchasing.loadFailed'), 'error')
+	}
 }
 
 const loadData = async () => {
@@ -1061,6 +1086,7 @@ const closeModals = () => {
 		requestDatePicker.destroy()
 		requestDatePicker = null
 	}
+	void clearRequestQuery()
 }
 
 const handleFileSelect = (event: Event) => {
@@ -1191,6 +1217,7 @@ const handleClickOutside = (event: MouseEvent) => {
 onMounted(() => {
 	loadData()
 	loadTabCounts()
+	void openRequestFromQuery()
 	document.addEventListener('click', handleClickOutside)
 })
 

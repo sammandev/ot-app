@@ -77,8 +77,9 @@
             </div>
 
                 <div v-else class="divide-y divide-gray-100 dark:divide-gray-800">
-                    <div v-for="report in reports" :key="report.id"
-                    class="px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <div v-for="report in reports" :key="report.id" :id="report.id ? `report-${report.id}` : undefined"
+                    class="px-6 py-4 transition-colors"
+                    :class="targetReportId === report.id ? 'bg-brand-50 ring-1 ring-brand-200 dark:bg-brand-500/10 dark:ring-brand-500/30' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'">
                     <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                         <div class="min-w-0 flex-1">
                             <div class="mb-1 flex items-center gap-2">
@@ -161,12 +162,15 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { type UserReportData, userReportAPI } from '@/services/api/user-report'
 
+const route = useRoute()
 const reportsLoading = ref(false)
 const reports = ref<UserReportData[]>([])
 const expandedReports = ref<Record<number, boolean>>({})
+const targetReportId = ref<number | null>(null)
 const reportStats = ref<{
 	total: number
 	by_status: Record<string, number>
@@ -187,11 +191,26 @@ const loadReports = async () => {
 		if (reportFilters.priority) params.priority = reportFilters.priority
 		const data = await userReportAPI.list(params)
 		reports.value = data.results || (data as unknown as UserReportData[])
+		await nextTick()
+		focusTargetReport()
 	} catch (err) {
 		console.error('Failed to load reports:', err)
 	} finally {
 		reportsLoading.value = false
 	}
+}
+
+const focusTargetReport = () => {
+	const reportId = Number(route.query.reportId)
+	if (!reportId || Number.isNaN(reportId)) {
+		targetReportId.value = null
+		return
+	}
+
+	targetReportId.value = reportId
+	expandedReports.value[reportId] = true
+	const element = document.getElementById(`report-${reportId}`)
+	element?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 }
 
 const loadReportStats = async () => {
@@ -251,6 +270,7 @@ const formatReportDate = (dateStr: string) => {
 defineExpose({ loadReports, loadReportStats })
 
 onMounted(() => {
+	focusTargetReport()
 	loadReports()
 	loadReportStats()
 })

@@ -824,9 +824,17 @@ const openHolidayDetails = (holiday: Holiday) => {
 	showHolidayDetails.value = true
 }
 
+const clearHolidayQuery = async () => {
+	if (typeof route.query.holidayId !== 'string') return
+	const nextQuery = { ...route.query }
+	delete nextQuery.holidayId
+	await router.replace({ query: nextQuery })
+}
+
 const closeHolidayDetails = () => {
 	showHolidayDetails.value = false
 	selectedHolidayDetails.value = null
+	void clearHolidayQuery()
 }
 
 const editHolidayFromDetails = () => {
@@ -1081,6 +1089,7 @@ const handleLeaveMove = async (leaveId: number, newDate: string) => {
 }
 
 let batchRouteLookupPromise: Promise<void> | null = null
+let holidayRouteLookupPromise: Promise<void> | null = null
 
 const syncLeaveDetailsFromRoute = async () => {
 	const leaveBatchKey = typeof route.query.leaveBatch === 'string' ? route.query.leaveBatch.trim() : ''
@@ -1116,6 +1125,44 @@ const syncLeaveDetailsFromRoute = async () => {
 	await batchRouteLookupPromise
 }
 
+const syncHolidayDetailsFromRoute = async () => {
+	const holidayId = Number(route.query.holidayId)
+	if (!holidayId || Number.isNaN(holidayId) || showHolidayDetails.value || showHolidayForm.value) {
+		return
+	}
+
+	const holiday = holidays.value.find((entry) => entry.id === holidayId)
+	if (holiday) {
+		openHolidayDetails(holiday)
+		return
+	}
+
+	if (holidayRouteLookupPromise) {
+		return
+	}
+
+	holidayRouteLookupPromise = holidayAPI
+		.get(holidayId)
+		.then((resolvedHoliday) => {
+			const existingIndex = holidays.value.findIndex((entry) => entry.id === resolvedHoliday.id)
+			if (existingIndex === -1) {
+				holidays.value.push(resolvedHoliday)
+			} else {
+				holidays.value[existingIndex] = resolvedHoliday
+			}
+			openHolidayDetails(resolvedHoliday)
+		})
+		.catch((error) => {
+			console.error('Failed to resolve holiday from route:', error)
+			showToast(extractApiError(error, 'Failed to open holiday details'), 'error', 5000)
+		})
+		.finally(() => {
+			holidayRouteLookupPromise = null
+		})
+
+	await holidayRouteLookupPromise
+}
+
 // Watchers — debounce to avoid double-fires on month boundary
 let fetchDebounceTimer: ReturnType<typeof setTimeout> | null = null
 watch([viewMode, currentYear, currentMonth, currentWeekStart], () => {
@@ -1132,6 +1179,10 @@ watch(viewMode, (newMode) => {
 
 watch([() => route.query.leaveBatch, leaves], () => {
 	void syncLeaveDetailsFromRoute()
+}, { immediate: true })
+
+watch([() => route.query.holidayId, holidays], () => {
+	void syncHolidayDetailsFromRoute()
 }, { immediate: true })
 
 // Lifecycle

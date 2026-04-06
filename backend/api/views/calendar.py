@@ -281,6 +281,15 @@ def create_event_notification(event, notification_type="created"):
         else:
             continue
 
+        if event.event_type == "task":
+            target_data = {"route": "/kanban", "query": {"taskId": event.id}}
+        elif event.event_type == "holiday":
+            target_data = {"route": "/ptb-calendar", "query": {"holidayId": event.id}}
+        elif event.event_type == "leave":
+            target_data = {"route": "/ptb-calendar", "query": {"eventId": event.id}}
+        else:
+            target_data = {"route": "/calendar", "query": {"eventId": event.id}}
+
         notifs_to_create.append(
             Notification(
                 recipient=external_user,
@@ -288,6 +297,7 @@ def create_event_notification(event, notification_type="created"):
                 message=message,
                 event=event if notification_type != "deleted" else None,
                 event_type=event.event_type,
+                target_data=target_data,
             )
         )
         ws_payloads.append(
@@ -298,6 +308,7 @@ def create_event_notification(event, notification_type="created"):
                     "message": message,
                     "event_type": event.event_type,
                     "event_id": event.id if notification_type != "deleted" else None,
+                    "target_data": target_data,
                     "is_read": False,
                 },
             )
@@ -336,6 +347,7 @@ def create_event_notification(event, notification_type="created"):
                     message=message,
                     event=event,
                     event_type="task",
+                    target_data={"route": "/kanban", "query": {"taskId": event.id}},
                 )
             )
             ws_payloads.append(
@@ -346,6 +358,7 @@ def create_event_notification(event, notification_type="created"):
                         "message": message,
                         "event_type": "task",
                         "event_id": event.id,
+                        "target_data": {"route": "/kanban", "query": {"taskId": event.id}},
                         "is_read": False,
                     },
                 )

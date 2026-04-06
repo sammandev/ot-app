@@ -1042,6 +1042,7 @@ class Notification(TimestampedModel):
     title = models.CharField(max_length=255)
     message = models.TextField()
     event = models.ForeignKey(CalendarEvent, on_delete=models.SET_NULL, null=True, blank=True, related_name="notifications")
+    target_data = models.JSONField(default=dict, blank=True)
     is_read = models.BooleanField(default=False, db_index=True)
     # Event type for filtering and categorization
     event_type = models.CharField(max_length=50, blank=True, null=True, db_index=True)

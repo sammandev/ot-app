@@ -1210,10 +1210,11 @@ class NotificationSerializer(serializers.ModelSerializer):
     time_ago = serializers.SerializerMethodField()
     computed_event_type = serializers.SerializerMethodField()
     meeting_url = serializers.SerializerMethodField()
+    target_data = serializers.JSONField(read_only=True)
 
     class Meta:
         model = Notification
-        fields = ["id", "recipient", "title", "message", "event", "is_read", "is_archived", "event_type", "created_at", "time_ago", "computed_event_type", "meeting_url"]
+        fields = ["id", "recipient", "title", "message", "event", "is_read", "is_archived", "event_type", "target_data", "created_at", "time_ago", "computed_event_type", "meeting_url"]
         read_only_fields = ["id", "created_at", "recipient"]
 
     def get_time_ago(self, obj):
@@ -1438,6 +1439,7 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
             invalid = ", ".join(unsupported)
             raise serializers.ValidationError(f"Unsupported template variables: {invalid}. Allowed variables: {allowed}.")
         return template
+
     def validate_notification_email_host(self, value):
         host = (value or "").strip()
         if not host:
@@ -1537,9 +1539,7 @@ class SystemConfigurationSerializer(serializers.ModelSerializer):
         if mode == "department" and not department_recipients:
             raise serializers.ValidationError({"leave_notification_department_recipients": "Department mode requires at least one department recipient mapping."})
         if mode == "custom" and not employee_recipients and not employee_groups:
-            raise serializers.ValidationError(
-                {"leave_notification_employee_groups": "Custom mode requires at least one employee group or employee-specific rule."}
-            )
+            raise serializers.ValidationError({"leave_notification_employee_groups": "Custom mode requires at least one employee group or employee-specific rule."})
 
         return attrs
 

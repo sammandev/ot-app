@@ -17,8 +17,7 @@
 
     <!-- Dropdown Start -->
     <div v-if="dropdownOpen"
-      class="absolute -right-[240px] mt-[17px] flex flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0 w-[350px]"
-      :style="{ maxHeight: dropdownHeight }">
+      class="absolute -right-[240px] mt-[17px] flex h-[min(520px,calc(100vh-120px))] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px] lg:right-0">
       <div class="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-800">
         <h5 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ t('header.notification') }} ({{ unreadCount }})</h5>
 
@@ -37,15 +36,15 @@
         </div>
       </div>
 
-      <div v-if="dropdownLoading && notifications.length === 0" class="flex items-center justify-center text-gray-400 py-8">
+      <div v-if="dropdownLoading && notifications.length === 0" class="flex min-h-0 flex-1 items-center justify-center py-8 text-gray-400">
         {{ t('common.loading') }}
       </div>
 
-      <div v-else-if="notifications.length === 0" class="flex items-center justify-center text-gray-400 py-8">
+      <div v-else-if="notifications.length === 0" class="flex min-h-0 flex-1 items-center justify-center py-8 text-gray-400">
         {{ t('header.noNotifications') }}
       </div>
 
-      <ul v-else class="flex flex-col overflow-y-auto custom-scrollbar">
+      <ul v-else class="custom-scrollbar min-h-0 flex-1 overflow-y-auto">
         <li v-for="notification in notifications" :key="notification.id" @click="handleItemClick(notification)">
           <div class="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5 cursor-pointer"
             :class="{ 'bg-gray-50 dark:bg-white/5': !notification.is_read }">
@@ -109,7 +108,7 @@
       </ul>
 
       <router-link to="/notifications"
-        class="mt-3 flex justify-center rounded-lg border border-gray-300 bg-white p-3 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200 flex-shrink-0"
+        class="mt-3 flex shrink-0 justify-center rounded-lg border border-gray-300 bg-white p-3 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
         @click="handleViewAllClick">
         {{ t('header.viewAllNotifications') }}
       </router-link>
@@ -121,14 +120,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import type { Notification } from '@/services/api/notification'
 import { useNotificationStore } from '@/stores/notification'
 import { formatFullLocalDateTime, timeAgo } from '@/utils/dateTime'
+import { resolveNotificationRoute } from '@/utils/notificationTarget'
 import { toSafeExternalUrl } from '@/utils/safeUrl'
 
 const { t } = useI18n()
 const store = useNotificationStore()
+const router = useRouter()
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
@@ -136,18 +137,6 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const unreadCount = computed(() => store.unreadCount)
 const dropdownLoading = computed(() => store.dropdownLoading)
 const notifications = computed(() => store.sortedDropdownNotifications.slice(0, 10))
-
-// Dynamic height based on notification count
-const dropdownHeight = computed(() => {
-	if (notifications.value.length === 0) {
-		return '180px' // Minimal height for "No notifications"
-	}
-	// Base height for header and footer + per-item height
-	const baseHeight = 120 // header + footer + padding
-	const itemHeight = 85 // approximate height per notification item
-	const totalHeight = baseHeight + notifications.value.length * itemHeight
-	return `${Math.min(totalHeight, 520)}px` // Cap at max 520px
-})
 
 const getIconBgClass = (eventType?: string) => {
 	switch (eventType) {
@@ -209,6 +198,8 @@ const handleItemClick = async (notification: Notification) => {
 	if (!notification.is_read) {
 		await store.markAsRead(notification.id)
 	}
+	closeDropdown()
+	await router.push(resolveNotificationRoute(notification))
 }
 
 const handleArchive = async (notification: Notification) => {

@@ -552,7 +552,16 @@ class UserReportViewSet(viewsets.ModelViewSet):
         # Find superadmin users and create DB notifications + WS push
         superadmin_users = list(ExternalUser.objects.filter(is_active=True, role__in=("developer", "superadmin")))
         if superadmin_users:
-            admin_notifs = [Notification(recipient=admin, title=title, message=message, event_type="user_report") for admin in superadmin_users]
+            admin_notifs = [
+                Notification(
+                    recipient=admin,
+                    title=title,
+                    message=message,
+                    event_type="user_report",
+                    target_data={"route": "/super-admin/access-control", "query": {"tab": "reports", "reportId": report.id}},
+                )
+                for admin in superadmin_users
+            ]
             created_notifs = Notification.objects.bulk_create(admin_notifs)
             for notif, admin in zip(created_notifs, superadmin_users, strict=True):
                 send_notification_to_user(
@@ -563,6 +572,7 @@ class UserReportViewSet(viewsets.ModelViewSet):
                         "message": message,
                         "event_type": "user_report",
                         "event_id": None,
+                        "target_data": {"route": "/super-admin/access-control", "query": {"tab": "reports", "reportId": report.id}},
                         "is_read": False,
                         "created_at": notif.created_at.isoformat(),
                     },
@@ -613,6 +623,7 @@ class UserReportViewSet(viewsets.ModelViewSet):
                 title=title,
                 message=message,
                 event_type="user_report",
+                target_data={"route": "/user-report"},
             )
             send_notification_to_user(
                 report.reporter_id,
@@ -622,6 +633,7 @@ class UserReportViewSet(viewsets.ModelViewSet):
                     "message": message,
                     "event_type": "user_report",
                     "event_id": None,
+                    "target_data": {"route": "/user-report"},
                     "is_read": False,
                     "created_at": notif.created_at.isoformat(),
                 },

@@ -40,6 +40,7 @@ export interface WebSocketNotification {
 	event_id: number | null
 	is_read: boolean
 	created_at: string
+	target_data?: Notification['target_data']
 }
 
 export const useNotificationStore = defineStore('notification', () => {
@@ -130,6 +131,7 @@ export const useNotificationStore = defineStore('notification', () => {
 			event: notification.event_id ?? null,
 			event_type: notification.event_type,
 			computed_event_type: notification.event_type,
+			target_data: notification.target_data,
 		}
 
 		const alreadyExists = !!findNotificationById(notification.id)

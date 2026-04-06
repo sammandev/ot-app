@@ -388,12 +388,13 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
                         date_str = req_info["request_date"].strftime("%B %d, %Y") if hasattr(req_info["request_date"], "strftime") else str(req_info["request_date"])
                         title = f"Overtime Request {status_label.title()}"
                         message = f"Your overtime request for {date_str} has been {status_label} by {admin_name}."
-                        notifs_to_create.append(Notification(recipient=ext_user, title=title, message=message, event_type=f"overtime_{status_label}"))
-                        ws_send_list.append((ext_user.id, title, message))
+                        target_data = {"route": "/ot/history", "query": {"requestId": req_info["id"]}}
+                        notifs_to_create.append(Notification(recipient=ext_user, title=title, message=message, event_type=f"overtime_{status_label}", target_data=target_data))
+                        ws_send_list.append((ext_user.id, title, message, target_data))
 
                     if notifs_to_create:
                         created_notifs = Notification.objects.bulk_create(notifs_to_create)
-                        for notif, (uid, ntitle, nmsg) in zip(created_notifs, ws_send_list, strict=True):
+                        for notif, (uid, ntitle, nmsg, target_data) in zip(created_notifs, ws_send_list, strict=True):
                             send_notification_to_user(
                                 uid,
                                 {
@@ -402,6 +403,7 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
                                     "message": nmsg,
                                     "event_type": notif.event_type,
                                     "event_id": None,
+                                    "target_data": target_data,
                                     "is_read": False,
                                     "created_at": notif.created_at.isoformat(),
                                 },

@@ -461,6 +461,9 @@ export const useAuthStore = defineStore('auth', () => {
 						event_id: data.event_id as number | null,
 						is_read: data.is_read as boolean,
 						created_at: data.created_at as string,
+						target_data: (data.target_data as Record<string, unknown> | null | undefined) as
+							| import('@/services/api/notification').Notification['target_data']
+							| undefined,
 					})
 					console.info('[Auth] New notification received via WebSocket:', data.title)
 				})

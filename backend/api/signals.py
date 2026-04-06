@@ -105,9 +105,12 @@ def notify_leave_event_participants(event, is_update=False):
             title = f"Leave Agent Assignment: {employee_name}"
             message = f"You have been assigned as agent for {employee_name} ({employee_worker_id}) from {applied_by.dept_code if applied_by else 'N/A'} department.\nLeave Period: {leave_start} to {leave_end}\nLeave Type: {event.leave_type or 'N/A'}"
 
-            notification = Notification.objects.create(recipient=agent_user, title=title, message=message, event=event, event_type="leave")
+            target_data = {"route": "/ptb-calendar", "query": {"eventId": event.id}} if event else {"route": "/ptb-calendar"}
+            notification = Notification.objects.create(recipient=agent_user, title=title, message=message, event=event, event_type="leave", target_data=target_data)
             notifications_created.append(notification)
-            send_websocket_notification(agent_user.id, {"id": notification.id, "title": title, "message": message, "event_type": "leave", "event_id": event.id if event else None, "is_read": False, "created_at": notification.created_at.isoformat()})
+            send_websocket_notification(
+                agent_user.id, {"id": notification.id, "title": title, "message": message, "event_type": "leave", "event_id": event.id if event else None, "target_data": target_data, "is_read": False, "created_at": notification.created_at.isoformat()}
+            )
             logger.info("Notified agent %s about leave coverage for %s", agent.name, employee_name)
         except ExternalUser.DoesNotExist:
             logger.debug("No ExternalUser found for agent %s", agent.emp_id)
@@ -132,7 +135,8 @@ def notify_leave_event_participants(event, is_update=False):
             if applied_by and admin_user.worker_id and admin_user.worker_id.lower() == applied_by.emp_id.lower():
                 continue
 
-            notifs_to_create.append(Notification(recipient=admin_user, title=title, message=message, event=event, event_type="leave"))
+            target_data = {"route": "/ptb-calendar", "query": {"eventId": event.id}} if event else {"route": "/ptb-calendar"}
+            notifs_to_create.append(Notification(recipient=admin_user, title=title, message=message, event=event, event_type="leave", target_data=target_data))
             ws_payloads.append(
                 (
                     admin_user.id,
@@ -141,6 +145,7 @@ def notify_leave_event_participants(event, is_update=False):
                         "message": message,
                         "event_type": "leave",
                         "event_id": event.id if event else None,
+                        "target_data": target_data,
                         "is_read": False,
                     },
                 )
@@ -210,8 +215,9 @@ def notify_purchase_request_status_change(purchase_request, old_status, new_stat
     title = f"Purchase Request {status_text}: {purchase_request.part_no or purchase_request.description_spec or 'N/A'}"
     message = f"Your purchase request has been {new_status}.\nDoc ID: {purchase_request.doc_id or 'N/A'}\nPart No: {purchase_request.part_no or 'N/A'}\nDescription: {purchase_request.description_spec or 'N/A'}\nPR No: {purchase_request.pr_no or 'N/A'}"
 
-    notification = Notification.objects.create(recipient=recipient, title=title, message=message, event_type="purchase_request")
-    send_websocket_notification(recipient.id, {"id": notification.id, "title": title, "message": message, "event_type": "purchase_request", "event_id": None, "is_read": False, "created_at": notification.created_at.isoformat()})
+    target_data = {"route": "/purchasing/list", "query": {"requestId": purchase_request.id}}
+    notification = Notification.objects.create(recipient=recipient, title=title, message=message, event_type="purchase_request", target_data=target_data)
+    send_websocket_notification(recipient.id, {"id": notification.id, "title": title, "message": message, "event_type": "purchase_request", "event_id": None, "target_data": target_data, "is_read": False, "created_at": notification.created_at.isoformat()})
     logger.info("Notified %s about purchase request status change to %s", recipient.username, new_status)
     return notification
 
@@ -238,12 +244,33 @@ def notify_ptb_admins_new_purchase_request(purchase_request):
             f"Purpose: {purchase_request.purpose_desc or 'N/A'}"
         )
 
-        notifs_to_create = [Notification(recipient=admin_user, title=title, message=message, event_type="purchase_request") for admin_user in ptb_admins]
+        notifs_to_create = [
+            Notification(
+                recipient=admin_user,
+                title=title,
+                message=message,
+                event_type="purchase_request",
+                target_data={"route": "/purchasing/list", "query": {"requestId": purchase_request.id}},
+            )
+            for admin_user in ptb_admins
+        ]
 
         if notifs_to_create:
             created = Notification.objects.bulk_create(notifs_to_create)
             for notif, admin_user in zip(created, ptb_admins, strict=True):
-                send_websocket_notification(admin_user.id, {"id": notif.id, "title": title, "message": message, "event_type": "purchase_request", "event_id": None, "is_read": False, "created_at": notif.created_at.isoformat()})
+                send_websocket_notification(
+                    admin_user.id,
+                    {
+                        "id": notif.id,
+                        "title": title,
+                        "message": message,
+                        "event_type": "purchase_request",
+                        "event_id": None,
+                        "target_data": {"route": "/purchasing/list", "query": {"requestId": purchase_request.id}},
+                        "is_read": False,
+                        "created_at": notif.created_at.isoformat(),
+                    },
+                )
 
         logger.info("Notified %s PTB admins about new purchase request", len(ptb_admins))
         return created if notifs_to_create else []
@@ -279,7 +306,13 @@ def notify_assigned_employees(sender, instance, action, reverse, model, pk_set, 
                     if event.start:
                         message += f"\nDate: {event.start.strftime('%Y-%m-%d %H:%M')}"
 
-                    notifications_to_create.append(Notification(recipient=user, title=title, message=message, event=event, event_type="calendar"))
+                    if event.event_type == "holiday":
+                        target_data = {"route": "/ptb-calendar", "query": {"holidayId": event.id}}
+                    elif event.event_type == "leave":
+                        target_data = {"route": "/ptb-calendar", "query": {"eventId": event.id}}
+                    else:
+                        target_data = {"route": "/calendar", "query": {"eventId": event.id}}
+                    notifications_to_create.append(Notification(recipient=user, title=title, message=message, event=event, event_type="calendar", target_data=target_data))
                     ws_payloads.append(
                         (
                             user.id,
@@ -288,6 +321,7 @@ def notify_assigned_employees(sender, instance, action, reverse, model, pk_set, 
                                 "message": message,
                                 "event_type": "calendar",
                                 "event_id": event.id,
+                                "target_data": target_data,
                                 "is_read": False,
                             },
                         )
@@ -311,7 +345,13 @@ def notify_assigned_employees(sender, instance, action, reverse, model, pk_set, 
                         if event.start:
                             message += f"\nDate: {event.start.strftime('%Y-%m-%d %H:%M')}"
 
-                        notifications_to_create.append(Notification(recipient=user, title=title, message=message, event=event, event_type="calendar"))
+                        if event.event_type == "holiday":
+                            target_data = {"route": "/ptb-calendar", "query": {"holidayId": event.id}}
+                        elif event.event_type == "leave":
+                            target_data = {"route": "/ptb-calendar", "query": {"eventId": event.id}}
+                        else:
+                            target_data = {"route": "/calendar", "query": {"eventId": event.id}}
+                        notifications_to_create.append(Notification(recipient=user, title=title, message=message, event=event, event_type="calendar", target_data=target_data))
                         ws_payloads.append(
                             (
                                 user.id,
@@ -320,6 +360,7 @@ def notify_assigned_employees(sender, instance, action, reverse, model, pk_set, 
                                     "message": message,
                                     "event_type": "calendar",
                                     "event_id": event.id,
+                                    "target_data": target_data,
                                     "is_read": False,
                                 },
                             )

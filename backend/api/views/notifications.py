@@ -65,7 +65,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         # return 404 when the user tries to unarchive or delete them.
         if self.action in ("archive", "unarchive", "destroy", "retrieve", "mark_read"):
             return queryset.select_related("recipient", "event").only(
-                "id", "title", "message", "is_read", "is_archived", "event_type", "created_at", "recipient__id", "recipient__username", "event__id", "event__title", "event__meeting_url", "event__event_type"
+                "id", "title", "message", "is_read", "is_archived", "event_type", "target_data", "created_at", "recipient__id", "recipient__username", "event__id", "event__title", "event__meeting_url", "event__event_type"
             )
 
         # Exclude archived by default unless explicitly requested
@@ -84,6 +84,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             "is_read",
             "is_archived",
             "event_type",
+            "target_data",
             "created_at",
             "recipient__id",
             "recipient__username",

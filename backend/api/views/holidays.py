@@ -156,12 +156,7 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
             return "-"
 
         matched_emails = {}
-        for raw_email in (
-            ExternalUser.objects.filter(worker_id=employee_id, is_active=True)
-            .exclude(email__isnull=True)
-            .exclude(email="")
-            .values_list("email", flat=True)
-        ):
+        for raw_email in ExternalUser.objects.filter(worker_id=employee_id, is_active=True).exclude(email__isnull=True).exclude(email="").values_list("email", flat=True):
             email = str(raw_email or "").strip()
             if not email:
                 continue
@@ -294,11 +289,32 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
             message = f"{employee_name} has taken leave on {leave_date}.\nAgent(s): {agent_names_str}\nSubmitted by {actor_username}."
 
             ptb_admins = list(ExternalUser.objects.filter(is_ptb_admin=True, is_active=True))
-            admin_notifs = [Notification(recipient=admin, title=title, message=message, event_type="leave") for admin in ptb_admins]
+            admin_notifs = [
+                Notification(
+                    recipient=admin,
+                    title=title,
+                    message=message,
+                    event_type="leave",
+                    target_data={"route": "/ptb-calendar", "query": {"leaveBatch": str(leave_obj.batch_key)}} if leave_obj.batch_key else {"route": "/ptb-calendar"},
+                )
+                for admin in ptb_admins
+            ]
             if admin_notifs:
                 created_admin = Notification.objects.bulk_create(admin_notifs)
                 for notif, admin in zip(created_admin, ptb_admins, strict=True):
-                    send_notification_to_user(admin.id, {"id": notif.id, "title": title, "message": message, "event_type": "leave", "event_id": None, "is_read": False, "created_at": notif.created_at.isoformat()})
+                    send_notification_to_user(
+                        admin.id,
+                        {
+                            "id": notif.id,
+                            "title": title,
+                            "message": message,
+                            "event_type": "leave",
+                            "event_id": None,
+                            "target_data": {"route": "/ptb-calendar", "query": {"leaveBatch": str(leave_obj.batch_key)}} if leave_obj.batch_key else {"route": "/ptb-calendar"},
+                            "is_read": False,
+                            "created_at": notif.created_at.isoformat(),
+                        },
+                    )
 
             if agent_employees:
                 agent_emp_ids = [agent.emp_id for agent in agent_employees if agent.emp_id]
@@ -313,13 +329,33 @@ class EmployeeLeaveViewSet(viewsets.ModelViewSet):
                     agent_user = agent_users.get(agent_employee.emp_id.lower())
                     if agent_user:
                         agent_message = f"You have been assigned as agent for {employee_name} on {leave_date}."
-                        agent_notifs.append(Notification(recipient=agent_user, title=agent_title, message=agent_message, event_type="leave"))
+                        agent_notifs.append(
+                            Notification(
+                                recipient=agent_user,
+                                title=agent_title,
+                                message=agent_message,
+                                event_type="leave",
+                                target_data={"route": "/ptb-calendar", "query": {"leaveBatch": str(leave_obj.batch_key)}} if leave_obj.batch_key else {"route": "/ptb-calendar"},
+                            )
+                        )
                         agent_ws.append((agent_user.id, agent_title, agent_message))
 
                 if agent_notifs:
                     created_agents = Notification.objects.bulk_create(agent_notifs)
                     for notif, (uid, atitle, amsg) in zip(created_agents, agent_ws, strict=True):
-                        send_notification_to_user(uid, {"id": notif.id, "title": atitle, "message": amsg, "event_type": "leave", "event_id": None, "is_read": False, "created_at": notif.created_at.isoformat()})
+                        send_notification_to_user(
+                            uid,
+                            {
+                                "id": notif.id,
+                                "title": atitle,
+                                "message": amsg,
+                                "event_type": "leave",
+                                "event_id": None,
+                                "target_data": {"route": "/ptb-calendar", "query": {"leaveBatch": str(leave_obj.batch_key)}} if leave_obj.batch_key else {"route": "/ptb-calendar"},
+                                "is_read": False,
+                                "created_at": notif.created_at.isoformat(),
+                            },
+                        )
 
             try:
                 broadcast_calendar_update("created", "leave", EmployeeLeaveSerializer(leave_obj).data)

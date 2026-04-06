@@ -447,6 +447,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
@@ -469,6 +470,8 @@ const projectStore = useProjectStore()
 const departmentStore = useDepartmentStore()
 const uiStore = useUIStore()
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 
 const { canUpdate: canUpdateOT } = usePagePermission('ot_history')
 const isAdmin = computed(() => authStore.isPtbAdmin && canUpdateOT.value)
@@ -835,6 +838,32 @@ const handleView = (request: OvertimeRequest) => {
 	showViewModal.value = true
 }
 
+const clearRequestQuery = async () => {
+	if (!route.query.requestId) return
+	const nextQuery = { ...route.query }
+	delete nextQuery.requestId
+	await router.replace({ query: nextQuery })
+}
+
+const closeViewModal = () => {
+	showViewModal.value = false
+	viewingRequest.value = null
+	void clearRequestQuery()
+}
+
+const openRequestFromQuery = async () => {
+	const requestId = Number(route.query.requestId)
+	if (!requestId || Number.isNaN(requestId)) return
+
+	try {
+		const request = await overtimeStore.fetchRequestById(requestId)
+		viewingRequest.value = request
+		showViewModal.value = true
+	} catch (error) {
+		console.error('Failed to load overtime request from route query:', error)
+	}
+}
+
 const isUpdatingStatus = ref(false)
 const isBulkUpdating = ref(false)
 type RequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -969,7 +998,7 @@ const formatDate = (dateStr: string) => {
 
 const handleEscKey = (event: KeyboardEvent) => {
 	if (event.key === 'Escape' && showViewModal.value) {
-		showViewModal.value = false
+		closeViewModal()
 	}
 }
 
@@ -996,6 +1025,7 @@ onMounted(async () => {
 	}
 
 	window.addEventListener('keydown', handleEscKey)
+	await openRequestFromQuery()
 })
 
 onBeforeUnmount(() => {

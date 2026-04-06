@@ -153,6 +153,7 @@ class TaskCommentViewSet(TaskAccessMixin, viewsets.ModelViewSet):
                             message=f'{employee.name} mentioned you in a comment on "{task.title}"',
                             event=task,
                             event_type="task_mention",
+                            target_data={"route": "/kanban", "query": {"taskId": task.id}},
                         ),
                     )
                 )
@@ -168,6 +169,7 @@ class TaskCommentViewSet(TaskAccessMixin, viewsets.ModelViewSet):
                             "message": notif.message,
                             "event_type": "task_mention",
                             "event_id": task.id,
+                            "target_data": {"route": "/kanban", "query": {"taskId": task.id}},
                             "is_read": False,
                             "created_at": notif.created_at.isoformat(),
                         },
@@ -631,6 +633,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
                     title=title,
                     message=message,
                     event_type="task_group",
+                    target_data={"route": "/kanban", "query": {"groupId": group.id}},
                 )
             )
             ws_payloads.append(
@@ -640,6 +643,7 @@ class TaskGroupViewSet(viewsets.ModelViewSet):
                         "title": title,
                         "message": message,
                         "event_type": "task_group",
+                        "target_data": {"route": "/kanban", "query": {"groupId": group.id}},
                         "is_read": False,
                     },
                 )

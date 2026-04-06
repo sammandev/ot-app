@@ -57,6 +57,7 @@ import pulseTheme from '@fullcalendar/theme-pulse'
 import FullCalendar from '@fullcalendar/vue3'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 
 import '@fullcalendar/core/skeleton.css'
 
@@ -90,7 +91,7 @@ import { useCalendarHandlers } from '@/composables/calendar/useCalendarHandlers'
 import { useCalendarOptions } from '@/composables/calendar/useCalendarOptions'
 import { useToast } from '@/composables/useToast'
 import { STORAGE_KEY_CALENDAR_THEME, STORAGE_KEY_CALENDAR_VIEW } from '@/constants/storage'
-import type { CalendarEvent } from '@/services/api/calendar'
+import { calendarAPI, type CalendarEvent } from '@/services/api/calendar'
 import { useAuthStore } from '@/stores/auth'
 import { useCalendarStore } from '@/stores/calendar'
 import { useEmployeeStore } from '@/stores/employee'
@@ -104,6 +105,8 @@ const calendarStore = useCalendarStore()
 const employeeStore = useEmployeeStore()
 const projectStore = useProjectStore()
 const authStore = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
 const calendarRef = ref<{ getApi: () => CalendarApi } | null>(null)
 const showForm = ref(false)
@@ -361,10 +364,42 @@ const handleEventClick = (info: EventClickData) => {
 	showForm.value = true
 }
 
+const clearEventQuery = async () => {
+	if (!route.query.eventId) return
+	const nextQuery = { ...route.query }
+	delete nextQuery.eventId
+	await router.replace({ query: nextQuery })
+}
+
 const closeForm = () => {
 	showForm.value = false
 	selectedEvent.value = null
 	selectInfo.value = null
+	void clearEventQuery()
+}
+
+const openEventFromQuery = async () => {
+	const eventId = Number(route.query.eventId)
+	if (!eventId || Number.isNaN(eventId)) return
+
+	try {
+		const event = await calendarAPI.get(eventId)
+		const existingIndex = calendarStore.events.findIndex((item) => item.id === event.id)
+		if (existingIndex === -1) {
+			calendarStore.events = [...calendarStore.events, event]
+		} else {
+			calendarStore.events[existingIndex] = event
+		}
+		await nextTick()
+		syncEventsWithCalendar()
+		const calendarEvent = calendarRef.value?.getApi().getEventById(String(eventId))
+		if (!calendarEvent) return
+		selectedEvent.value = calendarEvent
+		selectInfo.value = null
+		showForm.value = true
+	} catch (error) {
+		console.error('Failed to load calendar event from route query:', error)
+	}
 }
 
 const handleSaveEvent = async (payload: CalendarEventPayload) => {
@@ -481,6 +516,7 @@ onMounted(async () => {
 		projectStore.fetchProjects(),
 	])
 	syncEventsWithCalendar()
+	await openEventFromQuery()
 })
 
 onUnmounted(() => {
