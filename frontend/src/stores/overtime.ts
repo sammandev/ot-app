@@ -12,8 +12,8 @@ import { extractApiError } from '@/utils/extractApiError'
 interface OvertimeFilters {
 	page?: number
 	page_size?: number
-	employee?: number
-	project?: number
+	employee?: number | string
+	project?: number | string
 	status?: string
 	start_date?: string
 	end_date?: string
@@ -333,6 +333,10 @@ export const useOvertimeStore = defineStore('overtime', () => {
 		return overtimeAPI.summaryStats(params)
 	}
 
+	async function fetchAvailableYears() {
+		return overtimeAPI.availableYears()
+	}
+
 	return {
 		// State
 		requests,
@@ -365,5 +369,6 @@ export const useOvertimeStore = defineStore('overtime', () => {
 		fetchEmployeeStats,
 		fetchProjectStats,
 		fetchSummaryStats,
+		fetchAvailableYears,
 	}
 })

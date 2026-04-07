@@ -113,7 +113,7 @@ export const assetAPI = {
 		page?: number
 		page_size?: number
 		search?: string
-		department?: number
+		department?: number | string
 		cost_center?: string
 		status?: string
 		ordering?: string

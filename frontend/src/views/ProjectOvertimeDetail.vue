@@ -33,51 +33,33 @@
 					isFilterSticky ? 'sticky top-16' : 'relative',
 					isStickyBarActive && isFilterSticky
 						? 'z-50 -mx-4 md:-mx-6 lg:border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 shadow-theme-md px-3 py-3 sm:px-4 lg:px-6 lg:py-4'
-						: 'rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]'
+						: 'relative z-20 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900'
 				]">
 					<div class="grid gap-4 lg:grid-cols-4">
 						<!-- Row 1: Project, Date Selection, Year, Month -->
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.project')
 								}}</label>
-							<select v-model="selectedProjectId"
-								class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-								<option v-for="proj in filteredProjectOptions" :key="proj.id" :value="String(proj.id)">
-									{{ proj.name }}
-								</option>
-							</select>
+							<FilterDropdown v-model="selectedProjectIds" :options="projectFilterOptions" :placeholder="t('detail.allProjects')" />
 						</div>
 
 						<div class="space-y-2">
 							<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
 								t('detail.dateSelection')
 							}}</label>
-							<select v-model="dateSelectionType"
-								class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-								<option value="year-month">{{ t('detail.yearMonth') }}</option>
-								<option value="custom">{{ t('detail.customDateRange') }}</option>
-							</select>
+							<SelectDropdown v-model="dateSelectionType" :options="dateSelectionOptions" :placeholder="t('detail.yearMonth')" :searchable="false" />
 						</div>
 
 						<template v-if="dateSelectionType === 'year-month'">
 							<div class="space-y-2">
 								<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.year')
 									}}</label>
-								<select v-model.number="selectedYear" @change="handleYearMonthChange"
-									class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-									<option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-								</select>
+								<SelectDropdown :model-value="String(selectedYear)" @update:model-value="(v: string) => { selectedYear = Number(v); handleYearMonthChange() }" :options="yearFilterOptions" :placeholder="t('detail.year')" :searchable="false" />
 							</div>
 							<div class="space-y-2">
 								<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.month')
 									}}</label>
-								<select v-model="selectedMonth" @change="handleYearMonthChange"
-									class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-									<option value="all">{{ t('detail.allMonths') }}</option>
-									<option v-for="month in months" :key="month.value" :value="month.value">{{
-										month.label
-									}}</option>
-								</select>
+								<FilterDropdown v-model="selectedMonths" :options="monthFilterOptions" :placeholder="t('detail.allMonths')" :searchable="false" />
 							</div>
 						</template>
 
@@ -188,7 +170,7 @@
 							<h3 class="text-base font-semibold text-gray-900 dark:text-white">{{
 								t('detail.topEmployees') }}</h3>
 						</div>
-						<VueApexCharts type="donut" height="280" :options="contributorsChartOptions"
+						<VueApexCharts :type="selectedProjectIds.length > 1 ? 'bar' : 'donut'" :key="'contrib-' + (selectedProjectIds.length > 1 ? 'bar' : 'donut')" height="280" :options="contributorsChartOptions"
 							:series="contributorsChartSeries" />
 					</div>
 				</div>
@@ -401,6 +383,8 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import ChartSkeleton from '@/components/skeletons/ChartSkeleton.vue'
 import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
@@ -547,7 +531,7 @@ const authStore = useAuthStore()
 
 // Filtered and sorted project options for dropdown
 const filteredProjectOptions = computed(() => {
-	let projects = projectStore.projects.filter((proj) => proj.is_enabled !== false)
+	let projects = [...projectStore.projects]
 
 	// For non-admin users, show only projects they have overtime requests for
 	if (!authStore.isPtbAdmin) {
@@ -689,10 +673,20 @@ const months = computed(() => [
 	{ value: 12, label: t('months.december') },
 ])
 
-const availableYears = computed(() => {
-	const current = new Date().getFullYear()
-	return Array.from({ length: 5 }, (_v, i) => current - 2 + i)
-})
+const monthFilterOptions = computed(() =>
+	months.value.map((m) => ({ value: String(m.value), label: m.label })),
+)
+
+const availableYears = ref<number[]>([])
+
+const yearFilterOptions = computed(() =>
+	availableYears.value.map((y) => ({ value: String(y), label: String(y) })),
+)
+
+const dateSelectionOptions = computed(() => [
+	{ value: 'year-month', label: t('detail.yearMonth') },
+	{ value: 'custom', label: t('detail.customDateRange') },
+])
 
 const { flatpickrInstances, attachMonthScroll, destroyFlatpickrs } = useFlatpickrScroll()
 
@@ -714,11 +708,19 @@ const datePickerOptions = {
 // Control flatpickr mounting to prevent "Element not found" error
 const flatpickrReady = ref(false)
 
-const selectedProjectId = ref<string>(initialSelectedProjectId.value)
+const selectedProjectIds = ref<string[]>(
+	initialSelectedProjectId.value ? [initialSelectedProjectId.value] : [],
+)
+const selectedProjectId = computed(() => selectedProjectIds.value[0] || '')
 // Initialize date filter from UI store (persisted state)
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
 const selectedYear = ref(uiStore.dateFilter.selectedYear)
 const selectedMonth = ref<string | number>(uiStore.dateFilter.selectedMonth)
+const selectedMonths = ref<string[]>(
+	uiStore.dateFilter.selectedMonth === 'all' || !uiStore.dateFilter.selectedMonth
+		? []
+		: [String(uiStore.dateFilter.selectedMonth)],
+)
 const customDateRange = ref<string>(
 	uiStore.dateFilter.customDateRange || getCurrentPeriodRange().rangeString,
 )
@@ -726,8 +728,16 @@ const isFilterSticky = ref(true)
 
 // Watch and persist date filter changes to UI store
 watch(
-	[dateSelectionType, selectedYear, selectedMonth, customDateRange],
+	[dateSelectionType, selectedYear, selectedMonths, customDateRange],
 	() => {
+		if (selectedMonths.value.length === 0) {
+			selectedMonth.value = 'all'
+		} else if (selectedMonths.value.length === 1) {
+			selectedMonth.value = Number(selectedMonths.value[0])
+		} else {
+			selectedMonth.value = selectedMonths.value.join(',')
+		}
+
 		uiStore.setDateFilter({
 			selectionType: dateSelectionType.value,
 			selectedYear: selectedYear.value,
@@ -736,6 +746,14 @@ watch(
 		})
 	},
 	{ deep: true },
+)
+
+const projectFilterOptions = computed(() =>
+	filteredProjectOptions.value.map((proj) => ({
+		value: String(proj.id),
+		label: proj.name,
+		dimmed: proj.is_enabled === false,
+	})),
 )
 
 const toggleFilterSticky = () => {
@@ -755,25 +773,28 @@ const selectedProject = computed<ProjectData>(() => {
 	}
 })
 
-watch(selectedProjectId, async (newId) => {
-	const proj = projectsData.value.find((p: ProjectData) => p.id === newId)
-	if (proj && (route.params.id !== proj.id || route.params.slug !== toSlug(proj.name))) {
-		const scrollY = window.scrollY
-		router
-			.replace({
+watch(selectedProjectIds, async (newIds) => {
+	const primaryId = newIds[0]
+	if (primaryId) {
+		const proj = filteredProjectOptions.value.find((p) => String(p.id) === primaryId)
+		if (proj) {
+			const newRoute = {
 				name: 'ProjectOvertimeDetail',
-				params: { id: proj.id, slug: toSlug(proj.name) },
-			})
-			.then(() => {
-				window.scrollTo(0, scrollY)
-			})
-		// Show loading skeleton when project changes
-		isLoading.value = true
-		try {
-			await fetchOvertimeData()
-		} finally {
-			isLoading.value = false
+				params: { id: String(proj.id), slug: toSlug(proj.name) },
+			}
+			if (route.params.id !== String(proj.id) || route.params.slug !== toSlug(proj.name)) {
+				const scrollY = window.scrollY
+				router.replace(newRoute).then(() => {
+					window.scrollTo(0, scrollY)
+				})
+			}
 		}
+	}
+	isLoading.value = true
+	try {
+		await fetchOvertimeData()
+	} finally {
+		isLoading.value = false
 	}
 })
 
@@ -806,32 +827,30 @@ function calculateDateRange(): { start: Date; end: Date } | null {
 
 	const year = Number(selectedYear.value)
 
-	if (selectedMonth.value === 'all') {
+	if (selectedMonths.value.length === 0) {
 		const start = new Date(year - 1, 11, 26)
 		const end = new Date(year, 11, 25)
 		return { start, end }
 	}
 
-	const monthIndex = Number(selectedMonth.value) - 1
-	let startMonth: number
-	let startYear: number
-	let endMonth: number
-	let endYear: number
+	const monthNumbers = selectedMonths.value.map(Number).sort((a, b) => a - b)
+	const firstMonth = monthNumbers[0]
+	const lastMonth = monthNumbers[monthNumbers.length - 1]
 
-	if (monthIndex === 0) {
-		startMonth = 11
-		startYear = year - 1
-		endMonth = 0
-		endYear = year
-	} else {
-		startMonth = monthIndex - 1
-		startYear = year
-		endMonth = monthIndex
-		endYear = year
+	if (firstMonth === undefined || lastMonth === undefined) {
+		const start = new Date(year - 1, 11, 26)
+		const end = new Date(year, 11, 25)
+		return { start, end }
 	}
 
-	const start = new Date(startYear, startMonth, 26)
-	const end = new Date(endYear, endMonth, 25)
+	const firstIdx = firstMonth - 1
+	const lastIdx = lastMonth - 1
+
+	const startMonthIdx = firstIdx === 0 ? 11 : firstIdx - 1
+	const startYear = firstIdx === 0 ? year - 1 : year
+
+	const start = new Date(startYear, startMonthIdx, 26)
+	const end = new Date(year, lastIdx, 25)
 	return { start, end }
 }
 
@@ -847,30 +866,27 @@ const handleYearMonthChange = () => {
 
 const resetToCurrentPeriod = () => {
 	const current = getCurrentPeriodRange()
-	// Stay on Year & Month selection mode (don't change to custom)
 	dateSelectionType.value = 'year-month'
 	customDateRange.value = ''
-	// Use end date (25th) to determine the current period month/year
-	// because the period ends on the 25th of the target month
 	selectedYear.value = current.end.getFullYear()
-	selectedMonth.value = current.end.getMonth() + 1
+	selectedMonths.value = [String(current.end.getMonth() + 1)]
 }
 
 const fetchOvertimeData = async () => {
 	const range = calculateDateRange() || getCurrentPeriodRange()
-	const projId = Number(selectedProjectId.value)
+	const projIds = selectedProjectIds.value.map(Number).filter(Boolean)
 	await overtimeStore.fetchAllRequests(
 		{
 			start_date: formatYMD(range.start),
 			end_date: formatYMD(range.end),
 			page_size: 500,
 			ordering: '-request_date',
-			...(projId ? { project: projId } : {}),
+			...(projIds.length ? { project: projIds.join(',') } : {}),
 		},
 	)
 }
 
-watch([dateSelectionType, customDateRange, selectedYear, selectedMonth], async () => {
+watch([dateSelectionType, customDateRange, selectedYear, selectedMonths], async () => {
 	isLoading.value = true
 	try {
 		await fetchOvertimeData()
@@ -908,11 +924,21 @@ onMounted(async () => {
 
 	// Load API data with error handling
 	try {
-		await Promise.all([
+		const [, , , years] = await Promise.all([
 			employeeStore.fetchEmployees(),
 			projectStore.fetchProjects(),
 			fetchOvertimeData(),
+			overtimeStore.fetchAvailableYears(),
 		])
+		if (years.length > 0) {
+			availableYears.value = years
+			if (!years.includes(selectedYear.value)) {
+				selectedYear.value = years[years.length - 1] ?? new Date().getFullYear()
+			}
+		} else {
+			const current = new Date().getFullYear()
+			availableYears.value = [current]
+		}
 	} catch (error) {
 		console.error('Failed to load data:', error)
 	} finally {
@@ -926,32 +952,145 @@ onUnmounted(() => {
 	destroyFlatpickrs()
 })
 
-const summaryCards = computed<SummaryCard[]>(() => {
-	const proj = selectedProject.value
-	if (!proj || !proj.id) {
-		return [
-			{ title: t('detail.totalOvertimeHours'), value: '0h', trend: 0 },
-			{ title: t('detail.avgHoursPerRequest'), value: '0h', trend: 0 },
-			{ title: t('detail.totalRequests'), value: '0', trend: 0 },
-			{ title: t('detail.activeEmployees'), value: '0', trend: 0 },
-		]
+const trendGranularities = ['Days', 'Weeks', 'Months'] as const
+type TrendGranularity = (typeof trendGranularities)[number]
+const selectedTrendGranularity = ref<TrendGranularity>('Weeks')
+
+// Use API data from stores already initialized above
+const phRequests = computed(() => {
+	const ids = new Set(selectedProjectIds.value)
+	if (ids.size === 0) return []
+	return overtimeStore.requests.filter((r) => ids.has(String(r.project)))
+})
+
+const phFilteredRequests = computed(() => {
+	const range = calculateDateRange()
+	if (!range) return phRequests.value
+	return phRequests.value.filter((r) => {
+		const d = new Date(r.request_date)
+		return d >= range.start && d <= range.end
+	})
+})
+
+const getTrendData = computed(() => {
+	const range = calculateDateRange()
+	const requests = overtimeStore.requests
+	const ids = selectedProjectIds.value
+
+	// Helper: compute hourly data for one project
+	function computeForProject(projId: string): number[] {
+		const projRequests = requests.filter((req) => {
+			if (String(req.project) !== projId) return false
+			if (req.status === 'rejected') return false
+			if (!req.request_date) return false
+			if (!range) return true
+			const d = new Date(req.request_date)
+			return d >= range.start && d <= range.end
+		})
+
+		if (selectedTrendGranularity.value === 'Days') {
+			const data: number[] = []
+			if (range) {
+				const dayMs = 24 * 60 * 60 * 1000
+				const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
+				for (let i = 0; i < days; i++) {
+					const dayStart = new Date(range.start.getTime() + i * dayMs)
+					dayStart.setHours(0, 0, 0, 0)
+					const dayEnd = new Date(dayStart)
+					dayEnd.setHours(23, 59, 59, 999)
+					const dayHours = projRequests
+						.filter((r) => { const d = new Date(r.request_date); return d >= dayStart && d <= dayEnd })
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(dayHours.toFixed(2)))
+				}
+			}
+			return data
+		} else if (selectedTrendGranularity.value === 'Weeks') {
+			const data: number[] = []
+			if (range) {
+				const weekMs = 7 * 24 * 60 * 60 * 1000
+				const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
+				for (let i = 0; i < weeks; i++) {
+					const weekStart = new Date(range.start.getTime() + i * weekMs)
+					weekStart.setHours(0, 0, 0, 0)
+					const weekEnd = new Date(weekStart.getTime() + weekMs - 1)
+					const weekHours = projRequests
+						.filter((r) => { const d = new Date(r.request_date); return d >= weekStart && d <= weekEnd })
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(weekHours.toFixed(2)))
+				}
+			}
+			return data
+		} else {
+			const data: number[] = []
+			if (range) {
+				const periodBuckets = generatePeriodBuckets(range.start, range.end)
+				for (const bucket of periodBuckets) {
+					const periodHours = projRequests
+						.filter((r) => {
+							const reqPeriod = getPeriodForDate(new Date(r.request_date))
+							return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
+						})
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(periodHours.toFixed(2)))
+				}
+			}
+			return data
+		}
 	}
-	// Use actual trend data from real requests (not interpolated)
-	const realTrend = proj.trend || []
-	const totalHours = realTrend.reduce((sum, val) => sum + val, 0)
-	const totalRequests = proj.employees.reduce((sum, emp) => sum + emp.requests, 0)
+
+	// Compute categories (shared across all projects)
+	let categories: string[] = []
+	if (range) {
+		if (selectedTrendGranularity.value === 'Days') {
+			const dayMs = 24 * 60 * 60 * 1000
+			const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
+			categories = Array.from({ length: days }, (_, i) => {
+				const d = new Date(range.start.getTime() + i * dayMs)
+				return `${d.getMonth() + 1}/${d.getDate()}`
+			})
+		} else if (selectedTrendGranularity.value === 'Weeks') {
+			const weekMs = 7 * 24 * 60 * 60 * 1000
+			const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
+			categories = Array.from({ length: weeks }, (_, i) => `Week ${i + 1}`)
+		} else {
+			const periodBuckets = generatePeriodBuckets(range.start, range.end)
+			categories = periodBuckets.map((b) => b.label)
+		}
+	}
+
+	// Compute series per selected project
+	const series = ids.map((projId) => {
+		const proj = filteredProjectOptions.value.find((p) => String(p.id) === projId)
+		return { name: proj?.name || `Project ${projId}`, data: computeForProject(projId) }
+	})
+
+	return { series, categories }
+})
+
+const summaryCards = computed<SummaryCard[]>(() => {
+	const trendData = getTrendData.value
+	const bucketCount = trendData.categories.length
+	const bucketSums = Array.from({ length: bucketCount }, (_, i) =>
+		trendData.series.reduce((sum, s) => sum + (s.data[i] || 0), 0),
+	)
+	const totalHours = bucketSums.reduce((sum, v) => sum + v, 0)
+	const totalRequests = phFilteredRequests.value.length
 	const avgHoursPerRequest = totalRequests ? totalHours / totalRequests : 0
 
-	// Calculate previous period for trend
-	const midPoint = Math.floor(realTrend.length / 2)
-	const currentPeriodHours = realTrend.slice(midPoint).reduce((s, v) => s + v, 0)
-	const previousPeriodHours = realTrend.slice(0, midPoint).reduce((s, v) => s + v, 0)
+	const midPoint = Math.floor(bucketSums.length / 2)
+	const currentPeriodHours = bucketSums.slice(midPoint).reduce((s, v) => s + v, 0)
+	const previousPeriodHours = bucketSums.slice(0, midPoint).reduce((s, v) => s + v, 0)
 	const hoursTrend =
 		previousPeriodHours === 0
 			? currentPeriodHours > 0
 				? 100
 				: 0
 			: ((currentPeriodHours - previousPeriodHours) / previousPeriodHours) * 100
+
+	const uniqueEmployees = new Set(
+		phFilteredRequests.value.filter((r) => r.employee).map((r) => r.employee),
+	)
 
 	return [
 		{
@@ -967,106 +1106,18 @@ const summaryCards = computed<SummaryCard[]>(() => {
 		{ title: t('detail.totalRequests'), value: `${totalRequests}`, trend: 0 },
 		{
 			title: t('detail.activeEmployees'),
-			value: `${proj.employees.length}`,
+			value: `${uniqueEmployees.size}`,
 			trend: 0,
 		},
 	]
 })
 
-const trendGranularities = ['Days', 'Weeks', 'Months'] as const
-type TrendGranularity = (typeof trendGranularities)[number]
-const selectedTrendGranularity = ref<TrendGranularity>('Months')
+const PROJECT_COLORS = [
+	'#465fff', '#22c55e', '#f97316', '#ef4444', '#8b5cf6',
+	'#06b6d4', '#ec4899', '#eab308', '#14b8a6', '#6366f1',
+]
 
-const getTrendData = computed(() => {
-	const range = calculateDateRange()
-	const requests = overtimeStore.requests
-	const projectId = selectedProject.value?.id
-
-	// Filter requests for this project within the date range
-	const projRequests = requests.filter((req) => {
-		if (String(req.project) !== projectId) return false
-		if (req.status === 'rejected') return false
-		if (!req.request_date) return false
-		if (!range) return true
-		const d = new Date(req.request_date)
-		return d >= range.start && d <= range.end
-	})
-
-	if (selectedTrendGranularity.value === 'Days') {
-		// Group by day
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const dayMs = 24 * 60 * 60 * 1000
-			const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
-
-			for (let i = 0; i < days; i++) {
-				const dayStart = new Date(range.start.getTime() + i * dayMs)
-				dayStart.setHours(0, 0, 0, 0)
-				const dayEnd = new Date(dayStart)
-				dayEnd.setHours(23, 59, 59, 999)
-
-				const dayRequests = projRequests.filter((r) => {
-					const d = new Date(r.request_date)
-					return d >= dayStart && d <= dayEnd
-				})
-				const dayHours = dayRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(`${dayStart.getMonth() + 1}/${dayStart.getDate()}`)
-				data.push(Number(dayHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	} else if (selectedTrendGranularity.value === 'Weeks') {
-		// Group by week
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const weekMs = 7 * 24 * 60 * 60 * 1000
-			const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
-
-			for (let i = 0; i < weeks; i++) {
-				const weekStart = new Date(range.start.getTime() + i * weekMs)
-				weekStart.setHours(0, 0, 0, 0)
-				const weekEnd = new Date(weekStart.getTime() + weekMs - 1)
-
-				const weekRequests = projRequests.filter((r) => {
-					const d = new Date(r.request_date)
-					return d >= weekStart && d <= weekEnd
-				})
-				const weekHours = weekRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(`Week ${i + 1}`)
-				data.push(Number(weekHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	} else {
-		// Group by period (26th-25th) for accurate overtime tracking
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const periodBuckets = generatePeriodBuckets(range.start, range.end)
-
-			for (const bucket of periodBuckets) {
-				const periodRequests = projRequests.filter((r) => {
-					const reqPeriod = getPeriodForDate(new Date(r.request_date))
-					return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
-				})
-				const periodHours = periodRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(bucket.label)
-				data.push(Number(periodHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	}
-})
-
-const trendChartSeries = computed(() => [{ name: 'Hours', data: getTrendData.value.data }])
+const trendChartSeries = computed(() => getTrendData.value.series)
 const trendChartOptions = computed<ApexOptions>(() => ({
 	chart: {
 		fontFamily: 'Outfit, sans-serif',
@@ -1098,9 +1149,10 @@ const trendChartOptions = computed<ApexOptions>(() => ({
 			},
 		},
 	},
-	colors: ['#465fff'],
+	colors: PROJECT_COLORS.slice(0, Math.max(1, selectedProjectIds.value.length)),
 	plotOptions: { bar: { borderRadius: 6, columnWidth: '45%' } },
 	dataLabels: { enabled: false },
+	legend: { show: selectedProjectIds.value.length > 1, position: 'top' },
 	xaxis: {
 		categories: getTrendData.value.categories,
 		title: {
@@ -1116,63 +1168,130 @@ const trendChartOptions = computed<ApexOptions>(() => ({
 	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
 }))
 
-const phFilteredRequests = computed(() => {
-	const range = calculateDateRange()
-	if (!range) return phRequests.value
-	return phRequests.value.filter((r) => {
-		const d = new Date(r.request_date)
-		return d >= range.start && d <= range.end
-	})
-})
+const isMultiProject = computed(() => selectedProjectIds.value.length > 1)
 
 const contributorsChartSeries = computed(() => {
-	if (!selectedProject.value || !selectedProject.value.id) return []
-	const fullHours = selectedProject.value.employees.reduce((s, e) => s + e.hours, 0)
-	const filteredHours = getTrendData.value.data.reduce((s, v) => s + v, 0)
-	const ratio = fullHours > 0 ? filteredHours / fullHours : 1
-	return selectedProject.value.employees.map((e) => e.hours * ratio)
+	if (isMultiProject.value) {
+		// Grouped bar: one series per project, data = hours per employee
+		// Collect all unique employees across all selected projects
+		const allEmployeeIds = new Set<number>()
+		for (const req of phFilteredRequests.value) {
+			if (req.employee) allEmployeeIds.add(req.employee)
+		}
+		const employeeIds = Array.from(allEmployeeIds)
+		return selectedProjectIds.value.map((projId) => {
+			const proj = filteredProjectOptions.value.find((p) => String(p.id) === projId)
+			const empHoursMap = new Map<number, number>()
+			phFilteredRequests.value
+				.filter((r) => String(r.project) === projId && r.employee)
+				.forEach((r) => {
+					empHoursMap.set(r.employee, (empHoursMap.get(r.employee) || 0) + normalizeHours(r.total_hours))
+				})
+			return {
+				name: proj?.name || `Project ${projId}`,
+				data: employeeIds.map((eId) => Number((empHoursMap.get(eId) || 0).toFixed(2))),
+			}
+		})
+	}
+	// Donut: flat array of hours per employee
+	const employeeMap = new Map<number, number>()
+	for (const req of phFilteredRequests.value) {
+		if (!req.employee) continue
+		const hours = normalizeHours(req.total_hours)
+		employeeMap.set(req.employee, (employeeMap.get(req.employee) || 0) + hours)
+	}
+	return Array.from(employeeMap.values())
 })
-const contributorsChartOptions = computed<ApexOptions>(() => ({
-	chart: {
-		fontFamily: 'Outfit, sans-serif',
-		toolbar: {
-			show: true,
-			tools: {
-				download: true,
-				selection: false,
-				zoom: false,
-				zoomin: false,
-				zoomout: false,
-				pan: false,
-				reset: false,
-			},
-			export: {
-				csv: {
-					filename: `project-${(selectedProject.value?.name || 'unknown').replace(/\s+/g, '-')}-contributors`,
-					headerCategory: 'Employee',
-				},
-				svg: { filename: `project-contributors` },
-				png: { filename: `project-contributors` },
-			},
+const contributorsChartOptions = computed<ApexOptions>(() => {
+	const baseToolbar = {
+		show: true,
+		tools: {
+			download: true,
+			selection: false,
+			zoom: false,
+			zoomin: false,
+			zoomout: false,
+			pan: false,
+			reset: false,
 		},
-	},
-	labels: (selectedProject.value?.employees || []).map((e) => e.name),
-	colors: ['#6366f1', '#22c55e', '#f97316', '#3b82f6', '#a855f7'],
-	legend: { position: 'bottom' },
-	dataLabels: { enabled: false },
-	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
-}))
+		export: {
+			csv: {
+				filename: `project-${(selectedProject.value?.name || 'unknown').replace(/\s+/g, '-')}-contributors`,
+				headerCategory: 'Employee',
+			},
+			svg: { filename: `project-contributors` },
+			png: { filename: `project-contributors` },
+		},
+	}
+
+	if (isMultiProject.value) {
+		// Grouped bar config: employee names as categories
+		const allEmployeeIds = new Set<number>()
+		for (const req of phFilteredRequests.value) {
+			if (req.employee) allEmployeeIds.add(req.employee)
+		}
+		const employeeNames = Array.from(allEmployeeIds).map(
+			(eId) => employeeNameMap.value.get(eId) || `Employee ${eId}`,
+		)
+		return {
+			chart: { fontFamily: 'Outfit, sans-serif', toolbar: baseToolbar },
+			colors: PROJECT_COLORS.slice(0, selectedProjectIds.value.length),
+			plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
+			dataLabels: { enabled: false },
+			legend: { show: true, position: 'top' },
+			xaxis: {
+				categories: employeeNames,
+				labels: { rotateAlways: true, rotate: -20 },
+			},
+			yaxis: {
+				title: { text: 'Overtime Hours (h)', style: { fontWeight: 600 } },
+				labels: { formatter: (val: number) => Math.floor(val).toString() },
+			},
+			grid: { borderColor: 'rgba(148,163,184,0.2)' },
+			tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
+		}
+	}
+
+	return {
+		chart: { fontFamily: 'Outfit, sans-serif', toolbar: baseToolbar },
+		labels: (() => {
+			const employeeMap = new Map<number, string>()
+			for (const req of phFilteredRequests.value) {
+				if (!req.employee) continue
+				if (!employeeMap.has(req.employee)) {
+					employeeMap.set(req.employee, employeeNameMap.value.get(req.employee) || req.employee_name || `Employee ${req.employee}`)
+				}
+			}
+			return Array.from(employeeMap.values())
+		})(),
+		colors: ['#6366f1', '#22c55e', '#f97316', '#3b82f6', '#a855f7'],
+		legend: { position: 'bottom' },
+		dataLabels: { enabled: false },
+		tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
+	}
+})
 
 const topEmployees = computed(() => {
-	if (!selectedProject.value || !selectedProject.value.id) return []
-	const fullHours = selectedProject.value.employees.reduce((s, e) => s + e.hours, 0)
-	const filteredHours = getTrendData.value.data.reduce((s, v) => s + v, 0)
-	const ratio = fullHours > 0 ? filteredHours / fullHours : 1
-	return selectedProject.value.employees.map((emp) => ({
-		...emp,
-		hours: emp.hours * ratio,
-		slug: toSlug(emp.name),
-	}))
+	const employeeMap = new Map<number, { id: string; name: string; hours: number; requests: number }>()
+	for (const req of phFilteredRequests.value) {
+		if (!req.employee) continue
+		const hours = normalizeHours(req.total_hours)
+		const existing = employeeMap.get(req.employee)
+		if (existing) {
+			existing.hours += hours
+			existing.requests += 1
+		} else {
+			employeeMap.set(req.employee, {
+				id: String(req.employee),
+				name: employeeNameMap.value.get(req.employee) || req.employee_name || `Employee ${req.employee}`,
+				hours,
+				requests: 1,
+			})
+		}
+	}
+	return Array.from(employeeMap.values())
+		.map((emp) => ({ ...emp, hours: Number(emp.hours.toFixed(2)), slug: toSlug(emp.name) }))
+		.sort((a, b) => b.hours - a.hours)
 })
 const tcPageSizeOptions = [5, 10, 20, 50]
 const tcPageSize = ref(5)
@@ -1199,12 +1318,33 @@ watch([tcPageSize, () => topEmployees.value.length], () => {
 	tcCurrentPage.value = 1
 })
 
-const employeesChartSeries = computed(() => [
-	{ name: 'Hours', data: topEmployees.value.map((e) => e.hours) },
-])
+const employeesChartSeries = computed(() => {
+	if (isMultiProject.value) {
+		// Stacked bar: one series per project, data = hours per employee
+		const employeeNames = topEmployees.value.map((e) => e.name)
+		return selectedProjectIds.value.map((projId) => {
+			const proj = filteredProjectOptions.value.find((p) => String(p.id) === projId)
+			const empHoursMap = new Map<string, number>()
+			phFilteredRequests.value
+				.filter((r) => String(r.project) === projId && r.employee)
+				.forEach((r) => {
+					const eName = employeeNameMap.value.get(r.employee) || r.employee_name || `Employee ${r.employee}`
+					empHoursMap.set(eName, (empHoursMap.get(eName) || 0) + normalizeHours(r.total_hours))
+				})
+			return {
+				name: proj?.name || `Project ${projId}`,
+				data: employeeNames.map((en) => Number((empHoursMap.get(en) || 0).toFixed(2))),
+			}
+		})
+	}
+	return [
+		{ name: 'Hours', data: topEmployees.value.map((e) => e.hours) },
+	]
+})
 const employeesChartOptions = computed<ApexOptions>(() => ({
 	chart: {
 		fontFamily: 'Outfit, sans-serif',
+		stacked: isMultiProject.value,
 		toolbar: {
 			show: true,
 			tools: {
@@ -1226,11 +1366,14 @@ const employeesChartOptions = computed<ApexOptions>(() => ({
 			},
 		},
 	},
-	colors: ['#465fff'],
+	colors: isMultiProject.value
+		? PROJECT_COLORS.slice(0, selectedProjectIds.value.length)
+		: ['#465fff'],
 	plotOptions: {
 		bar: { borderRadius: 6, columnWidth: '45%', horizontal: false },
 	},
 	dataLabels: { enabled: false },
+	legend: { show: isMultiProject.value, position: 'top' },
 	xaxis: {
 		categories: topEmployees.value.map((e) => e.name),
 		labels: { rotateAlways: true, rotate: -20 },
@@ -1245,13 +1388,6 @@ const employeesChartOptions = computed<ApexOptions>(() => ({
 	grid: { borderColor: 'rgba(148,163,184,0.2)' },
 	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
 }))
-
-// Use API data from stores already initialized above
-const phRequests = computed(() => {
-	const projectId = selectedProject.value?.id
-	if (!projectId) return []
-	return overtimeStore.requests.filter((r) => String(r.project) === projectId)
-})
 
 import { getSortIcon as _getSortIcon } from '@/utils/getSortIcon'
 

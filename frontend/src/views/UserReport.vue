@@ -82,13 +82,8 @@
                                 <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                     Priority
                                 </label>
-                                <select v-model="form.priority"
-                                    class="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="critical">Critical</option>
-                                </select>
+                                <SelectDropdown v-model="form.priority" :options="priorityOptions"
+                                    placeholder="Priority" :searchable="false" />
                             </div>
 
                             <!-- Description -->
@@ -218,6 +213,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import { useConfirmDialog } from '@/composables/useConfirmDialog'
 import { useToast } from '@/composables/useToast'
 import { type UserReportData, userReportAPI } from '@/services/api/user-report'
@@ -230,6 +226,13 @@ const { showToast } = useToast()
 const typeOptions = [
 	{ value: 'bug', label: 'Bug Report', icon: '🐛' },
 	{ value: 'feature', label: 'Feature Request', icon: '💡' },
+]
+
+const priorityOptions = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+    { value: 'critical', label: 'Critical' },
 ]
 
 const form = reactive({

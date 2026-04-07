@@ -33,47 +33,29 @@
           isFilterSticky ? 'sticky top-16' : 'relative',
           isStickyBarActive && isFilterSticky
             ? 'z-50 -mx-4 md:-mx-6 lg:border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 shadow-theme-md px-3 py-3 sm:px-4 lg:px-6 lg:py-4'
-            : 'rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]'
+            : 'relative z-20 rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900'
         ]">
           <div class="grid gap-4 lg:grid-cols-4">
             <!-- Row 1: Employee, Date Selection, Year, Month -->
             <div class="space-y-2">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.employee') }}</label>
-              <select v-model="selectedEmployeeId"
-                class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option v-for="emp in filteredEmployeeOptions" :key="emp.id" :value="String(emp.id)">{{
-                  emp.name }}
-                </option>
-              </select>
+              <FilterDropdown v-model="selectedEmployeeIds" :options="employeeFilterOptions" :placeholder="t('detail.allEmployees')" />
             </div>
 
             <div class="space-y-2">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.dateSelection')
               }}</label>
-              <select v-model="dateSelectionType"
-                class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option value="year-month">{{ t('detail.yearMonth') }}</option>
-                <option value="custom">{{ t('detail.customDateRange') }}</option>
-              </select>
+              <SelectDropdown v-model="dateSelectionType" :options="dateSelectionOptions" :placeholder="t('detail.yearMonth')" :searchable="false" />
             </div>
 
             <template v-if="dateSelectionType === 'year-month'">
               <div class="space-y-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.year') }}</label>
-                <select v-model.number="selectedYear" @change="handleYearMonthChange"
-                  class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                  <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-                </select>
+                <SelectDropdown :model-value="String(selectedYear)" @update:model-value="(v: string) => { selectedYear = Number(v); handleYearMonthChange() }" :options="yearFilterOptions" :placeholder="t('detail.year')" :searchable="false" />
               </div>
               <div class="space-y-2">
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('detail.month') }}</label>
-                <select v-model="selectedMonth" @change="handleYearMonthChange"
-                  class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                  <option value="all">{{ t('detail.allMonths') }}</option>
-                  <option v-for="month in months" :key="month.value" :value="month.value">{{
-                    month.label
-                    }}</option>
-                </select>
+                <FilterDropdown v-model="selectedMonths" :options="monthFilterOptions" :placeholder="t('detail.allMonths')" :searchable="false" />
               </div>
             </template>
 
@@ -178,7 +160,7 @@
             <div class="flex items-center justify-between pb-3">
               <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('detail.overtimeByType') }}</h3>
             </div>
-            <VueApexCharts type="donut" height="280" :options="typeChartOptions" :series="typeChartSeries" />
+            <VueApexCharts :type="selectedEmployeeIds.length > 1 ? 'bar' : 'donut'" :key="'type-' + (selectedEmployeeIds.length > 1 ? 'bar' : 'donut')" height="280" :options="typeChartOptions" :series="typeChartSeries" />
           </div>
         </div>
 
@@ -356,6 +338,8 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import PageBreadcrumb from '@/components/common/PageBreadcrumb.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import ChartSkeleton from '@/components/skeletons/ChartSkeleton.vue'
 import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
@@ -408,7 +392,7 @@ const authStore = useAuthStore()
 
 // Filtered and sorted employee options for dropdown
 const filteredEmployeeOptions = computed(() => {
-	let employees = employeeStore.employees.filter((emp) => emp.is_enabled !== false)
+	let employees = [...employeeStore.employees]
 
 	// For non-admin users, show only their own data
 	if (!authStore.isPtbAdmin) {
@@ -656,10 +640,20 @@ const months = computed(() => [
 	{ value: 12, label: t('months.december') },
 ])
 
-const availableYears = computed(() => {
-	const current = new Date().getFullYear()
-	return Array.from({ length: 5 }, (_v, i) => current - 2 + i)
-})
+const monthFilterOptions = computed(() =>
+	months.value.map((m) => ({ value: String(m.value), label: m.label })),
+)
+
+const availableYears = ref<number[]>([])
+
+const yearFilterOptions = computed(() =>
+	availableYears.value.map((y) => ({ value: String(y), label: String(y) })),
+)
+
+const dateSelectionOptions = computed(() => [
+	{ value: 'year-month', label: t('detail.yearMonth') },
+	{ value: 'custom', label: t('detail.customDateRange') },
+])
 
 const { flatpickrInstances, attachMonthScroll, destroyFlatpickrs } = useFlatpickrScroll()
 
@@ -675,11 +669,19 @@ const datePickerOptions = {
 // Control flatpickr mounting to prevent "Element not found" error
 const flatpickrReady = ref(false)
 
-const selectedEmployeeId = ref<string>(initialSelectedEmployeeId.value)
+const selectedEmployeeIds = ref<string[]>(
+	initialSelectedEmployeeId.value ? [initialSelectedEmployeeId.value] : [],
+)
+const selectedEmployeeId = computed(() => selectedEmployeeIds.value[0] || '')
 // Initialize date filter from UI store (persisted state)
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
 const selectedYear = ref(uiStore.dateFilter.selectedYear)
 const selectedMonth = ref<string | number>(uiStore.dateFilter.selectedMonth)
+const selectedMonths = ref<string[]>(
+	uiStore.dateFilter.selectedMonth === 'all' || !uiStore.dateFilter.selectedMonth
+		? []
+		: [String(uiStore.dateFilter.selectedMonth)],
+)
 const customDateRange = ref<string>(
 	uiStore.dateFilter.customDateRange || getCurrentPeriodRange().rangeString,
 )
@@ -687,8 +689,17 @@ const isFilterSticky = ref(true)
 
 // Watch and persist date filter changes to UI store
 watch(
-	[dateSelectionType, selectedYear, selectedMonth, customDateRange],
+	[dateSelectionType, selectedYear, selectedMonths, customDateRange],
 	() => {
+		// Sync selectedMonths to legacy selectedMonth for uiStore
+		if (selectedMonths.value.length === 0) {
+			selectedMonth.value = 'all'
+		} else if (selectedMonths.value.length === 1) {
+			selectedMonth.value = Number(selectedMonths.value[0])
+		} else {
+			selectedMonth.value = selectedMonths.value.join(',')
+		}
+
 		uiStore.setDateFilter({
 			selectionType: dateSelectionType.value,
 			selectedYear: selectedYear.value,
@@ -699,6 +710,14 @@ watch(
 	{ deep: true },
 )
 
+const employeeFilterOptions = computed(() =>
+	filteredEmployeeOptions.value.map((emp) => ({
+		value: String(emp.id),
+		label: emp.name,
+		dimmed: emp.is_enabled === false,
+	})),
+)
+
 const toggleFilterSticky = () => {
 	isFilterSticky.value = !isFilterSticky.value
 }
@@ -707,7 +726,6 @@ const selectedEmployee = computed<EmployeeData>(() => {
 	const found = employeesData.value.find((emp: EmployeeData) => emp.id === selectedEmployeeId.value)
 	if (found) return found
 	if (employeesData.value.length > 0) return employeesData.value[0] as EmployeeData
-	// Return a default empty employee to prevent undefined errors
 	return {
 		id: '',
 		name: '',
@@ -719,26 +737,28 @@ const selectedEmployee = computed<EmployeeData>(() => {
 	} as EmployeeData
 })
 
-watch(selectedEmployeeId, async (newId) => {
-	const emp = employeesData.value.find((e: EmployeeData) => e.id === newId)
-	if (emp) {
-		const newRoute = {
-			name: 'EmployeeOvertimeDetail',
-			params: { id: emp.id, slug: toSlug(emp.name) },
+watch(selectedEmployeeIds, async (newIds) => {
+	const primaryId = newIds[0]
+	if (primaryId) {
+		const emp = filteredEmployeeOptions.value.find((e) => String(e.id) === primaryId)
+		if (emp) {
+			const newRoute = {
+				name: 'EmployeeOvertimeDetail',
+				params: { id: String(emp.id), slug: toSlug(emp.name) },
+			}
+			if (route.params.id !== String(emp.id) || route.params.slug !== toSlug(emp.name)) {
+				const scrollY = window.scrollY
+				router.replace(newRoute).then(() => {
+					window.scrollTo(0, scrollY)
+				})
+			}
 		}
-		if (route.params.id !== emp.id || route.params.slug !== toSlug(emp.name)) {
-			const scrollY = window.scrollY
-			router.replace(newRoute).then(() => {
-				window.scrollTo(0, scrollY)
-			})
-		}
-		// Show loading skeleton when employee changes
-		isLoading.value = true
-		try {
-			await fetchOvertimeData()
-		} finally {
-			isLoading.value = false
-		}
+	}
+	isLoading.value = true
+	try {
+		await fetchOvertimeData()
+	} finally {
+		isLoading.value = false
 	}
 })
 
@@ -771,32 +791,30 @@ function calculateDateRange(): { start: Date; end: Date } | null {
 
 	const year = Number(selectedYear.value)
 
-	if (selectedMonth.value === 'all') {
+	if (selectedMonths.value.length === 0) {
 		const start = new Date(year - 1, 11, 26)
 		const end = new Date(year, 11, 25)
 		return { start, end }
 	}
 
-	const monthIndex = Number(selectedMonth.value) - 1
-	let startMonth: number
-	let startYear: number
-	let endMonth: number
-	let endYear: number
+	const monthNumbers = selectedMonths.value.map(Number).sort((a, b) => a - b)
+	const firstMonth = monthNumbers[0]
+	const lastMonth = monthNumbers[monthNumbers.length - 1]
 
-	if (monthIndex === 0) {
-		startMonth = 11
-		startYear = year - 1
-		endMonth = 0
-		endYear = year
-	} else {
-		startMonth = monthIndex - 1
-		startYear = year
-		endMonth = monthIndex
-		endYear = year
+	if (firstMonth === undefined || lastMonth === undefined) {
+		const start = new Date(year - 1, 11, 26)
+		const end = new Date(year, 11, 25)
+		return { start, end }
 	}
 
-	const start = new Date(startYear, startMonth, 26)
-	const end = new Date(endYear, endMonth, 25)
+	const firstIdx = firstMonth - 1
+	const lastIdx = lastMonth - 1
+
+	const startMonthIdx = firstIdx === 0 ? 11 : firstIdx - 1
+	const startYear = firstIdx === 0 ? year - 1 : year
+
+	const start = new Date(startYear, startMonthIdx, 26)
+	const end = new Date(year, lastIdx, 25)
 	return { start, end }
 }
 
@@ -812,30 +830,27 @@ const handleYearMonthChange = () => {
 
 const resetToCurrentPeriod = () => {
 	const current = getCurrentPeriodRange()
-	// Stay on Year & Month selection mode (don't change to custom)
 	dateSelectionType.value = 'year-month'
 	customDateRange.value = ''
-	// Use end date (25th) to determine the current period month/year
-	// because the period ends on the 25th of the target month
 	selectedYear.value = current.end.getFullYear()
-	selectedMonth.value = current.end.getMonth() + 1
+	selectedMonths.value = [String(current.end.getMonth() + 1)]
 }
 
 const fetchOvertimeData = async () => {
 	const range = calculateDateRange() || getCurrentPeriodRange()
-	const empId = Number(selectedEmployeeId.value)
+	const empIds = selectedEmployeeIds.value.map(Number).filter(Boolean)
 	await overtimeStore.fetchAllRequests(
 		{
 			start_date: formatYMD(range.start),
 			end_date: formatYMD(range.end),
 			page_size: 500,
 			ordering: '-request_date',
-			...(empId ? { employee: empId } : {}),
+			...(empIds.length ? { employee: empIds.join(',') } : {}),
 		},
 	)
 }
 
-watch([dateSelectionType, customDateRange, selectedYear, selectedMonth], async () => {
+watch([dateSelectionType, customDateRange, selectedYear, selectedMonths], async () => {
 	isLoading.value = true
 	try {
 		await fetchOvertimeData()
@@ -869,11 +884,21 @@ onMounted(async () => {
 	flatpickrReady.value = true
 
 	// Load API data
-	await Promise.all([
+	const [, , , years] = await Promise.all([
 		fetchOvertimeData(),
 		projectStore.fetchProjects(),
 		employeeStore.fetchEmployees(),
+		overtimeStore.fetchAvailableYears(),
 	])
+	if (years.length > 0) {
+		availableYears.value = years
+		if (!years.includes(selectedYear.value)) {
+			selectedYear.value = years[years.length - 1] ?? new Date().getFullYear()
+		}
+	} else {
+		const current = new Date().getFullYear()
+		availableYears.value = [current]
+	}
 })
 onUnmounted(() => {
 	window.removeEventListener('scroll', updateStickyState)
@@ -881,25 +906,145 @@ onUnmounted(() => {
 	destroyFlatpickrs()
 })
 
+const trendGranularities = ['Days', 'Weeks', 'Months'] as const
+type TrendGranularity = (typeof trendGranularities)[number]
+const selectedTrendGranularity = ref<TrendGranularity>('Weeks')
+
+const ehRequests = computed(() => {
+	const ids = new Set(selectedEmployeeIds.value)
+	if (ids.size === 0) return []
+	return overtimeStore.requests.filter((r) => ids.has(String(r.employee)))
+})
+
+const filteredRequests = computed(() => {
+	const range = calculateDateRange()
+	if (!range) return ehRequests.value
+	return ehRequests.value.filter((r) => {
+		const d = new Date(r.request_date)
+		return d >= range.start && d <= range.end
+	})
+})
+
+const getTrendData = computed(() => {
+	const range = calculateDateRange()
+	const requests = overtimeStore.requests
+	const ids = selectedEmployeeIds.value
+
+	// Helper: compute hourly data for one employee
+	function computeForEmployee(empId: string): number[] {
+		const empRequests = requests.filter((req) => {
+			if (String(req.employee) !== empId) return false
+			if (req.status === 'rejected') return false
+			if (!req.request_date) return false
+			if (!range) return true
+			const d = new Date(req.request_date)
+			return d >= range.start && d <= range.end
+		})
+
+		if (selectedTrendGranularity.value === 'Days') {
+			const data: number[] = []
+			if (range) {
+				const dayMs = 24 * 60 * 60 * 1000
+				const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
+				for (let i = 0; i < days; i++) {
+					const dayStart = new Date(range.start.getTime() + i * dayMs)
+					dayStart.setHours(0, 0, 0, 0)
+					const dayEnd = new Date(dayStart)
+					dayEnd.setHours(23, 59, 59, 999)
+					const dayHours = empRequests
+						.filter((r) => { const d = new Date(r.request_date); return d >= dayStart && d <= dayEnd })
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(dayHours.toFixed(2)))
+				}
+			}
+			return data
+		} else if (selectedTrendGranularity.value === 'Weeks') {
+			const data: number[] = []
+			if (range) {
+				const weekMs = 7 * 24 * 60 * 60 * 1000
+				const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
+				for (let i = 0; i < weeks; i++) {
+					const weekStart = new Date(range.start.getTime() + i * weekMs)
+					weekStart.setHours(0, 0, 0, 0)
+					const weekEnd = new Date(weekStart.getTime() + weekMs - 1)
+					const weekHours = empRequests
+						.filter((r) => { const d = new Date(r.request_date); return d >= weekStart && d <= weekEnd })
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(weekHours.toFixed(2)))
+				}
+			}
+			return data
+		} else {
+			const data: number[] = []
+			if (range) {
+				const periodBuckets = generatePeriodBuckets(range.start, range.end)
+				for (const bucket of periodBuckets) {
+					const periodHours = empRequests
+						.filter((r) => {
+							const reqPeriod = getPeriodForDate(new Date(r.request_date))
+							return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
+						})
+						.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
+					data.push(Number(periodHours.toFixed(2)))
+				}
+			}
+			return data
+		}
+	}
+
+	// Compute categories (shared across all employees)
+	let categories: string[] = []
+	if (range) {
+		if (selectedTrendGranularity.value === 'Days') {
+			const dayMs = 24 * 60 * 60 * 1000
+			const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
+			categories = Array.from({ length: days }, (_, i) => {
+				const d = new Date(range.start.getTime() + i * dayMs)
+				return `${d.getMonth() + 1}/${d.getDate()}`
+			})
+		} else if (selectedTrendGranularity.value === 'Weeks') {
+			const weekMs = 7 * 24 * 60 * 60 * 1000
+			const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
+			categories = Array.from({ length: weeks }, (_, i) => `Week ${i + 1}`)
+		} else {
+			const periodBuckets = generatePeriodBuckets(range.start, range.end)
+			categories = periodBuckets.map((b) => b.label)
+		}
+	}
+
+	// Compute series per selected employee
+	const series = ids.map((empId) => {
+		const emp = filteredEmployeeOptions.value.find((e) => String(e.id) === empId)
+		return { name: emp?.name || `Employee ${empId}`, data: computeForEmployee(empId) }
+	})
+
+	return { series, categories }
+})
+
 const summaryCards = computed<SummaryCard[]>(() => {
-	const emp = selectedEmployee.value
-	// Use the actual trend data from real requests (not interpolated)
-	const realTrend = emp?.trend || []
-	const totalHours = realTrend.reduce((sum: number, val: number) => sum + val, 0)
-	const totalRequests = emp?.totalRequests ?? 0
+	const trendData = getTrendData.value
+	// Sum hours across all selected employees per bucket, then total
+	const bucketCount = trendData.categories.length
+	const bucketSums = Array.from({ length: bucketCount }, (_, i) =>
+		trendData.series.reduce((sum, s) => sum + (s.data[i] || 0), 0),
+	)
+	const totalHours = bucketSums.reduce((sum, v) => sum + v, 0)
+	const totalRequests = filteredRequests.value.length
 	const avgHoursPerRequest = totalRequests ? totalHours / totalRequests : 0
 
-	// Calculate previous period for trend
-	// Since we're using trend data based on months in the selected range
-	const midPoint = Math.floor(realTrend.length / 2)
-	const currentPeriodHours = realTrend.slice(midPoint).reduce((s: number, v: number) => s + v, 0)
-	const previousPeriodHours = realTrend.slice(0, midPoint).reduce((s: number, v: number) => s + v, 0)
+	const midPoint = Math.floor(bucketSums.length / 2)
+	const currentPeriodHours = bucketSums.slice(midPoint).reduce((s, v) => s + v, 0)
+	const previousPeriodHours = bucketSums.slice(0, midPoint).reduce((s, v) => s + v, 0)
 	const hoursTrend =
 		previousPeriodHours === 0
 			? currentPeriodHours > 0
 				? 100
 				: 0
 			: ((currentPeriodHours - previousPeriodHours) / previousPeriodHours) * 100
+
+	const uniqueProjects = new Set(
+		filteredRequests.value.filter((r) => r.project).map((r) => r.project),
+	)
 
 	return [
 		{
@@ -915,106 +1060,18 @@ const summaryCards = computed<SummaryCard[]>(() => {
 		{ title: t('detail.totalRequests'), value: `${totalRequests}`, trend: 0 },
 		{
 			title: t('detail.activeProjects'),
-			value: `${emp?.projects.length ?? 0}`,
+			value: `${uniqueProjects.size}`,
 			trend: 0,
 		},
 	]
 })
 
-const trendGranularities = ['Days', 'Weeks', 'Months'] as const
-type TrendGranularity = (typeof trendGranularities)[number]
-const selectedTrendGranularity = ref<TrendGranularity>('Months')
+const EMPLOYEE_COLORS = [
+	'#465fff', '#22c55e', '#f97316', '#ef4444', '#8b5cf6',
+	'#06b6d4', '#ec4899', '#eab308', '#14b8a6', '#6366f1',
+]
 
-const getTrendData = computed(() => {
-	const range = calculateDateRange()
-	const requests = overtimeStore.requests
-	const employeeId = selectedEmployee.value?.id
-
-	// Filter requests for this employee within the date range
-	const empRequests = requests.filter((req) => {
-		if (String(req.employee) !== employeeId) return false
-		if (req.status === 'rejected') return false
-		if (!req.request_date) return false
-		if (!range) return true
-		const d = new Date(req.request_date)
-		return d >= range.start && d <= range.end
-	})
-
-	if (selectedTrendGranularity.value === 'Days') {
-		// Group by day
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const dayMs = 24 * 60 * 60 * 1000
-			const days = Math.max(1, Math.floor((range.end.getTime() - range.start.getTime()) / dayMs) + 1)
-
-			for (let i = 0; i < days; i++) {
-				const dayStart = new Date(range.start.getTime() + i * dayMs)
-				dayStart.setHours(0, 0, 0, 0)
-				const dayEnd = new Date(dayStart)
-				dayEnd.setHours(23, 59, 59, 999)
-
-				const dayRequests = empRequests.filter((r) => {
-					const d = new Date(r.request_date)
-					return d >= dayStart && d <= dayEnd
-				})
-				const dayHours = dayRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(`${dayStart.getMonth() + 1}/${dayStart.getDate()}`)
-				data.push(Number(dayHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	} else if (selectedTrendGranularity.value === 'Weeks') {
-		// Group by week
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const weekMs = 7 * 24 * 60 * 60 * 1000
-			const weeks = Math.max(1, Math.ceil((range.end.getTime() - range.start.getTime()) / weekMs))
-
-			for (let i = 0; i < weeks; i++) {
-				const weekStart = new Date(range.start.getTime() + i * weekMs)
-				weekStart.setHours(0, 0, 0, 0)
-				const weekEnd = new Date(weekStart.getTime() + weekMs - 1)
-
-				const weekRequests = empRequests.filter((r) => {
-					const d = new Date(r.request_date)
-					return d >= weekStart && d <= weekEnd
-				})
-				const weekHours = weekRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(`Week ${i + 1}`)
-				data.push(Number(weekHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	} else {
-		// Group by period (26th-25th) for accurate overtime tracking
-		const labels: string[] = []
-		const data: number[] = []
-
-		if (range) {
-			const periodBuckets = generatePeriodBuckets(range.start, range.end)
-
-			for (const bucket of periodBuckets) {
-				const periodRequests = empRequests.filter((r) => {
-					const reqPeriod = getPeriodForDate(new Date(r.request_date))
-					return reqPeriod.month === bucket.month && reqPeriod.year === bucket.year
-				})
-				const periodHours = periodRequests.reduce((sum, r) => sum + normalizeHours(r.total_hours), 0)
-
-				labels.push(bucket.label)
-				data.push(Number(periodHours.toFixed(2)))
-			}
-		}
-		return { data, categories: labels }
-	}
-})
-
-const trendChartSeries = computed(() => [{ name: 'Hours', data: getTrendData.value.data }])
+const trendChartSeries = computed(() => getTrendData.value.series)
 const trendChartOptions = computed<ApexOptions>(() => ({
 	chart: {
 		fontFamily: 'Outfit, sans-serif',
@@ -1046,9 +1103,10 @@ const trendChartOptions = computed<ApexOptions>(() => ({
 			},
 		},
 	},
-	colors: ['#465fff'],
+	colors: EMPLOYEE_COLORS.slice(0, Math.max(1, selectedEmployeeIds.value.length)),
 	dataLabels: { enabled: false },
 	stroke: { curve: 'smooth', width: 3 },
+	legend: { show: selectedEmployeeIds.value.length > 1, position: 'top' },
 	xaxis: {
 		categories: getTrendData.value.categories,
 		title: {
@@ -1064,20 +1122,27 @@ const trendChartOptions = computed<ApexOptions>(() => ({
 	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
 }))
 
-const filteredRequests = computed(() => {
-	const range = calculateDateRange()
-	if (!range) return ehRequests.value
-	return ehRequests.value.filter((r) => {
-		const d = new Date(r.request_date)
-		return d >= range.start && d <= range.end
-	})
-})
+const isMultiEmployee = computed(() => selectedEmployeeIds.value.length > 1)
 
 const typeChartSeries = computed(() => {
-	// Count by type in filtered requests
-	let weekday = 0,
-		weekend = 0,
-		holiday = 0
+	if (isMultiEmployee.value) {
+		// Grouped bar: one series per employee with [weekday, weekend, holiday] data
+		return selectedEmployeeIds.value.map((empId) => {
+			let weekday = 0, weekend = 0, holiday = 0
+			filteredRequests.value
+				.filter((r) => String(r.employee) === empId)
+				.forEach((r) => {
+					const hours = normalizeHours(r.total_hours)
+					if (r.is_holiday) holiday += hours
+					else if (r.is_weekend) weekend += hours
+					else weekday += hours
+				})
+			const emp = filteredEmployeeOptions.value.find((e) => String(e.id) === empId)
+			return { name: emp?.name || `Employee ${empId}`, data: [Number(weekday.toFixed(2)), Number(weekend.toFixed(2)), Number(holiday.toFixed(2))] }
+		})
+	}
+	// Donut: flat array
+	let weekday = 0, weekend = 0, holiday = 0
 	filteredRequests.value.forEach((r) => {
 		const hours = normalizeHours(r.total_hours)
 		if (r.is_holiday) holiday += hours
@@ -1086,51 +1151,83 @@ const typeChartSeries = computed(() => {
 	})
 	return [weekday, weekend, holiday]
 })
-const typeChartOptions = computed<ApexOptions>(() => ({
-	chart: {
-		fontFamily: 'Outfit, sans-serif',
-		toolbar: {
-			show: true,
-			tools: {
-				download: true,
-				selection: false,
-				zoom: false,
-				zoomin: false,
-				zoomout: false,
-				pan: false,
-				reset: false,
-			},
-			export: {
-				csv: {
-					filename: `employee-${selectedEmployee.value?.name?.replace(/\s+/g, '-') || 'unknown'}-overtime-type`,
-					headerCategory: 'Type',
-				},
-				svg: { filename: `employee-overtime-type` },
-				png: { filename: `employee-overtime-type` },
-			},
+const typeChartOptions = computed<ApexOptions>(() => {
+	const baseToolbar = {
+		show: true,
+		tools: {
+			download: true,
+			selection: false,
+			zoom: false,
+			zoomin: false,
+			zoomout: false,
+			pan: false,
+			reset: false,
 		},
-	},
-	labels: [t('detail.weekdayOT'), t('detail.weekendOT'), t('detail.holidayOT')],
-	colors: ['#6366f1', '#22c55e', '#f97316'],
-	legend: { position: 'bottom' },
-	dataLabels: { enabled: false },
-	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
-}))
+		export: {
+			csv: {
+				filename: `employee-${selectedEmployee.value?.name?.replace(/\s+/g, '-') || 'unknown'}-overtime-type`,
+				headerCategory: 'Type',
+			},
+			svg: { filename: `employee-overtime-type` },
+			png: { filename: `employee-overtime-type` },
+		},
+	}
+
+	if (isMultiEmployee.value) {
+		return {
+			chart: { fontFamily: 'Outfit, sans-serif', toolbar: baseToolbar },
+			colors: EMPLOYEE_COLORS.slice(0, selectedEmployeeIds.value.length),
+			plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
+			dataLabels: { enabled: false },
+			legend: { show: true, position: 'top' },
+			xaxis: {
+				categories: [t('detail.weekdayOT'), t('detail.weekendOT'), t('detail.holidayOT')],
+			},
+			yaxis: {
+				title: { text: 'Overtime Hours (h)', style: { fontWeight: 600 } },
+				labels: { formatter: (val: number) => Math.floor(val).toString() },
+			},
+			grid: { borderColor: 'rgba(148,163,184,0.2)' },
+			tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
+		}
+	}
+
+	return {
+		chart: { fontFamily: 'Outfit, sans-serif', toolbar: baseToolbar },
+		labels: [t('detail.weekdayOT'), t('detail.weekendOT'), t('detail.holidayOT')],
+		colors: ['#6366f1', '#22c55e', '#f97316'],
+		legend: { position: 'bottom' },
+		dataLabels: { enabled: false },
+		tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
+	}
+})
 
 const topProjects = computed(() => {
-	// Guard against undefined selectedEmployee or missing trend data
-	if (!selectedEmployee.value || !selectedEmployee.value.trend || !selectedEmployee.value.projects) {
-		return []
+	const projectMap = new Map<number, { name: string; hours: number; requests: number }>()
+	for (const req of filteredRequests.value) {
+		if (!req.project) continue
+		const hours = normalizeHours(req.total_hours)
+		const existing = projectMap.get(req.project)
+		if (existing) {
+			existing.hours += hours
+			existing.requests += 1
+		} else {
+			projectMap.set(req.project, {
+				name: projectNameMap.value.get(req.project) || req.project_name || `Project ${req.project}`,
+				hours,
+				requests: 1,
+			})
+		}
 	}
-	// Scale project hours by the ratio of filtered data vs full data
-	const fullHours = selectedEmployee.value.trend.reduce((s: number, v: number) => s + v, 0)
-	const filteredHours = getTrendData.value.data.reduce((s: number, v: number) => s + v, 0)
-	const ratio = fullHours > 0 ? filteredHours / fullHours : 1
-	return selectedEmployee.value.projects.map((proj: EmployeeData['projects'][number]) => ({
-		...proj,
-		hours: proj.hours * ratio,
-		slug: toSlug(proj.name),
-	}))
+	return Array.from(projectMap.entries())
+		.map(([id, p]) => ({
+			id: String(id),
+			name: p.name,
+			hours: Number(p.hours.toFixed(2)),
+			requests: p.requests,
+			slug: toSlug(p.name),
+		}))
+		.sort((a, b) => b.hours - a.hours)
 })
 const tpPageSizeOptions = [5, 10, 20, 50]
 const tpPageSize = ref(5)
@@ -1157,12 +1254,33 @@ watch([tpPageSize, () => topProjects.value.length], () => {
 	tpCurrentPage.value = 1
 })
 
-const projectsChartSeries = computed(() => [
-	{ name: 'Hours', data: topProjects.value.map((p: (typeof topProjects.value)[number]) => p.hours) },
-])
+const projectsChartSeries = computed(() => {
+	if (isMultiEmployee.value) {
+		// Stacked bar: one series per employee, data = hours per project
+		const projectNames = topProjects.value.map((p) => p.name)
+		return selectedEmployeeIds.value.map((empId) => {
+			const emp = filteredEmployeeOptions.value.find((e) => String(e.id) === empId)
+			const empProjectMap = new Map<string, number>()
+			filteredRequests.value
+				.filter((r) => String(r.employee) === empId && r.project)
+				.forEach((r) => {
+					const pName = projectNameMap.value.get(r.project) || r.project_name || `Project ${r.project}`
+					empProjectMap.set(pName, (empProjectMap.get(pName) || 0) + normalizeHours(r.total_hours))
+				})
+			return {
+				name: emp?.name || `Employee ${empId}`,
+				data: projectNames.map((pn) => Number((empProjectMap.get(pn) || 0).toFixed(2))),
+			}
+		})
+	}
+	return [
+		{ name: 'Hours', data: topProjects.value.map((p: (typeof topProjects.value)[number]) => p.hours) },
+	]
+})
 const projectsChartOptions = computed<ApexOptions>(() => ({
 	chart: {
 		fontFamily: 'Outfit, sans-serif',
+		stacked: isMultiEmployee.value,
 		toolbar: {
 			show: true,
 			tools: {
@@ -1184,11 +1302,14 @@ const projectsChartOptions = computed<ApexOptions>(() => ({
 			},
 		},
 	},
-	colors: ['#465fff'],
+	colors: isMultiEmployee.value
+		? EMPLOYEE_COLORS.slice(0, selectedEmployeeIds.value.length)
+		: ['#465fff'],
 	plotOptions: {
 		bar: { borderRadius: 6, columnWidth: '45%', horizontal: false },
 	},
 	dataLabels: { enabled: false },
+	legend: { show: isMultiEmployee.value, position: 'top' },
 	xaxis: {
 		categories: topProjects.value.map((p: (typeof topProjects.value)[number]) => p.name),
 		labels: { rotateAlways: true, rotate: -20 },
@@ -1203,12 +1324,6 @@ const projectsChartOptions = computed<ApexOptions>(() => ({
 	grid: { borderColor: 'rgba(148,163,184,0.2)' },
 	tooltip: { y: { formatter: (val: number) => `${val.toFixed(1)}h` } },
 }))
-
-const ehRequests = computed(() => {
-	const employeeId = selectedEmployee.value?.id
-	if (!employeeId) return []
-	return overtimeStore.requests.filter((r) => String(r.employee) === employeeId)
-})
 const ehFilteredByDateRange = computed(() => filteredRequests.value)
 
 import { getSortIcon as _getSortIcon } from '@/utils/getSortIcon'

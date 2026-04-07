@@ -18,30 +18,18 @@
             <div>
               <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{
                 t('otHistory.dateSelection') }}</label>
-              <select v-model="dateSelectionType"
-                class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                <option value="year-month">{{ t('otHistory.yearMonth') }}</option>
-                <option value="custom">{{ t('otHistory.customDateRange') }}</option>
-              </select>
+              <SelectDropdown v-model="dateSelectionType" :options="dateSelectionOptions" :placeholder="t('otHistory.yearMonth')" :searchable="false" />
             </div>
             <template v-if="dateSelectionType === 'year-month'">
               <div>
                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.year')
                 }}</label>
-                <select v-model.number="selectedYear"
-                  class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                  <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-                </select>
+                <SelectDropdown :model-value="String(selectedYear)" @update:model-value="(v: string) => { selectedYear = Number(v) }" :options="yearFilterOptions" :placeholder="t('otHistory.year')" :searchable="false" />
               </div>
               <div>
                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ t('otHistory.month')
                 }}</label>
-                <select v-model="selectedMonth"
-                  class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                  <option value="all">{{ t('months.allMonths') }}</option>
-                  <option v-for="month in months" :key="month.value" :value="month.value">{{
-                    month.label }}</option>
-                </select>
+                <SelectDropdown :model-value="String(selectedMonth)" @update:model-value="(v: string) => { selectedMonth = v === 'all' ? 'all' : Number(v) }" :options="monthFilterOptions" :placeholder="t('months.allMonths')" :searchable="false" />
               </div>
               <div class="flex items-end">
                 <button @click="resetToCurrentMonth"
@@ -74,31 +62,10 @@
 
           <!-- Filters Row -->
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <select v-model="statusFilter"
-              class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-              <option value="">{{ t('otHistory.allStatus') }}</option>
-              <option value="pending">{{ t('otHistory.pending') }}</option>
-              <option value="approved">{{ t('otHistory.approved') }}</option>
-              <option value="rejected">{{ t('otHistory.rejected') }}</option>
-            </select>
-            <select v-model="employeeFilter"
-              class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 disabled:opacity-60 disabled:cursor-not-allowed"
-              :disabled="!isAdmin">
-              <option value="">{{ t('otHistory.allEmployees') }}</option>
-              <option v-for="employee in employeeOptions" :key="employee" :value="employee">{{ employee }}
-              </option>
-            </select>
-            <select v-model="projectFilter"
-              class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-              <option value="">{{ t('otHistory.allProjects') }}</option>
-              <option v-for="project in projectOptions" :key="project" :value="project">{{ project }}
-              </option>
-            </select>
-            <select v-model="departmentFilter"
-              class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-              <option value="">{{ t('otHistory.allDepartments') }}</option>
-              <option v-for="dept in departmentOptions" :key="dept" :value="dept">{{ dept }}</option>
-            </select>
+            <FilterDropdown v-model="statusFilter" :options="statusFilterOptions" :placeholder="t('otHistory.allStatus')" :searchable="false" />
+            <FilterDropdown v-model="employeeFilter" :options="employeeFilterOptions" :placeholder="t('otHistory.allEmployees')" :disabled="!isAdmin" />
+            <FilterDropdown v-model="projectFilter" :options="projectFilterOptions" :placeholder="t('otHistory.allProjects')" />
+            <FilterDropdown v-model="departmentFilter" :options="departmentFilterOptions" :placeholder="t('otHistory.allDepartments')" />
           </div>
 
           <!-- Search and Reset Row -->
@@ -450,6 +417,8 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
 import { usePagePermission } from '@/composables/usePagePermission'
 import { DEBOUNCE_SEARCH_MS } from '@/constants/ui'
@@ -497,10 +466,10 @@ const formatTime = (value: string | null | undefined): string => {
 }
 
 const searchQuery = ref('')
-const statusFilter = ref('')
-const employeeFilter = ref('')
-const projectFilter = ref('')
-const departmentFilter = ref('')
+const statusFilter = ref<string[]>([])
+const employeeFilter = ref<string[]>([])
+const projectFilter = ref<string[]>([])
+const departmentFilter = ref<string[]>([])
 
 // Date selection state - load from UI store (persisted in localStorage)
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
@@ -540,10 +509,21 @@ const months = computed(() => [
 	{ value: 12, label: t('months.december') },
 ])
 
-const availableYears = computed(() => {
-	const current = new Date().getFullYear()
-	return Array.from({ length: 5 }, (_v, i) => current - 2 + i)
-})
+const availableYears = ref<number[]>([new Date().getFullYear()])
+
+const yearFilterOptions = computed(() =>
+	availableYears.value.map((y) => ({ value: String(y), label: String(y) })),
+)
+
+const monthFilterOptions = computed(() => [
+	{ value: 'all', label: t('months.allMonths') },
+	...months.value.map((m) => ({ value: String(m.value), label: m.label })),
+])
+
+const dateSelectionOptions = computed(() => [
+	{ value: 'year-month', label: t('otHistory.yearMonth') },
+	{ value: 'custom', label: t('otHistory.customDateRange') },
+])
 
 // Helper function to format date as YYYY-MM-DD
 const formatYMD = (d: Date) => {
@@ -674,6 +654,24 @@ const departmentOptions = computed(() =>
 		.sort(),
 )
 
+const statusFilterOptions = computed(() => [
+	{ value: 'pending', label: t('otHistory.pending') },
+	{ value: 'approved', label: t('otHistory.approved') },
+	{ value: 'rejected', label: t('otHistory.rejected') },
+])
+
+const employeeFilterOptions = computed(() =>
+	employeeOptions.value.map((name: string) => ({ value: name, label: name })),
+)
+
+const projectFilterOptions = computed(() =>
+	projectOptions.value.map((name: string) => ({ value: name, label: name })),
+)
+
+const departmentFilterOptions = computed(() =>
+	departmentOptions.value.map((code: string) => ({ value: code, label: code })),
+)
+
 // ── Server-side data: table rows are already the correct page ───────────
 const paginatedRequests = computed(() => overtimeStore.requests)
 const totalCount = computed(() => overtimeStore.paginationMeta.count)
@@ -728,17 +726,17 @@ const fetchServerData = async (resetPage = false) => {
 	const dateRange = calculateDateRange()
 
 	// Map employee name → ID
-	let employeeId: number | undefined
-	if (employeeFilter.value) {
-		const emp = employeeStore.employees.find((e) => e.name === employeeFilter.value)
-		if (emp) employeeId = emp.id
+	const employeeIds: number[] = []
+	for (const name of employeeFilter.value) {
+		const emp = employeeStore.employees.find((e) => e.name === name)
+		if (emp) employeeIds.push(emp.id)
 	}
 
 	// Map project name → ID
-	let projectId: number | undefined
-	if (projectFilter.value) {
-		const proj = projectStore.projects.find((p) => p.name === projectFilter.value)
-		if (proj) projectId = proj.id
+	const projectIds: number[] = []
+	for (const name of projectFilter.value) {
+		const proj = projectStore.projects.find((p) => p.name === name)
+		if (proj) projectIds.push(proj.id)
 	}
 
 	const params: Record<string, unknown> = {
@@ -752,10 +750,10 @@ const fetchServerData = async (resetPage = false) => {
 		params.end_date = dateRange.end
 	}
 	if (searchQuery.value.trim()) params.search = searchQuery.value.trim()
-	if (statusFilter.value) params.status = statusFilter.value
-	if (employeeId) params.employee = employeeId
-	if (projectId) params.project = projectId
-	if (departmentFilter.value) params.department_code = departmentFilter.value
+	if (statusFilter.value.length > 0) params.status = statusFilter.value.join(',')
+	if (employeeIds.length > 0) params.employee = employeeIds.join(',')
+	if (projectIds.length > 0) params.project = projectIds.join(',')
+	if (departmentFilter.value.length > 0) params.department_code = departmentFilter.value.join(',')
 
 	try {
 		await overtimeStore.fetchRequests(
@@ -801,10 +799,10 @@ const getSortIcon = (field: SortField) => _getSortIcon(field, sortBy, sortOrder)
 
 const handleReset = () => {
 	searchQuery.value = ''
-	statusFilter.value = ''
-	employeeFilter.value = ''
-	projectFilter.value = ''
-	departmentFilter.value = ''
+	statusFilter.value = []
+	employeeFilter.value = []
+	projectFilter.value = []
+	departmentFilter.value = []
 	dateSelectionType.value = 'year-month'
 	const now = new Date()
 	selectedYear.value = now.getFullYear()
@@ -1005,12 +1003,23 @@ const handleEscKey = (event: KeyboardEvent) => {
 // ── Lifecycle ───────────────────────────────────────────────────────────
 onMounted(async () => {
 	// Load reference data (employees, projects, departments) in parallel with first page
-	await Promise.all([
+	const [, , , , yearsResult] = await Promise.all([
 		employeeStore.fetchEmployees(),
 		projectStore.fetchProjects(),
 		departmentStore.fetchDepartments(),
 		fetchServerData(),
+		overtimeStore.fetchAvailableYears(),
 	])
+
+	// Populate available years from backend (only years with data)
+	if (yearsResult && yearsResult.length > 0) {
+		availableYears.value = yearsResult
+		if (!yearsResult.includes(selectedYear.value)) {
+			selectedYear.value = yearsResult[yearsResult.length - 1] ?? new Date().getFullYear()
+		}
+	} else {
+		availableYears.value = [new Date().getFullYear()]
+	}
 
 	// Auto-select employee for non-admin users
 	if (!isAdmin.value && userWorkerId.value) {
@@ -1018,7 +1027,7 @@ onMounted(async () => {
 			(emp) => emp.emp_id.toLowerCase() === userWorkerId.value?.toLowerCase(),
 		)
 		if (currentUserEmployee) {
-			employeeFilter.value = currentUserEmployee.name
+      employeeFilter.value = [currentUserEmployee.name]
 			// Refetch with employee filter applied
 			await fetchServerData(true)
 		}

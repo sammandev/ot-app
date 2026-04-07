@@ -77,7 +77,7 @@ export const documentAPI = {
 		search?: string
 		categories?: string[]
 		tags?: string[]
-		source_type?: DocumentSourceType | ''
+		source_type?: DocumentSourceType | '' | string
 		pinned?: boolean
 		ordering?: string
 	}) {

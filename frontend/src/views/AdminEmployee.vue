@@ -391,7 +391,7 @@ const goToPage = (page: number) => {
 	currentPage.value = page
 }
 
-// Watch search/sort/pageSize changes → reset to page 1 and refetch
+// Watch search/sort/pageSize changes -> reset to page 1 and refetch
 watch([debouncedSearch, sortBy, sortOrder, pageSize], () => {
 	if (currentPage.value !== 1) {
 		// Setting currentPage will trigger its own watcher to fetchData

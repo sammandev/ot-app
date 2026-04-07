@@ -31,8 +31,9 @@ class DocumentViewSet(viewsets.ModelViewSet):
             queryset = queryset.defer("description", "normalized_url")
 
         source_type = self.request.query_params.get("source_type")
-        if source_type in {Document.SourceType.FILE, Document.SourceType.LINK}:
-            queryset = queryset.filter(source_type=source_type)
+        if source_type:
+            parts = [v.strip() for v in source_type.split(",") if v.strip()]
+            queryset = queryset.filter(source_type__in=parts)
 
         category_values = self._extract_filter_values("categories", "category")
         if category_values:

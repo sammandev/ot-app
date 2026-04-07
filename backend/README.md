@@ -1,6 +1,6 @@
-# PTB Overtime Application — Django Backend
+# PTB Overtime Application - Backend
 
-> This is the Django REST Framework backend that powers the entire PTB Overtime Management ecosystem — from REST APIs and real-time WebSocket events to background task processing and multi-sheet Excel report generation.
+> This is the Django REST Framework backend that powers the entire PTB Overtime Management ecosystem, from REST APIs and real-time WebSocket events to background task processing and multi-sheet Excel report generation.
 
 [![Python](https://img.shields.io/badge/Python-3.13+-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Django](https://img.shields.io/badge/Django-6.0-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
@@ -12,13 +12,15 @@
 
 ## Table of Contents
 
-- [PTB Overtime Application — Django Backend](#ptb-overtime-application--django-backend)
+- [PTB Overtime Application - Backend](#ptb-overtime-application---backend)
   - [Table of Contents](#table-of-contents)
   - [Role \& Responsibilities](#role--responsibilities)
+  - [System Architecture](#system-architecture)
   - [Tech Stack](#tech-stack)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
   - [Project Structure](#project-structure)
+    - [Backend Folder Guide](#backend-folder-guide)
   - [Environment Variables](#environment-variables)
     - [Core Django](#core-django)
     - [Database (PostgreSQL)](#database-postgresql)
@@ -33,6 +35,8 @@
     - [Role Hierarchy](#role-hierarchy)
   - [API Endpoints](#api-endpoints)
     - [RESTful Resources (v1 Router)](#restful-resources-v1-router)
+    - [Query Filtering Patterns](#query-filtering-patterns)
+    - [Overtime Analytics Actions](#overtime-analytics-actions)
     - [System Endpoints](#system-endpoints)
   - [WebSocket Channels](#websocket-channels)
     - [Helper Functions (callable from views/signals)](#helper-functions-callable-from-viewssignals)
@@ -56,8 +60,60 @@ This backend handles all server-side domain logic for the PTB Overtime system:
 - **Report generation** — multi-sheet Excel exports (daily/monthly) with optional SMB network share uploads
 - **Calendar & scheduling** — calendar events, holidays, employee leave management
 - **Purchasing & assets** — purchase request tracking and asset management
-- **Access control** — role-based permissions (User → Staff → PTB Admin → Superadmin → Developer) with per-resource granularity
+- **Access control** — role-based permissions (User -> Staff -> PTB Admin -> Superadmin -> Developer) with per-resource granularity
 - **Audit trail** — activity logging, user session tracking, and structured JSON log files
+
+---
+
+## System Architecture
+
+This sequence diagram shows how the backend processes API calls, WebSocket events, and async work.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Client
+  participant Proxy as Reverse Proxy
+  participant URL as Django URL Router
+  participant Auth as Authentication + Permissions
+  participant View as DRF Views / ViewSets
+  participant Service as Domain Services
+  participant Cache as Redis Cache
+  participant DB as PostgreSQL
+  participant WS as Channels Consumers
+  participant Broker as Celery Broker
+  participant Worker as Celery Worker
+  participant Result as Celery Result Backend
+
+  Client->>Proxy: Send HTTP /api request
+  Proxy->>URL: Forward request to Django
+  URL->>Auth: Resolve user and permission context
+  Auth-->>URL: Authenticated request state
+  URL->>View: Dispatch matched endpoint
+  View->>Cache: Read or update cached values when applicable
+  View->>Service: Execute domain logic
+  Service->>DB: Read/write application data
+  DB-->>Service: Return query result
+  Service-->>View: Return processed domain result
+  View-->>Proxy: Send serialized response
+  Proxy-->>Client: Return API payload
+
+  opt WebSocket event flow
+    Client->>Proxy: Open /ws connection
+    Proxy->>WS: Upgrade to WebSocket
+    WS->>Auth: Validate connection context
+    WS-->>Client: Push notification or board update
+  end
+
+  opt Async export or background job
+    View->>Broker: Queue Celery task
+    Worker->>Broker: Consume queued task
+    Worker->>DB: Read/write long-running job data
+    Worker->>Result: Store task result or progress
+    View->>Result: Read status when polled
+    View-->>Client: Return task status or export response
+  end
+```
 
 ---
 
@@ -134,7 +190,7 @@ pytest -v
 
 ## Project Structure
 
-```
+```text
 backend/
 ├── manage.py                        # Django management entry point
 ├── pyproject.toml                   # Project metadata & dependencies (uv/pip)
@@ -144,7 +200,6 @@ backend/
 ├── Dockerfile.staging               # Staging Docker image
 ├── docker-compose.prod.yml          # Production compose
 ├── docker-compose.staging.yml       # Staging compose (web + celery)
-├── alembic.ini                      # Database migration config
 │
 ├── backend/                         # Django project package
 │   ├── settings.py                  # Environment-aware settings (.env driven)
@@ -154,20 +209,27 @@ backend/
 │   └── celery.py                    # Celery app configuration
 │
 ├── api/                             # Main application
-│   ├── models.py                    # 30 Django ORM models
-│   ├── views.py                     # DRF ViewSets and API views
+│   ├── models.py                    # Core Django ORM models
 │   ├── serializers.py               # DRF serializers
 │   ├── urls.py                      # API URL routing (v1 + v2 routers)
 │   ├── authentication.py            # JWT backends (local + external)
 │   ├── permissions.py               # Custom permission classes
-│   ├── consumers.py                 # WebSocket consumers (3 channels)
+│   ├── consumers.py                 # WebSocket consumers
 │   ├── routing.py                   # WebSocket URL patterns
 │   ├── middleware.py                # Performance, security, audit middleware
 │   ├── signals.py                   # Django signals
 │   ├── tasks.py                     # Celery async tasks
 │   ├── handlers.py                  # Custom exception handler
+│   ├── pagination.py                # Shared pagination helpers
+│   ├── versioning.py                # API version strategy
+│   ├── views/                       # Domain-oriented DRF view modules
+│   │   ├── overtime.py              # Overtime requests, stats, exports
+│   │   ├── documents.py             # Documents and document filters
+│   │   ├── assets.py                # Asset inventory and exports
+│   │   ├── config.py                # Activity logs, reports, system config
+│   │   └── ...
 │   ├── services/                    # Business logic services
-│   ├── utils/                       # Excel generation, helpers
+│   ├── utils/                       # Excel generation and shared helpers
 │   ├── management/commands/         # Custom manage.py commands
 │   └── migrations/                  # Database migrations
 │
@@ -177,6 +239,17 @@ backend/
 ├── logs/                            # Application log files (auto-created)
 └── generate_data/                   # Data seeding scripts
 ```
+
+### Backend Folder Guide
+
+- `backend/` contains the Django project runtime: settings, root URL wiring, ASGI/WSGI entry points, and Celery bootstrap.
+- `api/` contains the product domain. Models, serializers, permissions, middleware, signals, and task definitions all live here.
+- `api/views/` is the main HTTP surface. View logic is split by domain rather than kept in one large file, which makes modules like overtime, documents, assets, and config easier to maintain independently.
+- `api/services/` holds reusable business logic that should stay out of viewsets and serializers.
+- `api/utils/` holds lower-level helpers such as Excel/report utilities and shared data formatting helpers.
+- `api/management/commands/` contains custom developer and operational commands exposed through `manage.py`.
+- `api/migrations/` stores schema history and must stay committed in step with model changes.
+- `generate_data/` is for local seed/bootstrap assets, while `scripts/` is for deployment and operational automation.
 
 ---
 
@@ -339,7 +412,7 @@ The backend supports **dual JWT authentication**:
 | `/api/v1/projects/` | Projects | CRUD |
 | `/api/v1/employees/` | Employees | CRUD |
 | `/api/v1/departments/` | Departments | CRUD |
-| `/api/v1/overtime-requests/` | Overtime Requests | CRUD + export |
+| `/api/v1/overtime-requests/` | Overtime Requests | CRUD + export + analytics actions |
 | `/api/v1/overtime-regulations/` | OT Regulations | CRUD |
 | `/api/v1/regulation-documents/` | Regulation Documents | CRUD |
 | `/api/v1/calendar-events/` | Calendar Events | CRUD |
@@ -358,10 +431,51 @@ The backend supports **dual JWT authentication**:
 | `/api/v1/personal-notes/` | Personal Notes | CRUD |
 | `/api/v1/purchase-requests/` | Purchase Requests | CRUD |
 | `/api/v1/assets/` | Assets | CRUD |
+| `/api/v1/documents/` | Documents | CRUD |
 | `/api/v1/user-reports/` | User Reports | CRUD |
 | `/api/v1/release-notes/` | Release Notes | CRUD |
 | `/api/v1/users/access-control/` | User Access Control | CRUD |
 | `/api/v1/smb-configs/` | SMB Configurations | CRUD |
+
+### Query Filtering Patterns
+
+Several list endpoints now support comma-separated multi-value query params so the frontend can drive shared multi-select filtering without making multiple round trips.
+
+| Resource | Supported Multi-Value Query Params | Example |
+|---|---|---|
+| Overtime Requests | `employee`, `project`, `status`, `department_code` | `/api/v1/overtime-requests/?employee=1,2,3&status=pending,approved` |
+| Assets | `department`, `status` | `/api/v1/assets/?department=2,4&status=Picking,Received` |
+| Documents | `source_type` | `/api/v1/documents/?source_type=file,link` |
+| Activity Logs | `user_id`, `action` | `/api/v1/activity-logs/?user_id=4,7&action=login,export` |
+| User Reports | `report_type`, `status`, `priority` | `/api/v1/user-reports/?report_type=bug,feature&status=open,in_progress` |
+
+Example request shapes:
+
+```text
+GET /api/v1/overtime-requests/?employee=12,19&project=3,8&status=pending,approved&department_code=ENG,QA
+GET /api/v1/assets/?department=1,5&status=Picking,Broken
+GET /api/v1/activity-logs/?user_id=11,17&action=login,logout,page_view
+GET /api/v1/user-reports/?report_type=bug,feature&status=open,resolved&priority=high,critical
+```
+
+### Overtime Analytics Actions
+
+The overtime endpoint exposes summary actions used by the dashboard and detail pages.
+
+| Endpoint | Purpose |
+|---|---|
+| `/api/v1/overtime-requests/employee_stats/` | Aggregated overtime metrics by employee for a date range |
+| `/api/v1/overtime-requests/project_stats/` | Aggregated overtime metrics by project for a date range |
+| `/api/v1/overtime-requests/summary_stats/` | Overall summary cards and comparison totals |
+| `/api/v1/overtime-requests/available_years/` | Distinct years that contain overtime request data |
+
+Example:
+
+```text
+GET /api/v1/overtime-requests/available_years/
+GET /api/v1/overtime-requests/employee_stats/?start_date=2026-01-26&end_date=2026-03-25
+GET /api/v1/overtime-requests/project_stats/?start_date=2026-01-26&end_date=2026-03-25
+```
 
 ### System Endpoints
 

@@ -42,29 +42,11 @@
                 <div class="grid grid-cols-1 gap-4 md:grid-cols-5">
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Employee</label>
-                        <select v-model="activityFilters.user_id" @change="resetPageAndLoad"
-                            class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-theme-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                            <option value="">All Employees</option>
-                            <option v-for="user in userOptions" :key="user.id" :value="user.id">
-                                {{ `${user.first_name} ${user.last_name}`.trim() || user.username }} ({{ user.worker_id || user.username }})
-                            </option>
-                        </select>
+                        <FilterDropdown v-model="activityFilters.user_id" :options="userFilterOptions" placeholder="All Employees" />
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Action Type</label>
-                        <select v-model="activityFilters.action" @change="resetPageAndLoad"
-                            class="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-theme-xs transition focus:border-brand-500 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                            <option value="">All Actions</option>
-                            <option value="login">Login</option>
-                            <option value="logout">Logout</option>
-                            <option value="page_view">Page View</option>
-                            <option value="create">Create</option>
-                            <option value="update">Update</option>
-                            <option value="delete">Delete</option>
-                            <option value="view">View</option>
-                            <option value="export">Export</option>
-                            <option value="import">Import</option>
-                        </select>
+                        <FilterDropdown v-model="activityFilters.action" :options="actionFilterOptions" placeholder="All Actions" :searchable="false" />
                     </div>
                     <div>
                         <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Resource</label>
@@ -302,8 +284,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import flatPickr from 'vue-flatpickr-component'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { SettingsIcon } from '@/icons'
 import { useFlatpickrScroll } from '@/composables/useFlatpickrScroll'
 import type { UserAccessControl } from '@/services/api/auth'
@@ -352,8 +335,8 @@ const validLogs = computed(() =>
 		})),
 )
 const activityFilters = reactive({
-	user_id: '' as string | number,
-	action: '',
+	user_id: [] as string[],
+	action: [] as string[],
 	resource: '',
 })
 const dateRange = ref('')
@@ -377,6 +360,25 @@ const userOptions = computed(() =>
 			return nameA.localeCompare(nameB)
 		}),
 )
+
+const userFilterOptions = computed(() =>
+	userOptions.value.map((user) => ({
+		value: String(user.id),
+		label: `${`${user.first_name} ${user.last_name}`.trim() || user.username} (${user.worker_id || user.username})`,
+	})),
+)
+
+const actionFilterOptions = computed(() => [
+	{ value: 'login', label: 'Login' },
+	{ value: 'logout', label: 'Logout' },
+	{ value: 'page_view', label: 'Page View' },
+	{ value: 'create', label: 'Create' },
+	{ value: 'update', label: 'Update' },
+	{ value: 'delete', label: 'Delete' },
+	{ value: 'view', label: 'View' },
+	{ value: 'export', label: 'Export' },
+	{ value: 'import', label: 'Import' },
+])
 
 // Flatpickr configuration for scrollable date range selection
 const { flatpickrInstances, attachMonthScroll, destroyFlatpickrs } = useFlatpickrScroll()
@@ -480,8 +482,8 @@ const loadActivityLogs = async () => {
 		const params = new URLSearchParams()
 		params.append('page_size', '50')
 		params.append('page', String(currentPage.value))
-		if (activityFilters.user_id) params.append('user_id', String(activityFilters.user_id))
-		if (activityFilters.action) params.append('action', activityFilters.action)
+		if (activityFilters.user_id.length > 0) params.append('user_id', activityFilters.user_id.join(','))
+		if (activityFilters.action.length > 0) params.append('action', activityFilters.action.join(','))
 		if (activityFilters.resource) params.append('resource', activityFilters.resource)
 
 		// Parse date range "YYYY-MM-DD to YYYY-MM-DD"
@@ -519,13 +521,18 @@ const loadActivityLogs = async () => {
 }
 
 const clearActivityFilters = () => {
-	activityFilters.user_id = ''
-	activityFilters.action = ''
+	activityFilters.user_id = []
+	activityFilters.action = []
 	activityFilters.resource = ''
 	dateRange.value = ''
 	currentPage.value = 1
 	loadActivityLogs()
 }
+
+watch(
+	[() => activityFilters.user_id, () => activityFilters.action],
+	() => resetPageAndLoad(),
+)
 
 const saveRetentionSettings = async () => {
     if (parsedRetentionDays.value === undefined) {

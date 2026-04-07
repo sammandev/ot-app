@@ -38,20 +38,8 @@
                         :placeholder="t('assets.searchPlaceholder')"
                         class="dark:bg-dark-900 h-11 flex-1 rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-300"
                         @keyup.enter="handleSearch" />
-                    <select v-model="departmentFilter"
-                        class="h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                        <option value="">{{ t('assets.allDepartments') }}</option>
-                        <option v-for="dept in departmentOptions" :key="dept.id" :value="dept.id">
-                            {{ dept.name }}
-                        </option>
-                    </select>
-                    <select v-model="statusFilter"
-                        class="h-11 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                        <option value="">{{ t('assets.allStatus') }}</option>
-                        <option value="Picking">{{ t('assets.picking') }}</option>
-                        <option value="Broken">{{ t('assets.broken') }}</option>
-                        <option value="Received">{{ t('assets.received') }}</option>
-                    </select>
+                    <FilterDropdown v-model="departmentFilter" :options="departmentFilterOptions" :placeholder="t('assets.allDepartments')" />
+                    <FilterDropdown v-model="statusFilter" :options="statusFilterOptions" :placeholder="t('assets.allStatus')" :searchable="false" />
                     <button @click="handleSearch"
                         class="h-11 rounded-lg border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
                         {{ t('common.search') }}
@@ -668,6 +656,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
 import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { usePagePermission } from '@/composables/usePagePermission'
 import { useToast } from '@/composables/useToast'
 import { XIcon } from '@/icons'
@@ -734,8 +723,18 @@ const isLoading = ref(false)
 const assets = ref<AssetSummary[]>([])
 const departmentOptions = ref<{ id: number; name: string }[]>([])
 const searchQuery = ref('')
-const departmentFilter = ref('')
-const statusFilter = ref('')
+const departmentFilter = ref<string[]>([])
+const statusFilter = ref<string[]>([])
+
+const departmentFilterOptions = computed(() =>
+	departmentOptions.value.map((dept) => ({ value: String(dept.id), label: dept.name })),
+)
+
+const statusFilterOptions = computed(() => [
+	{ value: 'Picking', label: t('assets.picking') },
+	{ value: 'Broken', label: t('assets.broken') },
+	{ value: 'Received', label: t('assets.received') },
+])
 
 // Selection
 const selectedIds = ref<number[]>([])
@@ -901,8 +900,8 @@ const loadData = async () => {
 			page: currentPage.value,
 			page_size: pageSize.value,
 			search: searchQuery.value || undefined,
-			department: departmentFilter.value ? Number(departmentFilter.value) : undefined,
-			status: statusFilter.value || undefined,
+			department: departmentFilter.value.length > 0 ? departmentFilter.value.join(',') : undefined,
+			status: statusFilter.value.length > 0 ? statusFilter.value.join(',') : undefined,
 			ordering,
 		})
 
@@ -936,8 +935,8 @@ const handleSearch = () => {
 
 const handleReset = () => {
 	searchQuery.value = ''
-	departmentFilter.value = ''
-	statusFilter.value = ''
+	departmentFilter.value = []
+	statusFilter.value = []
 	sortField.value = ''
 	currentPage.value = 1
 	clearSelection()
@@ -1193,8 +1192,8 @@ const exportData = async (format: 'csv' | 'xlsx') => {
 				page,
 				page_size: 500,
 				search: searchQuery.value || undefined,
-				department: departmentFilter.value ? Number(departmentFilter.value) : undefined,
-				status: statusFilter.value || undefined,
+				department: departmentFilter.value.length > 0 ? departmentFilter.value.join(',') : undefined,
+				status: statusFilter.value.length > 0 ? statusFilter.value.join(',') : undefined,
 			})
 			allAssets.push(...response.results)
 			hasMore = !!response.next

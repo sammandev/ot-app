@@ -1,6 +1,6 @@
-# PTB Overtime Application — Vue Frontend
+# PTB Overtime Application - Frontend
 
-> A modern Vue 3 Single-Page Application built with Vite, TypeScript, and Tailwind CSS. This is the user-facing half of the PTB Overtime Management system — where employees submit overtime, managers approve requests, and teams collaborate in real time.
+> A modern Vue 3 Single-Page Application built with Vite, TypeScript, and Tailwind CSS. This is the user-facing half of the PTB Overtime Management system, where employees submit overtime, managers approve requests, and teams collaborate in real time.
 
 [![Vue](https://img.shields.io/badge/Vue-3.5-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -12,20 +12,26 @@
 
 ## Table of Contents
 
-- [PTB Overtime Application — Vue Frontend](#ptb-overtime-application--vue-frontend)
+- [PTB Overtime Application - Frontend](#ptb-overtime-application---frontend)
   - [Table of Contents](#table-of-contents)
   - [Role \& Design Philosophy](#role--design-philosophy)
+  - [System Architecture](#system-architecture)
   - [Tech Stack](#tech-stack)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
   - [Available Scripts](#available-scripts)
   - [Environment Variables](#environment-variables)
   - [Project Structure](#project-structure)
+    - [Frontend Folder Guide](#frontend-folder-guide)
   - [Routing \& Page Inventory](#routing--page-inventory)
     - [Public Routes](#public-routes)
     - [Authenticated Routes](#authenticated-routes)
     - [Admin Routes](#admin-routes)
     - [Navigation Guards](#navigation-guards)
+  - [Filtering \& Analytics UX](#filtering--analytics-ux)
+    - [Shared FilterDropdown](#shared-filterdropdown)
+    - [Overtime Analytics Pages](#overtime-analytics-pages)
+    - [Other Filtered Pages](#other-filtered-pages)
   - [State Management (Pinia)](#state-management-pinia)
   - [Internationalization (i18n)](#internationalization-i18n)
   - [WebSocket Integration](#websocket-integration)
@@ -50,6 +56,53 @@ This frontend serves as the **complete user experience** for the PTB Overtime sy
 - **Real-time** — WebSocket integration for notifications, Kanban collaboration, and live task editing
 - **i18n-ready** — full localization support for English, Chinese, and Bahasa Indonesia
 - **Chunked builds** — manual vendor splitting for optimal loading performance
+
+---
+
+## System Architecture
+
+This sequence diagram shows how the frontend boots, loads data, and stays in sync with backend updates.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor User
+  participant Host as Frontend Host
+  participant App as Vue App (main.ts)
+  participant Router as Vue Router
+  participant Stores as Pinia Stores
+  participant API as API Service Layer
+  participant Backend as Django REST API
+  participant WS as WebSocket Client
+  participant Channels as Django Channels
+
+  User->>Host: Open PTB OT frontend
+  Host-->>User: Return index.html and built assets
+  User->>App: Boot Vue SPA
+  App->>Stores: Initialize app, auth, and UI stores
+  App->>Router: Register routes and guards
+  Note over App,Stores: Locale, auth state, and persisted filters are restored on startup
+
+  User->>Router: Navigate to a page
+  Router->>Stores: Check auth and permission state
+  alt Route is allowed
+    Router->>API: Request page data
+    API->>Backend: Send /api request
+    Backend-->>API: Return JSON payload
+    API-->>Stores: Normalize and store response data
+    Stores-->>App: Trigger reactive UI update
+  else Route is blocked
+    Router-->>User: Redirect to login or deny access
+  end
+
+  opt Real-time page or notification flow
+    App->>WS: Open WebSocket connection
+    WS->>Channels: Connect to /ws endpoint
+    Channels-->>WS: Push notifications or task updates
+    WS-->>Stores: Apply live update
+    Stores-->>App: Re-render affected views
+  end
+```
 
 ---
 
@@ -145,7 +198,7 @@ cp .env.example .env.prod
 
 ## Project Structure
 
-```
+```text
 frontend/
 ├── index.html                      # SPA entry point
 ├── package.json                    # Dependencies & scripts
@@ -174,9 +227,11 @@ frontend/
     ├── assets/                     # Processed assets (images, fonts, CSS)
     │
     ├── components/                 # Reusable UI components
-    │   ├── layouts/                #   App shell, sidebar, header
+    │   ├── layout/                 #   App shell, sidebar, header
+    │   ├── ui/                     #   Shared UI primitives like FilterDropdown
     │   ├── overtime/               #   OT-specific components
-    │   └── ...                     #   Modals, forms, tables, charts
+    │   ├── kanban/                 #   Kanban-specific UI
+    │   └── ...                     #   Modals, forms, tables, charts, admin tabs
     │
     ├── composables/                # Composition API logic extraction
     │   ├── kanban/                  #   Kanban board composables (5 files)
@@ -198,9 +253,8 @@ frontend/
     │   └── index.ts                # Route definitions + navigation guards
     │
     ├── services/                   # API & WebSocket communication
-    │   ├── api.ts                  #   Axios instance, interceptors, all API functions
-    │   ├── admin.ts                #   Admin CRUD operations
-    │   ├── calendar.ts             #   Calendar event API
+    │   ├── api/                    #   Domain-specific API modules
+    │   ├── api.ts                  #   Shared Axios client entry
     │   └── websocket.ts            #   WebSocket client classes
     │
     ├── stores/                     # Pinia state stores
@@ -228,6 +282,7 @@ frontend/
         ├── OvertimeSummary.vue     #   OT summary dashboard
         ├── OvertimeCalendar.vue    #   OT calendar view
         ├── KanbanBoard.vue         #   Task Kanban board
+        ├── Documents.vue           #   Document library
         ├── PersonalNotesBoard.vue  #   Personal notes
         ├── PtbCalendar.vue         #   PTB calendar
         ├── Notifications.vue       #   Notification center
@@ -247,6 +302,15 @@ frontend/
         └── ProjectOvertimeDetail.vue     # Project OT detail
 ```
 
+### Frontend Folder Guide
+
+- `src/components/` contains reusable UI building blocks. The `ui/` subfolder is where shared primitives such as `FilterDropdown.vue` live, while feature folders such as `kanban/`, `overtime/`, and admin-related folders hold domain-specific presentation pieces.
+- `src/composables/` contains reusable Composition API logic. Domain folders such as `kanban/` keep board behavior isolated, while shared hooks handle debounce, permissions, async component loading, and UI state.
+- `src/services/api/` is the typed frontend contract to the backend. Feature modules such as overtime, employee, project, task, and report APIs are split into their own files rather than being kept in one large client.
+- `src/stores/` holds Pinia stores for auth, overtime, employee/project data, notifications, and UI state. The UI store also persists date filter choices reused across overtime pages.
+- `src/views/` contains route-level pages. Some complex admin screens render smaller tab components from `src/components/` instead of putting every screen directly under `views/`.
+- `public/` stores static assets copied through Vite as-is, while `src/assets/` is for processed app assets included in the bundle.
+
 ---
 
 ## Routing & Page Inventory
@@ -255,7 +319,7 @@ frontend/
 
 | Path | Page | Description |
 | --- | --- | --- |
-| `/login` | Login | External SSO authentication |
+| `/login` | Login | External authentication |
 
 ### Authenticated Routes
 
@@ -269,6 +333,7 @@ frontend/
 | `/calendar` | Overtime Calendar | All users |
 | `/ptb-calendar` | PTB Calendar | All users |
 | `/kanban` | Kanban Board | All users |
+| `/documents` | Documents | All users |
 | `/notes` | Personal Notes | All users |
 | `/notifications` | Notification Center | All users |
 | `/purchasing/list` | Purchase Requests | All users |
@@ -296,6 +361,32 @@ frontend/
 - **Role-based**: enforces `requiresSuperAdmin` and resource-based `hasPermission()` checks
 - **Page title**: dynamically set via `afterEach` hook
 - **Activity logging**: fire-and-forget page view tracking with 30-second deduplication
+
+---
+
+## Filtering & Analytics UX
+
+### Shared FilterDropdown
+
+The app now standardizes multi-select filtering around `src/components/ui/FilterDropdown.vue`.
+
+- `FilterDropdown` accepts `string[]` values, supports built-in search, clear, disabled state, and outside-click closing.
+- It is used where the UI benefits from searchable or reusable multi-select behavior instead of one-off native selects.
+- Current rollout targets include Overtime History, Assets, Kanban filter panels, Documents, Activity Logs, User Reports, and the overtime detail comparison pages.
+
+### Overtime Analytics Pages
+
+- `OvertimeSummary.vue` supports multi-month filtering using the overtime period model of the 26th through the 25th, and it loads the available year list from the backend so users only see years that actually contain overtime data.
+- `EmployeeOvertimeDetail.vue` supports selecting multiple employees at once. The trend chart renders one series per selected employee, while summary cards, type breakdowns, project rankings, and request history aggregate across the selected set.
+- `ProjectOvertimeDetail.vue` supports selecting multiple projects at once. The trend chart renders one series per selected project, while contributor and employee breakdowns aggregate from the filtered request set.
+
+### Other Filtered Pages
+
+- `OvertimeHistory.vue` now uses shared multi-select filters for status, employee, project, and department.
+- `Assets.vue` supports multi-select department and status filtering.
+- `KanbanFilterPanel.vue` replaces the custom `MultipleSelect` dependency with the shared dropdown pattern for department, employee, project, status, priority, label, and group.
+- `Documents.vue` uses the shared dropdown for categories, tags, and source type so the filtering model is consistent with the rest of the app.
+- Admin-facing activity logs and user reports also use the same multi-select filter pattern, which means the UX is consistent across operational and end-user pages.
 
 ---
 
@@ -362,6 +453,7 @@ pnpm format
 ```
 
 **Key configuration** (`biome.json`):
+
 - Indent: 2 spaces
 - Line width: 100 characters
 - Quotes: single

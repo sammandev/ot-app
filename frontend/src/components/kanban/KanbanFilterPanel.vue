@@ -6,58 +6,55 @@
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.department') }}
                 </label>
-                <MultipleSelect v-model="departmentSelection" :options="departmentOptions"
-                    :placeholder="t('kanban.allDepartments')" searchable :search-placeholder="searchDepartmentsLabel"
-                    :empty-text="t('common.noData')" />
+                <FilterDropdown v-model="departmentSelection" :options="departmentOptions"
+                    :placeholder="t('kanban.allDepartments')" />
             </div>
 
             <div v-if="isElevatedTaskManager" class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.employee') }}
                 </label>
-                <MultipleSelect v-model="employeeSelection" :options="employeeOptions"
-                    :placeholder="t('kanban.allEmployees')" searchable :search-placeholder="searchEmployeesLabel"
-                    :empty-text="t('common.noData')" />
+                <FilterDropdown v-model="employeeSelection" :options="employeeOptions"
+                    :placeholder="t('kanban.allEmployees')" />
             </div>
 
             <div class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.project') }}
                 </label>
-                <MultipleSelect v-model="projectSelection" :options="projectOptions"
-                    :placeholder="t('kanban.allProjects')" searchable :search-placeholder="t('kanban.searchProjects')"
-                    :empty-text="t('kanban.noProjectsFound')" />
+                <FilterDropdown v-model="projectSelection" :options="projectOptions"
+                    :placeholder="t('kanban.allProjects')" />
             </div>
 
             <div class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.status') }}
                 </label>
-                <MultipleSelect v-model="statusSelection" :options="statusOptions"
-                    :placeholder="t('kanban.allStatuses')" />
+                <FilterDropdown v-model="statusSelection" :options="statusOptions"
+                    :placeholder="t('kanban.allStatuses')" :searchable="false" />
             </div>
 
             <div class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.priority') }}
                 </label>
-                <MultipleSelect v-model="prioritySelection" :options="priorityOptions"
-                    :placeholder="t('kanban.allPriorities')" />
+                <FilterDropdown v-model="prioritySelection" :options="priorityOptions"
+                    :placeholder="t('kanban.allPriorities')" :searchable="false" />
             </div>
 
             <div class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.label') }}
                 </label>
-                <MultipleSelect v-model="labelSelection" :options="labelOptions" :placeholder="t('kanban.allLabels')" />
+                <FilterDropdown v-model="labelSelection" :options="labelOptions" :placeholder="t('kanban.allLabels')" :searchable="false" />
             </div>
 
             <div class="min-w-0 space-y-2">
                 <label class="block text-xs font-semibold uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
                     {{ t('kanban.group') }}
                 </label>
-                <MultipleSelect v-model="groupSelection" :options="groupOptions" :placeholder="t('kanban.allGroups')"
-                    searchable :search-placeholder="searchGroupsLabel" :empty-text="t('common.noData')" />
+                <FilterDropdown v-model="groupSelection" :options="groupOptions"
+                    :placeholder="t('kanban.allGroups')" />
             </div>
         </div>
 
@@ -130,7 +127,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import MultipleSelect from '@/components/forms/FormElements/MultipleSelect.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { availableLabels, getLabelColor, getPriorityConfig } from '@/composables/kanban'
 import type { PriorityLevel, TaskStatus } from '@/composables/kanban/useKanbanHelpers'
 import { XIcon } from '@/icons'
@@ -138,11 +135,6 @@ import type { Department } from '@/services/api/department'
 import type { Employee } from '@/services/api/employee'
 import type { Project } from '@/services/api/project'
 import type { TaskGroup } from '@/services/api/task'
-
-type OptionItem = {
-	value: number | string
-	label: string
-}
 
 const { t, te } = useI18n()
 
@@ -176,15 +168,6 @@ const emit = defineEmits<{
 	'clear-filters': []
 }>()
 
-const searchDepartmentsLabel = computed(() =>
-	te('kanban.searchDepartments') ? t('kanban.searchDepartments') : t('common.search'),
-)
-const searchEmployeesLabel = computed(() =>
-	te('kanban.searchEmployees') ? t('kanban.searchEmployees') : t('common.search'),
-)
-const searchGroupsLabel = computed(() =>
-	te('kanban.searchGroups') ? t('kanban.searchGroups') : t('common.search'),
-)
 const showingAllTasksLabel = computed(() => {
     if (props.isElevatedTaskManager && props.taskScope === 'all') {
         return te('kanban.showingAllTasks') ? t('kanban.showingAllTasks') : t('kanban.showingTasksFor')
@@ -192,98 +175,87 @@ const showingAllTasksLabel = computed(() => {
     return te('kanban.showingMyTasks') ? t('kanban.showingMyTasks') : t('kanban.showingTasksFor')
 })
 
-const departmentOptions = computed<OptionItem[]>(() =>
+const departmentOptions = computed(() =>
     props.sortedDepartments.map((department: Department) => ({
-		value: department.id,
+		value: String(department.id),
 		label: department.name,
 	})),
 )
 
-const employeeOptions = computed<OptionItem[]>(() =>
+const employeeOptions = computed(() =>
     props.filteredEmployees.map((employee: Employee) => ({
-		value: employee.id,
+		value: String(employee.id),
 		label: employee.name,
 	})),
 )
 
-const projectOptions = computed<OptionItem[]>(() =>
+const projectOptions = computed(() =>
     props.sortedProjects.map((project: Project) => ({
-		value: project.id,
+		value: String(project.id),
 		label: project.name,
 	})),
 )
 
-const statusOptions = computed<OptionItem[]>(() => [
+const statusOptions = computed(() => [
 	{ value: 'todo', label: t('kanban.todo') },
 	{ value: 'in_progress', label: t('kanban.inProgress') },
 	{ value: 'done', label: t('kanban.done') },
 ])
 
-const priorityOptions = computed<OptionItem[]>(() =>
+const priorityOptions = computed(() =>
 	(['low', 'medium', 'high', 'urgent'] as const).map((priority) => ({
 		value: priority,
 		label: priorityLabel(priority),
 	})),
 )
 
-const labelOptions = computed<OptionItem[]>(() =>
+const labelOptions = computed(() =>
 	availableLabels.map((label) => ({
 		value: label.name,
 		label: label.name,
 	})),
 )
 
-const groupOptions = computed<OptionItem[]>(() =>
+const groupOptions = computed(() =>
     props.taskGroups.map((group: TaskGroup) => ({
-		value: group.id,
+		value: String(group.id),
 		label: group.name,
 	})),
 )
 
-function toOptionItems(values: Array<number | string>, options: OptionItem[]) {
-	return values
-		.map((value) => options.find((option) => option.value === value))
-		.filter((option): option is OptionItem => !!option)
-}
-
-function fromOptionItems(values: OptionItem[]) {
-	return values.map((value) => value.value)
-}
-
-const departmentSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedDepartment, departmentOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedDepartment', fromOptionItems(value).map(Number)),
+const departmentSelection = computed<string[]>({
+	get: () => props.selectedDepartment.map(String),
+	set: (value: string[]) => emit('update:selectedDepartment', value.map(Number)),
 })
 
-const employeeSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedEmployee, employeeOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedEmployee', fromOptionItems(value).map(Number)),
+const employeeSelection = computed<string[]>({
+	get: () => props.selectedEmployee.map(String),
+	set: (value: string[]) => emit('update:selectedEmployee', value.map(Number)),
 })
 
-const projectSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedProject, projectOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedProject', fromOptionItems(value).map(Number)),
+const projectSelection = computed<string[]>({
+	get: () => props.selectedProject.map(String),
+	set: (value: string[]) => emit('update:selectedProject', value.map(Number)),
 })
 
-const statusSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedStatus, statusOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedStatus', fromOptionItems(value).map(String) as TaskStatus[]),
+const statusSelection = computed<string[]>({
+	get: () => props.selectedStatus as string[],
+	set: (value: string[]) => emit('update:selectedStatus', value as TaskStatus[]),
 })
 
-const prioritySelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedPriority, priorityOptions.value),
-    set: (value: OptionItem[]) =>
-        emit('update:selectedPriority', fromOptionItems(value).map(String) as PriorityLevel[]),
+const prioritySelection = computed<string[]>({
+	get: () => props.selectedPriority as string[],
+	set: (value: string[]) => emit('update:selectedPriority', value as PriorityLevel[]),
 })
 
-const labelSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedLabel, labelOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedLabel', fromOptionItems(value).map(String)),
+const labelSelection = computed<string[]>({
+	get: () => props.selectedLabel,
+	set: (value: string[]) => emit('update:selectedLabel', value),
 })
 
-const groupSelection = computed<OptionItem[]>({
-	get: () => toOptionItems(props.selectedGroup, groupOptions.value),
-    set: (value: OptionItem[]) => emit('update:selectedGroup', fromOptionItems(value).map(Number)),
+const groupSelection = computed<string[]>({
+	get: () => props.selectedGroup.map(String),
+	set: (value: string[]) => emit('update:selectedGroup', value.map(Number)),
 })
 
 function departmentName(id: number) {

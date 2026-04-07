@@ -373,7 +373,7 @@
                     </div>
                     <div class="text-xs text-gray-500 mt-1">
                       <span>{{ formatDateTime(log.started_at) }}</span>
-                      <span v-if="log.ended_at"> → {{ formatDateTime(log.ended_at) }}</span>
+                      <span v-if="log.ended_at"> -> {{ formatDateTime(log.ended_at) }}</span>
                     </div>
                     <div class="text-xs text-gray-400 mt-0.5">
                       {{ t('kanban.by') }} {{ log.employee_name }}

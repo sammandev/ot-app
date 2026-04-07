@@ -970,6 +970,8 @@ export default {
 		topEmployees: '热门员工',
 		overtimeHoursByEmployee: '按员工统计的加班时数',
 		totalEmployees: '员工总计',
+		allEmployees: '所有员工',
+		allProjects: '所有项目',
 	},
 
 	// ─── Task Board / Kanban ──────────────────────────────
@@ -1255,9 +1257,9 @@ export default {
 		saveChanges: '保存更改',
 		importPurchaseRequests: '导入采购申请',
 		importDescription: '上传 CSV 或 Excel 文件。对于多个工作表的 Excel 文件，系统识别：',
-		importSheetPending: 'List of Purchase → 待处理状态',
-		importSheetDone: 'Done → 已完成状态',
-		importSheetCancel: 'Cancel Purchase → 已取消状态',
+		importSheetPending: 'List of Purchase -> 待处理状态',
+		importSheetDone: 'Done -> 已完成状态',
+		importSheetCancel: 'Cancel Purchase -> 已取消状态',
 		clickToSelectFile: '点击选择文件',
 		supportsFormats: '支持 CSV、XLSX、XLS',
 		selectedFile: '已选择：',

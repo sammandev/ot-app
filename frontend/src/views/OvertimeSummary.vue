@@ -31,32 +31,19 @@
 						<div class="lg:col-span-3 space-y-2">
 							<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
 								t('otSummary.dateSelection') }}</label>
-							<select v-model="dateSelectionType"
-								class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-								<option value="year-month">{{ t('otSummary.yearMonth') }}</option>
-								<option value="custom">{{ t('otSummary.customDateRange') }}</option>
-							</select>
+							<SelectDropdown v-model="dateSelectionType" :options="dateSelectionOptions" :placeholder="t('otSummary.yearMonth')" :searchable="false" />
 						</div>
 
 						<template v-if="dateSelectionType === 'year-month'">
 							<div class="lg:col-span-3 space-y-2">
 								<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
 									t('otSummary.year') }}</label>
-								<select v-model.number="selectedYear" @change="handleYearMonthChange"
-									class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-									<option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-								</select>
+								<SelectDropdown :model-value="String(selectedYear)" @update:model-value="(v: string) => { selectedYear = Number(v); handleYearMonthChange() }" :options="yearFilterOptions" :placeholder="t('otSummary.year')" :searchable="false" />
 							</div>
 							<div class="lg:col-span-3 space-y-2">
 								<label class="text-sm font-medium text-gray-700 dark:text-gray-300">{{
 									t('otSummary.month') }}</label>
-								<select v-model="selectedMonth" @change="handleYearMonthChange"
-									class="h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-									<option value="all">{{ t('months.allMonths') }}</option>
-									<option v-for="month in months" :key="month.value" :value="month.value">{{
-										month.label
-									}}</option>
-								</select>
+								<FilterDropdown v-model="selectedMonths" :options="monthFilterOptions" :placeholder="t('months.allMonths')" :searchable="false" />
 							</div>
 							<div class="lg:col-span-3 flex items-end">
 								<button @click="resetToCurrentPeriod"
@@ -351,6 +338,8 @@ import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } fr
 import flatPickr from 'vue-flatpickr-component'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import ChartSkeleton from '@/components/skeletons/ChartSkeleton.vue'
 import FilterSkeleton from '@/components/skeletons/FilterSkeleton.vue'
 import StatCardSkeleton from '@/components/skeletons/StatCardSkeleton.vue'
@@ -420,16 +409,63 @@ const getCurrentPeriodRange = () => {
 const dateSelectionType = ref<'year-month' | 'custom'>(uiStore.dateFilter.selectionType)
 const selectedYear = ref(uiStore.dateFilter.selectedYear)
 const selectedMonth = ref<string | number>(uiStore.dateFilter.selectedMonth)
+const selectedMonths = ref<string[]>(
+	uiStore.dateFilter.selectedMonth === 'all' || !uiStore.dateFilter.selectedMonth
+		? ['all']
+		: String(uiStore.dateFilter.selectedMonth).includes(',')
+			? String(uiStore.dateFilter.selectedMonth).split(',')
+			: [String(uiStore.dateFilter.selectedMonth)],
+)
 const customDateRange = ref<string>(
 	uiStore.dateFilter.customDateRange || getCurrentPeriodRange().rangeString,
 )
 
 const overtimeStore = useOvertimeStore()
 
+// Track previous month selection for mutual exclusion logic
+let prevMonths: string[] = [...selectedMonths.value]
+
+// Mutual exclusion: "all" vs individual months, and clear → current month
+watch(selectedMonths, (curr) => {
+	const hadAll = prevMonths.includes('all')
+	const hasAll = curr.includes('all')
+	const hasIndividual = curr.some((v) => v !== 'all')
+
+	if (curr.length === 0) {
+		// User clicked "Clear" — default to current month
+		const currentMonth = String(new Date().getMonth() + 1)
+		selectedMonths.value = [currentMonth]
+		prevMonths = [currentMonth]
+		return
+	}
+
+	if (hasAll && hasIndividual) {
+		if (!hadAll) {
+			// User just selected "all" while individual months are selected → keep only "all"
+			selectedMonths.value = ['all']
+		} else {
+			// User selected an individual month while "all" was active → remove "all"
+			selectedMonths.value = curr.filter((v) => v !== 'all')
+		}
+	}
+
+	prevMonths = [...selectedMonths.value]
+})
+
 // Watch and persist date filter changes to UI store + refetch data
 watch(
-	[dateSelectionType, selectedYear, selectedMonth, customDateRange],
+	[dateSelectionType, selectedYear, selectedMonths, customDateRange],
 	async () => {
+		// Sync selectedMonths back to legacy selectedMonth for uiStore persistence
+		const effectiveMonths = selectedMonths.value.filter((v) => v !== 'all')
+		if (effectiveMonths.length === 0) {
+			selectedMonth.value = 'all'
+		} else if (effectiveMonths.length === 1) {
+			selectedMonth.value = Number(effectiveMonths[0])
+		} else {
+			selectedMonth.value = effectiveMonths.join(',')
+		}
+
 		uiStore.setDateFilter({
 			selectionType: dateSelectionType.value,
 			selectedYear: selectedYear.value,
@@ -462,10 +498,21 @@ const months = computed(() => [
 	{ value: 12, label: t('months.december') },
 ])
 
-const availableYears = computed(() => {
-	const current = new Date().getFullYear()
-	return Array.from({ length: 5 }, (_v, i) => current - 2 + i)
-})
+const monthFilterOptions = computed(() => [
+	{ value: 'all', label: t('months.allMonths') },
+	...months.value.map((m) => ({ value: String(m.value), label: m.label })),
+])
+
+const availableYears = ref<number[]>([])
+
+const yearFilterOptions = computed(() =>
+	availableYears.value.map((y) => ({ value: String(y), label: String(y) })),
+)
+
+const dateSelectionOptions = computed(() => [
+	{ value: 'year-month', label: t('otSummary.yearMonth') },
+	{ value: 'custom', label: t('otSummary.customDateRange') },
+])
 
 const { flatpickrInstances, attachMonthScroll } = useFlatpickrScroll()
 const flatpickrReady = ref(false)
@@ -531,32 +578,34 @@ function calculateDateRange(): { start: Date; end: Date } | null {
 
 	const year = Number(selectedYear.value)
 
-	if (selectedMonth.value === 'all') {
+	const effectiveMonths = selectedMonths.value.filter((v) => v !== 'all')
+	if (effectiveMonths.length === 0) {
+		// All months — full year range
 		const start = new Date(year - 1, 11, 26)
 		const end = new Date(year, 11, 25)
 		return { start, end }
 	}
 
-	const monthIndex = Number(selectedMonth.value) - 1
-	let startMonth: number
-	let startYear: number
-	let endMonth: number
-	let endYear: number
+	// Calculate range that covers all selected months
+	const monthNumbers = effectiveMonths.map(Number).sort((a, b) => a - b)
+	const firstMonth = monthNumbers[0]
+	const lastMonth = monthNumbers[monthNumbers.length - 1]
 
-	if (monthIndex === 0) {
-		startMonth = 11
-		startYear = year - 1
-		endMonth = 0
-		endYear = year
-	} else {
-		startMonth = monthIndex - 1
-		startYear = year
-		endMonth = monthIndex
-		endYear = year
+	if (firstMonth === undefined || lastMonth === undefined) {
+		const start = new Date(year - 1, 11, 26)
+		const end = new Date(year, 11, 25)
+		return { start, end }
 	}
 
-	const start = new Date(startYear, startMonth, 26)
-	const end = new Date(endYear, endMonth, 25)
+	// Start: 26th of month before first selected, End: 25th of last selected
+	const firstIdx = firstMonth - 1 // 0-based
+	const lastIdx = lastMonth - 1
+
+	const startMonthIdx = firstIdx === 0 ? 11 : firstIdx - 1
+	const startYear = firstIdx === 0 ? year - 1 : year
+
+	const start = new Date(startYear, startMonthIdx, 26)
+	const end = new Date(year, lastIdx, 25)
 	return { start, end }
 }
 
@@ -580,7 +629,7 @@ const resetToCurrentPeriod = () => {
 	dateSelectionType.value = 'year-month'
 	customDateRange.value = ''
 	selectedYear.value = current.end.getFullYear()
-	selectedMonth.value = current.end.getMonth() + 1
+	selectedMonths.value = [String(current.end.getMonth() + 1)]
 }
 
 const clearCustomRange = () => {
@@ -898,7 +947,21 @@ onMounted(async () => {
 
 	isLoading.value = true
 	try {
-		await Promise.all([employeeStore.fetchEmployees(), fetchSummaryData()])
+		const [, , yearsResult] = await Promise.all([
+			employeeStore.fetchEmployees(),
+			fetchSummaryData(),
+			overtimeStore.fetchAvailableYears(),
+		])
+		if (yearsResult && yearsResult.length > 0) {
+			availableYears.value = yearsResult
+			// Ensure selectedYear is within available range
+			if (!yearsResult.includes(selectedYear.value)) {
+				selectedYear.value = yearsResult[yearsResult.length - 1] ?? new Date().getFullYear()
+			}
+		} else {
+			const current = new Date().getFullYear()
+			availableYears.value = [current]
+		}
 	} catch (error) {
 		console.error('Failed to fetch summary data:', error)
 	} finally {

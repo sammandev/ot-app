@@ -19,7 +19,9 @@ class ExcelGenerator:
     DEFAULT_DEPT_CODE = "K390140R1C"
     DEFAULT_DEPT_NAME = "BG6-RD Center-Automatic System Test R&D Div.1-Dept.1-PTB Sec.1"
 
-    EXCEL_TEMP_ONLY = os.getenv("EXCEL_TEMP_ONLY", "false").lower() == "true"  # Set true to keep files temp-only (e.g., SMB-only uploads)
+    EXCEL_TEMP_ONLY = (
+        os.getenv("EXCEL_TEMP_ONLY", "false").lower() == "true"
+    )  # Set true to keep files temp-only (e.g., SMB-only uploads)
 
     # Use SMB_* environment variables (consistent with Django settings)
     SMB_CONFIG = {
@@ -29,7 +31,11 @@ class ExcelGenerator:
         "share_name": os.getenv("SMB_SHARE_NAME") or "",
         "domain": os.getenv("SMB_DOMAIN", "WORKGROUP"),
         "port": int(os.getenv("SMB_PORT", "445")),
-        "path": os.getenv("SMB_PATH_PREFIX", "Management\\PTB\\AST_Portal_Overtime\\").replace("\\", "/"),  # Will be set from SMB_PATH_PREFIX env var if provided
+        "path": os.getenv(
+            "SMB_PATH_PREFIX", "Management\\PTB\\AST_Portal_Overtime\\"
+        ).replace(
+            "\\", "/"
+        ),  # Will be set from SMB_PATH_PREFIX env var if provided
     }
 
     _connection_cache = None
@@ -48,7 +54,10 @@ class ExcelGenerator:
         Cached for 60 seconds to avoid DB queries on every call.
         """
         now = time.monotonic()
-        if cls._smb_config_cache_time and (now - cls._smb_config_cache_time) < cls._smb_config_cache_ttl:
+        if (
+            cls._smb_config_cache_time
+            and (now - cls._smb_config_cache_time) < cls._smb_config_cache_ttl
+        ):
             return  # Use cached config
         try:
             from ..models import SMBConfiguration
@@ -67,7 +76,10 @@ class ExcelGenerator:
     def _smb_configured(cls) -> bool:
         """Return True if all SMB config pieces are present (host/user/password/share)."""
         cls._load_smb_config()
-        return all(cls.SMB_CONFIG.get(key) for key in ("host", "username", "password", "share_name"))
+        return all(
+            cls.SMB_CONFIG.get(key)
+            for key in ("host", "username", "password", "share_name")
+        )
 
     @classmethod
     def get_period_folder(cls, date: datetime | None = None) -> str:
@@ -80,7 +92,9 @@ class ExcelGenerator:
 
         current_period_start = date.replace(day=26)
         if date.day < 26:
-            current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(day=26)
+            current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(
+                day=26
+            )
 
         next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
         folder_name = f"{current_period_start.strftime('%Y-%m-%d')}_{next_period_end.strftime('%Y-%m-%d')}"
@@ -99,7 +113,9 @@ class ExcelGenerator:
 
         current_period_start = date.replace(day=26)
         if date.day < 26:
-            current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(day=26)
+            current_period_start = (date.replace(day=1) - timedelta(days=1)).replace(
+                day=26
+            )
 
         next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
         folder_name = f"{current_period_start.strftime('%Y-%m-%d')}_{next_period_end.strftime('%Y-%m-%d')}"
@@ -115,7 +131,13 @@ class ExcelGenerator:
             return None
 
         current_time = time.time()
-        if use_cache and cls._connection_cache and cls._connection_cache_time and (current_time - cls._connection_cache_time) < cls._connection_cache_timeout:
+        if (
+            use_cache
+            and cls._connection_cache
+            and cls._connection_cache_time
+            and (current_time - cls._connection_cache_time)
+            < cls._connection_cache_timeout
+        ):
             try:
                 cls._connection_cache.listShares()
                 return cls._connection_cache
@@ -174,7 +196,9 @@ class ExcelGenerator:
                 except Exception as dir_error:
                     msg = str(dir_error).lower()
                     if "already exists" not in msg and "file exists" not in msg:
-                        print(f"Warning: could not create SMB directory {relative_path}: {dir_error}")
+                        print(
+                            f"Warning: could not create SMB directory {relative_path}: {dir_error}"
+                        )
         finally:
             if should_close:
                 conn.close()
@@ -200,12 +224,13 @@ class ExcelGenerator:
         wb = Workbook()
         ws = wb.active
 
+        # Column widths for ~{YYYY_MM_DD-YYYY_MM_DD}OT.xlsx monthly form format (A-P) - adjust as needed for actual form content
         columns = {
-            "A": 4.14,
+            "A": 6.25,
             "B": 13.43,
             "C": 21.14,
             "D": 22.29,
-            "E": 17.86,
+            "E": 18.25,
             "F": 14.14,
             "G": 15.14,
             "H": 13.57,
@@ -214,7 +239,7 @@ class ExcelGenerator:
             "K": 17.14,
             "L": 14.43,
             "M": 15.43,
-            "N": 18.57,
+            "N": 16.57,
         }
         for col, width in columns.items():
             ws.column_dimensions[col].width = width
@@ -224,60 +249,72 @@ class ExcelGenerator:
         ws.row_dimensions[3].height = 92
 
         ws.merge_cells("A1:N1")
-        ws["A1"] = "Form Lembur (加 班 申 请 单)"
+        ws["A1"] = "Form Lembur (加 班 申 請 單)"
         ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
         ws["A1"].font = Font(name="Arial", size=20)
 
         ws.merge_cells("A2:C2")
-        ws["A2"] = f"Departemen\n(部门代码)：\n{dept_code}\n{dept_name}"
+        ws["A2"] = f"Departemen\n(部門代碼)：\n{dept_code}\n{dept_name}"
         ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
         ws["A2"].font = Font(name="Arial", size=11)
 
-        ws["D2"] = "Klasifikasi Karyawan\n(人员分类):"
-        ws["D2"].alignment = Alignment(vertical="center", horizontal="right", wrap_text=True)
-        ws["E2"] = "☐ Band0(1-2職等)\n☑ Band1(3-5職等)"
+        ws["D2"] = "Klasifikasi Karyawan\n(人員分類):"
+        ws["D2"].alignment = Alignment(
+            vertical="center", horizontal="right", wrap_text=True
+        )
+        ws["E2"] = "☐ Level0(11-12職等)\n☑ Level1(13-23職等)"
         ws["E2"].alignment = Alignment(vertical="center", wrap_text=True)
 
         ch_date = f"{date_info.year} 年 {date_info.month:02d} 月 {date_info.day:02d} 日"
         weekday = calendar.day_name[date_info.weekday()].upper()
         ws.merge_cells("F2:H2")
-        ws["F2"] = f"Tanggal Lembur （加班日期）：\n                           {ch_date}\nHari （星期）: {weekday}"
+        ws["F2"] = (
+            f"Tanggal Lembur （加班日期）：\n                           {ch_date}\nHari （星期）: {weekday}"
+        )
         ws["F2"].alignment = Alignment(vertical="center", wrap_text=True)
 
-        overtime_type = "Jenis Lembur （加班类别） :\n"
+        overtime_type = "Jenis Lembur （加班類别） :\n"
         if data and len(data) > 0:
             first_request = data[0]
             is_weekend = first_request.get("is_weekend", False)
             is_holiday = first_request.get("is_holiday", False)
 
             if is_holiday:
-                overtime_type += "☐ Saat Hari Kerja (工作日延长加班)\n☐ Saat Hari Libur (休息日加班)\n☑ Saat Tanggal Merah (法定假日加班)"
+                overtime_type += "☐ Saat Hari Kerja (工作日延長加班)\n☐ Saat Hari Libur (休息日加班)\n☑ Saat Tanggal Merah (法定假日加班)"
             elif is_weekend:
-                overtime_type += "☐ Saat Hari Kerja (工作日延长加班)\n☑ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
+                overtime_type += "☐ Saat Hari Kerja (工作日延長加班)\n☑ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
             else:
-                overtime_type += "☑ Saat Hari Kerja (工作日延长加班)\n☐ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
+                overtime_type += "☑ Saat Hari Kerja (工作日延長加班)\n☐ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
 
         ws.merge_cells("I2:N2")
         ws["I2"] = overtime_type
         ws["I2"].alignment = Alignment(vertical="center", wrap_text=True)
 
         headers = [
-            ("A3", "No"),
-            ("B3", "No Karyawan\n(工号)"),
+            ("A3", "No\n(序號)"),
+            ("B3", "No Karyawan\n(工號)"),
             ("C3", "Nama\n(姓名)"),
-            ("D3", "Alasan Lembur\n(申请加班事由)"),
-            ("E3", "Jam Lembur (Waktu)\n(预计加班\n起止时间)"),
-            ("F3", "Durasi Lembur\n(预计加班时数)"),
-            ("G3", "Jam istirahat saat lembur (jika perlu, gunakan V)\n(预计休息或用餐打V)"),
-            ("H3", "Tanda Tangan Karyawan\n(员工签名)"),
-            ("I3", "Tanda Tangan Supervisor\n(课级主管签名)"),
-            ("K3", "Konfirmasi Jam Lembur (Waktu)\n(实际加班\n起止时间)"),
-            ("L3", "Konfirmasi Durasi Lembur\n(实际加班时数)"),
-            ("M3", "Jam Istirahat (Jika ada, gunakan V)\n(实际休息或用餐打V)"),
-            ("N3", "Tanda Tangan Karyawan\n(员工签名)"),
+            ("D3", "Alasan Lembur\n(申請加班事由)"),
+            ("E3", "Jam Lembur (Waktu)\n(預計加班\n起止時間)"),
+            ("F3", "Durasi Lembur\n(預計加班時數)"),
+            (
+                "G3",
+                "Jam istirahat saat lembur (jika perlu, gunakan V)\n(預計休息或用餐打V)",
+            ),
+            ("H3", "Tanda Tangan Karyawan\n(員工簽名)"),
+            ("I3", "Tanda Tangan Supervisor\n(課級主管簽名)"),
+            ("K3", "Konfirmasi Jam Lembur (Waktu)\n(實際加班\n起止時間)"),
+            ("L3", "Konfirmasi Durasi Lembur\n(實際加班時數)"),
+            ("M3", "Jam Istirahat (Jika ada, gunakan V)\n(實際休息或用餐打V)"),
+            ("N3", "Tanda Tangan Karyawan\n(員工簽名)"),
         ]
 
-        thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        )
         header_style = Alignment(horizontal="center", vertical="center", wrap_text=True)
         header_font = Font(name="Arial", size=11)
 
@@ -293,7 +330,12 @@ class ExcelGenerator:
                 ws[cell] = ""
                 ws[cell].border = thin_border
                 ws[cell].font = Font(name="Arial", size=11)
-                ws[cell].alignment = Alignment(vertical="center")
+                if col in "ABC":
+                    ws[cell].alignment = Alignment(
+                        horizontal="center", vertical="center"
+                    )
+                else:
+                    ws[cell].alignment = Alignment(vertical="center")
             ws[f"A{row}"] = row - 3
 
         current_row = 4
@@ -302,27 +344,41 @@ class ExcelGenerator:
             ws[f"C{current_row}"] = item.get("employee_name")
 
             ws[f"D{current_row}"] = item.get("reason")
-            ws[f"D{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"D{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"E{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-            ws[f"E{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"E{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"F{current_row}"] = f"{item.get('total_hours')} hour(s)"
-            ws[f"F{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"F{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             # Show 'V' if employee takes break time (original format)
             ws[f"G{current_row}"] = "V" if item.get("has_break") else "-"
-            ws[f"G{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"G{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"K{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-            ws[f"K{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"K{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"L{current_row}"] = f"{item.get('total_hours')} hour(s)"
-            ws[f"L{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"L{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             # Show 'V' if employee takes break time (original format)
             ws[f"M{current_row}"] = "V" if item.get("has_break") else "-"
-            ws[f"M{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"M{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             current_row += 1
 
@@ -331,9 +387,18 @@ class ExcelGenerator:
         ws["A34"].font = Font(name="Arial", size=12)
 
         notes = [
-            ("A35:N35", "1、Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan\n(以上资料请据实申报，违者按奖惩管理办法处理)。"),
-            ("A36:N36", "2、Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (实际加班时数，以员工签名确认为准)。"),
-            ("A37:N37", "3、Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (无加班申请单不计发加班费)。"),
+            (
+                "A35:N35",
+                "1. Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan (以上資料請據實申報，違者按獎懲管理辦法處理)。",
+            ),
+            (
+                "A36:N36",
+                "2. Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (實際加班時數，以員工簽名確認為準)。",
+            ),
+            (
+                "A37:N37",
+                "3. Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (無加班申請單不計發加班費)。",
+            ),
         ]
 
         for cells, text in notes:
@@ -343,7 +408,7 @@ class ExcelGenerator:
             ws[anchor].font = Font(name="Arial", size=12)
             ws[anchor].alignment = Alignment(vertical="center", wrap_text=True)
 
-        ws["M38"] = "Form No.:PTB-TB004-001 Rev.01"
+        ws["M38"] = "Form No.:PH2-TB004-001 Rev.02(CI)"
         ws["M38"].font = Font(name="Arial", size=10)
 
         return wb
@@ -358,16 +423,16 @@ class ExcelGenerator:
         wb = Workbook()
         ws = wb.active
 
-        # Original column widths
+        # Column widths for {YYYYMMDD}OTSummary.xlsx form format file (A-H) - adjust as needed for actual summary content
         columns = {
-            "A": 11.5,  # Work ID
-            "B": 12.0,  # Overtime Type
-            "C": 15.0,  # Overtime Start Date
-            "D": 9.75,  # Start Time
-            "E": 9.75,  # End Time
-            "F": 9.75,  # Break
-            "G": 6.0,  # Hours
-            "H": 25.0,  # Reason
+            "A": 11.75,     # Work ID
+            "B": 13.75,     # Overtime Type
+            "C": 18.25,     # Overtime Start Date
+            "D": 9.75,      # Start Time
+            "E": 9.75,      # End Time
+            "F": 9.75,      # Break
+            "G": 6.0,       # Hours
+            "H": 25.0,      # Reason
         }
         for col, width in columns.items():
             ws.column_dimensions[col].width = width
@@ -419,14 +484,18 @@ class ExcelGenerator:
                 ws[cell].font = Font(name="Arial", size=11)
                 ws[cell].alignment = Alignment(vertical="center")
                 if col in "ABCDEFG":
-                    ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                    ws[cell].alignment = Alignment(
+                        horizontal="center", vertical="center"
+                    )
 
             current_row += 1
 
         return wb
 
     @classmethod
-    def create_monthly_ot_form(cls, monthly_data, period_start, period_end, dept_code=None, dept_name=None):
+    def create_monthly_ot_form(
+        cls, monthly_data, period_start, period_end, dept_code=None, dept_name=None
+    ):
         # Use provided dept info or fallback to defaults
         dept_code = dept_code or cls.DEFAULT_DEPT_CODE
         dept_name = dept_name or cls.DEFAULT_DEPT_NAME
@@ -434,23 +503,24 @@ class ExcelGenerator:
         wb = Workbook()
         ws = wb.active
 
+        # Column widths for ~{YYYY_MM_DD-YYYY_MM_DD}OT.xlsx monthly form format (A-P) - adjust as needed for actual form content
         columns = {
-            "A": 4.14,
-            "B": 13.88,
-            "C": 13.93,
-            "D": 21.14,
-            "E": 22.29,
-            "F": 15.22,
-            "G": 16.55,
-            "H": 14.55,
-            "I": 15.14,
-            "J": 13.57,
-            "K": 15.71,
-            "L": 1.00,
-            "M": 16.55,
-            "N": 14.55,
-            "O": 15.43,
-            "P": 18.57,
+            "A": 6.25,      # No
+            "B": 13.88,     # Tanggal Lembur
+            "C": 13.93,     # No Karyawan
+            "D": 21.14,     # Nama
+            "E": 22.29,     # Alasan Lembur
+            "F": 15.22,     # Jenis Lembur
+            "G": 16.55,     # Jam Lembur (Waktu)
+            "H": 14.55,     # Durasi Lembur
+            "I": 15.14,     # Jam istirahat saat lembur
+            "J": 13.57,     # Tanda Tangan Karyawan
+            "K": 15.71,     # Tanda Tangan Supervisor
+            "L": 1.00,      # Placeholder
+            "M": 16.55,     # Konfirmasi Jam Lembur (Waktu)
+            "N": 14.55,     # Konfirmasi Durasi Lembur
+            "O": 15.43,     # Jam Istirahat (Jika ada, gunakan V)
+            "P": 18.57,     # Tanda Tangan Karyawan
         }
         for col, width in columns.items():
             ws.column_dimensions[col].width = width
@@ -460,47 +530,61 @@ class ExcelGenerator:
         ws.row_dimensions[3].height = 92
 
         ws.merge_cells("A1:P1")
-        ws["A1"] = "Form Lembur Bulanan (月度加班申请单)"
+        ws["A1"] = "Form Lembur Bulanan (月度加班申請單)"
         ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
         ws["A1"].font = Font(name="Arial", size=20, bold=True)
 
         ws.merge_cells("A2:C2")
-        ws["A2"] = f"Departemen\n(部门代码)：\n{dept_code}\n{dept_name}"
+        ws["A2"] = f"Departemen\n(部門代碼)：\n{dept_code}\n{dept_name}"
         ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
         ws["A2"].font = Font(name="Arial", size=11)
 
-        ws["D2"] = "Klasifikasi Karyawan\n(人员分类):"
-        ws["D2"].alignment = Alignment(vertical="center", horizontal="right", wrap_text=True)
-        ws["E2"] = "☐ Band0(1-2職等)\n☑ Band1(3-5職等)"
+        ws["D2"] = "Klasifikasi Karyawan\n(人員分類):"
+        ws["D2"].alignment = Alignment(
+            vertical="center", horizontal="right", wrap_text=True
+        )
+        ws["E2"] = "☐ Level0(11-12職等)\n☑ Level1(13-23職等)"
         ws["E2"].alignment = Alignment(vertical="center", wrap_text=True)
 
-        period_str = f"{period_start.strftime('%Y-%m-%d')} ~ {period_end.strftime('%Y-%m-%d')}"
+        period_str = (
+            f"{period_start.strftime('%Y-%m-%d')} ~ {period_end.strftime('%Y-%m-%d')}"
+        )
         ws.merge_cells("F2:H2")
         ws["F2"] = f"Periode Lembur (加班期间):\n{period_str}"
-        ws["F2"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        ws["F2"].alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
 
         ws.merge_cells("I2:P2")
         ws["I2"] = ""
 
         headers = [
-            ("A3", "No"),
+            ("A3", "No\n(序號)"),
             ("B3", "Tanggal Lembur\n(加班日期)"),
-            ("C3", "No Karyawan\n(工号)"),
+            ("C3", "No Karyawan\n(工號)"),
             ("D3", "Nama\n(姓名)"),
-            ("E3", "Alasan Lembur\n(申请加班事由)"),
-            ("F3", "Jenis Lembur\n(加班类别)"),
-            ("G3", "Jam Lembur (Waktu)\n(预计加班\n起止时间)"),
-            ("H3", "Durasi Lembur\n(预计加班时数)"),
-            ("I3", "Jam istirahat saat lembur (jika perlu, gunakan V)\n(预计休息或用餐打V)"),
-            ("J3", "Tanda Tangan Karyawan\n(员工签名)"),
-            ("K3", "Tanda Tangan Supervisor\n(课级主管签名)"),
-            ("M3", "Konfirmasi Jam Lembur (Waktu)\n(实际加班\n起止时间)"),
-            ("N3", "Konfirmasi Durasi Lembur\n(实际加班时数)"),
-            ("O3", "Jam Istirahat (Jika ada, gunakan V)\n(实际休息或用餐打V)"),
-            ("P3", "Tanda Tangan Karyawan\n(员工签名)"),
+            ("E3", "Alasan Lembur\n(申請加班事由)"),
+            ("F3", "Jenis Lembur\n(加班類别)"),
+            ("G3", "Jam Lembur (Waktu)\n(預計加班\n起止時間)"),
+            ("H3", "Durasi Lembur\n(預計加班時數)"),
+            (
+                "I3",
+                "Jam istirahat saat lembur (jika perlu, gunakan V)\n(預計休息或用餐打V)",
+            ),
+            ("J3", "Tanda Tangan Karyawan\n(員工簽名)"),
+            ("K3", "Tanda Tangan Supervisor\n(課級主管簽名)"),
+            ("M3", "Konfirmasi Jam Lembur (Waktu)\n(實際加班\n起止時間)"),
+            ("N3", "Konfirmasi Durasi Lembur\n(實際加班時數)"),
+            ("O3", "Jam Istirahat (Jika ada, gunakan V)\n(實際休息或用餐打V)"),
+            ("P3", "Tanda Tangan Karyawan\n(員工簽名)"),
         ]
 
-        thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+        thin_border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin"),
+        )
         header_style = Alignment(horizontal="center", vertical="center", wrap_text=True)
         header_font = Font(name="Arial", size=11)
 
@@ -521,7 +605,9 @@ class ExcelGenerator:
                 ws[cell].border = thin_border
                 ws[cell].font = Font(name="Arial", size=11)
                 if col in "ABCD":
-                    ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                    ws[cell].alignment = Alignment(
+                        horizontal="center", vertical="center"
+                    )
                 else:
                     ws[cell].alignment = Alignment(vertical="center")
             ws[f"A{row}"] = row - 3
@@ -529,16 +615,22 @@ class ExcelGenerator:
         current_row = 4
         for item in monthly_data or []:
             ws[f"B{current_row}"] = item.get("request_date")
-            ws[f"B{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"B{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"C{current_row}"] = item.get("employee_id")
-            ws[f"C{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"C{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"D{current_row}"] = item.get("employee_name")
             ws[f"D{current_row}"].alignment = Alignment(vertical="center")
 
             ws[f"E{current_row}"] = item.get("reason")
-            ws[f"E{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"E{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             if item.get("is_holiday", False):
                 overtime_type = "Holiday"
@@ -548,25 +640,39 @@ class ExcelGenerator:
                 overtime_type = "Weekday"
 
             ws[f"F{current_row}"] = overtime_type
-            ws[f"F{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"F{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"G{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-            ws[f"G{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"G{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"H{current_row}"] = f"{item.get('total_hours')} hour(s)"
-            ws[f"H{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"H{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"I{current_row}"] = "V" if item.get("has_break") else "-"
-            ws[f"I{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"I{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"M{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-            ws[f"M{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"M{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"N{current_row}"] = f"{item.get('total_hours')} hour(s)"
-            ws[f"N{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"N{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             ws[f"O{current_row}"] = "V" if item.get("has_break") else "-"
-            ws[f"O{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+            ws[f"O{current_row}"].alignment = Alignment(
+                horizontal="center", vertical="center"
+            )
 
             current_row += 1
 
@@ -579,9 +685,18 @@ class ExcelGenerator:
         ws[f"A{footer_row}"].font = Font(name="Arial", size=12)
 
         notes = [
-            (f"A{notes_start_row}:P{notes_start_row}", "1、Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan\n(以上资料请据实申报，违者按奖惩管理办法处理)。"),
-            (f"A{notes_start_row + 1}:P{notes_start_row + 1}", "2、Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (实际加班时数，以员工签名确认为准)。"),
-            (f"A{notes_start_row + 2}:P{notes_start_row + 2}", "3、Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (无加班申请单不计发加班费)。"),
+            (
+                f"A{notes_start_row}:P{notes_start_row}",
+                "1. Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan (以上資料請據實申報，違者按獎懲管理辦法處理)。",
+            ),
+            (
+                f"A{notes_start_row + 1}:P{notes_start_row + 1}",
+                "2. Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (實際加班時數，以員工簽名確認為準)。",
+            ),
+            (
+                f"A{notes_start_row + 2}:P{notes_start_row + 2}",
+                "3. Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (無加班申請單不計發加班費)。",
+            ),
         ]
 
         for cells, text in notes:
@@ -591,13 +706,15 @@ class ExcelGenerator:
             ws[anchor].font = Font(name="Arial", size=12)
             ws[anchor].alignment = Alignment(vertical="center", wrap_text=True)
 
-        ws[f"O{form_number_row}"] = "Form No.:PTB-TB004-001 Rev.01"
+        ws[f"O{form_number_row}"] = "Form No.:PH2-TB004-001 Rev.02(CI)"
         ws[f"O{form_number_row}"].font = Font(name="Arial", size=10)
 
         return wb
 
     @classmethod
-    def create_monthly_ot_summary(cls, monthly_data, period_start, period_end, dept_code=None, dept_name=None):
+    def create_monthly_ot_summary(
+        cls, monthly_data, period_start, period_end, dept_code=None, dept_name=None
+    ):
         # Use provided dept info or fallback to defaults (not used in summary but kept for consistency)
         dept_code = dept_code or cls.DEFAULT_DEPT_CODE
         dept_name = dept_name or cls.DEFAULT_DEPT_NAME
@@ -605,16 +722,17 @@ class ExcelGenerator:
         wb = Workbook()
         ws = wb.active
 
+        # Column widths for ~{YYYY_MM_DD-YYYY_MM_DD}OTSummary.xlsx monthly summary format (A-I) - adjust as needed for actual summary content
         columns = {
-            "A": 11.5,
-            "B": 12.0,
-            "C": 15.0,
-            "D": 9.75,
-            "E": 9.75,
-            "F": 9.75,
-            "G": 6.0,
-            "H": 25.0,
-            "I": 25.0,
+            "A": 11.75,     # Work ID
+            "B": 13.75,     # Overtime Type
+            "C": 18.25,     # Overtime Start Date
+            "D": 9.75,      # Start Time
+            "E": 9.75,      # End Time
+            "F": 9.75,      # Break
+            "G": 6.0,       # Hours
+            "H": 25.0,      # Reason
+            "I": 25.0,      # Detail
         }
         for col, width in columns.items():
             ws.column_dimensions[col].width = width
@@ -662,7 +780,9 @@ class ExcelGenerator:
                 ws[cell].font = Font(name="Arial", size=11)
                 ws[cell].alignment = Alignment(vertical="center")
                 if col in "ABCDEFG":
-                    ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                    ws[cell].alignment = Alignment(
+                        horizontal="center", vertical="center"
+                    )
 
             current_row += 1
 
@@ -687,26 +807,28 @@ class ExcelGenerator:
 
         # Create a sheet for each department
         for dept_code, dept_info in sorted(data_by_department.items()):
-            ws = wb.create_sheet(title=dept_code[:31])  # Excel sheet name limit is 31 chars
+            ws = wb.create_sheet(
+                title=dept_code[:31]
+            )  # Excel sheet name limit is 31 chars
             data = dept_info["data"]
             dept_name = dept_info["dept_name"]
 
-            # Set column widths
+            # Column widths for ~{YYYY_MM_DD}OT_{DEPT_CODE}.xlsx daily form format (A-N) - adjust as needed for actual form content
             columns = {
-                "A": 4.14,
-                "B": 13.43,
-                "C": 21.14,
-                "D": 22.29,
-                "E": 17.14,
-                "F": 14.43,
-                "G": 15.14,
-                "H": 13.57,
-                "I": 15.71,
-                "J": 1.00,
-                "K": 17.14,
-                "L": 14.43,
-                "M": 15.43,
-                "N": 18.57,
+                "A": 6.25,      # No
+                "B": 13.43,     # No Karyawan
+                "C": 21.14,     # Nama
+                "D": 22.29,     # Alasan Lembur
+                "E": 18.25,     # Jam Lembur (Waktu)
+                "F": 14.43,     # Durasi Lembur
+                "G": 15.14,     # Jam istirahat saat lembur
+                "H": 13.57,     # Tanda Tangan Karyawan
+                "I": 15.71,     # Tanda Tangan Supervisor
+                "J": 1.00,      # (empty column for spacing)
+                "K": 17.14,     # Konfirmasi Jam Lembur (Waktu)
+                "L": 14.43,     # Konfirmasi Durasi Lembur
+                "M": 15.43,     # Jam Istirahat (Jika ada, gunakan V)
+                "N": 16.57,     # Tanda Tangan Karyawan
             }
             for col, width in columns.items():
                 ws.column_dimensions[col].width = width
@@ -717,38 +839,44 @@ class ExcelGenerator:
 
             # Title and department header
             ws.merge_cells("A1:N1")
-            ws["A1"] = "Form Lembur (加 班 申 请 单)"
+            ws["A1"] = "Form Lembur (加 班 申 請 單)"
             ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
             ws["A1"].font = Font(name="Arial", size=20)
 
             ws.merge_cells("A2:C2")
-            ws["A2"] = f"Departemen\n(部门代码)：\n{dept_code}\n{dept_name}"
+            ws["A2"] = f"Departemen\n(部門代碼)：\n{dept_code}\n{dept_name}"
             ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
             ws["A2"].font = Font(name="Arial", size=11)
 
-            ws["D2"] = "Klasifikasi Karyawan\n(人员分类):"
-            ws["D2"].alignment = Alignment(vertical="center", horizontal="right", wrap_text=True)
-            ws["E2"] = "☐ Band0(1-2職等)\n☑ Band1(3-5職等)"
+            ws["D2"] = "Klasifikasi Karyawan\n(人員分類):"
+            ws["D2"].alignment = Alignment(
+                vertical="center", horizontal="right", wrap_text=True
+            )
+            ws["E2"] = "☐ Level0(11-12職等)\n☑ Level1(13-23職等)"
             ws["E2"].alignment = Alignment(vertical="center", wrap_text=True)
 
-            ch_date = f"{date_info.year} 年 {date_info.month:02d} 月 {date_info.day:02d} 日"
+            ch_date = (
+                f"{date_info.year} 年 {date_info.month:02d} 月 {date_info.day:02d} 日"
+            )
             weekday = calendar.day_name[date_info.weekday()].upper()
             ws.merge_cells("F2:H2")
-            ws["F2"] = f"Tanggal Lembur （加班日期）：\n                           {ch_date}\nHari （星期）: {weekday}"
+            ws["F2"] = (
+                f"Tanggal Lembur （加班日期）：\n                           {ch_date}\nHari （星期）: {weekday}"
+            )
             ws["F2"].alignment = Alignment(vertical="center", wrap_text=True)
 
-            overtime_type = "Jenis Lembur （加班类别） :\n"
+            overtime_type = "Jenis Lembur （加班類别） :\n"
             if data and len(data) > 0:
                 first_request = data[0]
                 is_weekend = first_request.get("is_weekend", False)
                 is_holiday = first_request.get("is_holiday", False)
 
                 if is_holiday:
-                    overtime_type += "☐ Saat Hari Kerja (工作日延长加班)\n☐ Saat Hari Libur (休息日加班)\n☑ Saat Tanggal Merah (法定假日加班)"
+                    overtime_type += "☐ Saat Hari Kerja (工作日延長加班)\n☐ Saat Hari Libur (休息日加班)\n☑ Saat Tanggal Merah (法定假日加班)"
                 elif is_weekend:
-                    overtime_type += "☐ Saat Hari Kerja (工作日延长加班)\n☑ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
+                    overtime_type += "☐ Saat Hari Kerja (工作日延長加班)\n☑ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
                 else:
-                    overtime_type += "☑ Saat Hari Kerja (工作日延长加班)\n☐ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
+                    overtime_type += "☑ Saat Hari Kerja (工作日延長加班)\n☐ Saat Hari Libur (休息日加班)\n☐ Saat Tanggal Merah (法定假日加班)"
 
             ws.merge_cells("I2:N2")
             ws["I2"] = overtime_type
@@ -756,23 +884,33 @@ class ExcelGenerator:
 
             # Headers
             headers = [
-                ("A3", "No"),
-                ("B3", "No Karyawan\n(工号)"),
+                ("A3", "No\n(序號)"),
+                ("B3", "No Karyawan\n(工號)"),
                 ("C3", "Nama\n(姓名)"),
-                ("D3", "Alasan Lembur\n(申请加班事由)"),
-                ("E3", "Jam Lembur (Waktu)\n(预计加班\n起止时间)"),
-                ("F3", "Durasi Lembur\n(预计加班时数)"),
-                ("G3", "Jam istirahat saat lembur (jika perlu, gunakan V)\n(预计休息或用餐打V)"),
-                ("H3", "Tanda Tangan Karyawan\n(员工签名)"),
-                ("I3", "Tanda Tangan Supervisor\n(课级主管签名)"),
-                ("K3", "Konfirmasi Jam Lembur (Waktu)\n(实际加班\n起止时间)"),
-                ("L3", "Konfirmasi Durasi Lembur\n(实际加班时数)"),
-                ("M3", "Jam Istirahat (Jika ada, gunakan V)\n(实际休息或用餐打V)"),
-                ("N3", "Tanda Tangan Karyawan\n(员工签名)"),
+                ("D3", "Alasan Lembur\n(申請加班事由)"),
+                ("E3", "Jam Lembur (Waktu)\n(預計加班\n起止時間)"),
+                ("F3", "Durasi Lembur\n(預計加班時數)"),
+                (
+                    "G3",
+                    "Jam istirahat saat lembur (jika perlu, gunakan V)\n(預計休息或用餐打V)",
+                ),
+                ("H3", "Tanda Tangan Karyawan\n(員工簽名)"),
+                ("I3", "Tanda Tangan Supervisor\n(課級主管簽名)"),
+                ("K3", "Konfirmasi Jam Lembur (Waktu)\n(實際加班\n起止時間)"),
+                ("L3", "Konfirmasi Durasi Lembur\n(實際加班時數)"),
+                ("M3", "Jam Istirahat (Jika ada, gunakan V)\n(實際休息或用餐打V)"),
+                ("N3", "Tanda Tangan Karyawan\n(員工簽名)"),
             ]
 
-            thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-            header_style = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            thin_border = Border(
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+            )
+            header_style = Alignment(
+                horizontal="center", vertical="center", wrap_text=True
+            )
             header_font = Font(name="Arial", size=11)
 
             for cell, text in headers:
@@ -788,7 +926,12 @@ class ExcelGenerator:
                     ws[cell] = ""
                     ws[cell].border = thin_border
                     ws[cell].font = Font(name="Arial", size=11)
-                    ws[cell].alignment = Alignment(vertical="center")
+                    if col in "ABC":
+                        ws[cell].alignment = Alignment(
+                            horizontal="center", vertical="center"
+                        )
+                    else:
+                        ws[cell].alignment = Alignment(vertical="center")
                 ws[f"A{row}"] = row - 3
 
             # Fill data
@@ -797,24 +940,42 @@ class ExcelGenerator:
                 ws[f"B{current_row}"] = item.get("employee_id")
                 ws[f"C{current_row}"] = item.get("employee_name")
                 ws[f"D{current_row}"] = item.get("reason")
-                ws[f"D{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
-                ws[f"E{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-                ws[f"E{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"D{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
+                ws[f"E{current_row}"] = (
+                    f"{item.get('time_start')} - {item.get('time_end')}"
+                )
+                ws[f"E{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
                 ws[f"F{current_row}"] = f"{item.get('total_hours')} hour(s)"
-                ws[f"F{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"F{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Show 'V' if employee takes break time (original format)
                 ws[f"G{current_row}"] = "V" if item.get("has_break") else "-"
-                ws[f"G{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"G{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
-                ws[f"K{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-                ws[f"K{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"K{current_row}"] = (
+                    f"{item.get('time_start')} - {item.get('time_end')}"
+                )
+                ws[f"K{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
                 ws[f"L{current_row}"] = f"{item.get('total_hours')} hour(s)"
-                ws[f"L{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"L{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Show 'V' if employee takes break time (original format)
                 ws[f"M{current_row}"] = "V" if item.get("has_break") else "-"
-                ws[f"M{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"M{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 current_row += 1
 
@@ -824,9 +985,18 @@ class ExcelGenerator:
             ws["A34"].font = Font(name="Arial", size=12)
 
             notes = [
-                ("A35:N35", "1、Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan\n(以上资料请据实申报，违者按奖惩管理办法处理)。"),
-                ("A36:N36", "2、Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (实际加班时数，以员工签名确认为准)。"),
-                ("A37:N37", "3、Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (无加班申请单不计发加班费)。"),
+                (
+                    "A35:N35",
+                    "1. Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan (以上資料請據實申報，違者按獎懲管理辦法處理)。",
+                ),
+                (
+                    "A36:N36",
+                    "2. Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (實際加班時數，以員工簽名確認為準)。",
+                ),
+                (
+                    "A37:N37",
+                    "3. Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (無加班申請單不計發加班費)。",
+                ),
             ]
 
             for cells, text in notes:
@@ -836,7 +1006,7 @@ class ExcelGenerator:
                 ws[anchor].font = Font(name="Arial", size=12)
                 ws[anchor].alignment = Alignment(vertical="center", wrap_text=True)
 
-            ws["M38"] = "Form No.:PTB-TB004-001 Rev.01"
+            ws["M38"] = "Form No.:PH2-TB004-001 Rev.02(CI)"
             ws["M38"].font = Font(name="Arial", size=10)
 
         return wb
@@ -855,16 +1025,16 @@ class ExcelGenerator:
             ws = wb.create_sheet(title=dept_code[:31])
             data = dept_info["data"]
 
-            # Original column widths
+            # Column widths for {YYYYMMDD}OTSummary.xlsx form format file (A-H) - adjust as needed for actual summary content
             columns = {
-                "A": 11.5,  # Work ID
-                "B": 12.0,  # Overtime Type
-                "C": 15.0,  # Overtime Start Date
-                "D": 9.75,  # Start Time
-                "E": 9.75,  # End Time
-                "F": 9.75,  # Break
-                "G": 6.0,  # Hours
-                "H": 25.0,  # Reason
+                "A": 11.75,     # Work ID
+                "B": 13.75,     # Overtime Type
+                "C": 18.25,     # Overtime Start Date
+                "D": 9.75,      # Start Time
+                "E": 9.75,      # End Time
+                "F": 9.75,      # Break
+                "G": 6.0,       # Hours
+                "H": 25.0,      # Reason
             }
             for col, width in columns.items():
                 ws.column_dimensions[col].width = width
@@ -915,14 +1085,18 @@ class ExcelGenerator:
                     ws[cell].font = Font(name="Arial", size=11)
                     ws[cell].alignment = Alignment(vertical="center")
                     if col in "ABCDEFG":
-                        ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                        ws[cell].alignment = Alignment(
+                            horizontal="center", vertical="center"
+                        )
 
                 current_row += 1
 
         return wb
 
     @classmethod
-    def create_monthly_ot_form_multi_sheet(cls, data_by_department, period_start, period_end):
+    def create_monthly_ot_form_multi_sheet(
+        cls, data_by_department, period_start, period_end
+    ):
         """Create monthly OT form workbook with one sheet per department (original format).
 
         Expects grouped data from export_monthly_data_by_department.
@@ -936,24 +1110,24 @@ class ExcelGenerator:
             data = dept_info["data"]
             dept_name = dept_info["dept_name"]
 
-            # Column widths setup (original format)
+            # Column widths for ~{YYYY_MM_DD-YYYY_MM_DD}OT.xlsx monthly form format (A-P) - adjust as needed for actual form content
             columns = {
-                "A": 4.14,
-                "B": 13.88,
-                "C": 13.93,
-                "D": 21.14,
-                "E": 22.29,
-                "F": 15.22,
-                "G": 16.55,
-                "H": 14.55,
-                "I": 15.14,
-                "J": 13.57,
-                "K": 15.71,
-                "L": 1.00,
-                "M": 16.55,
-                "N": 14.55,
-                "O": 15.43,
-                "P": 18.57,
+                "A": 6.25,      # No
+                "B": 13.88,     # No Karyawan
+                "C": 13.93,     # Nama
+                "D": 21.14,     # Alasan Lembur
+                "E": 22.29,     # Jam Lembur (Waktu)
+                "F": 15.22,     # Durasi Lembur
+                "G": 16.55,     # Jam istirahat saat lembur
+                "H": 14.55,     # Tanda Tangan Karyawan
+                "I": 15.14,     # Tanda Tangan Supervisor
+                "J": 13.57,     # (empty column for spacing)
+                "K": 15.71,     # Konfirmasi Jam Lembur (Waktu)
+                "L": 1.00,      # Konfirmasi Durasi Lembur
+                "M": 16.55,     # Jam Istirahat (Jika ada, gunakan V)
+                "N": 14.55,     # Tanda Tangan Karyawan
+                "O": 15.43,     # (empty column for spacing)
+                "P": 18.57,     # (empty column for spacing)
             }
             for col, width in columns.items():
                 ws.column_dimensions[col].width = width
@@ -964,27 +1138,31 @@ class ExcelGenerator:
 
             # Title
             ws.merge_cells("A1:P1")
-            ws["A1"] = "Form Lembur Bulanan (月度加班申请单)"
+            ws["A1"] = "Form Lembur Bulanan (月度加班申請單)"
             ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
             ws["A1"].font = Font(name="Arial", size=20, bold=True)
 
             # Department info
             ws.merge_cells("A2:C2")
-            ws["A2"] = f"Departemen\n(部门代码)：\n{dept_code}\n{dept_name}"
+            ws["A2"] = f"Departemen\n(部門代碼)：\n{dept_code}\n{dept_name}"
             ws["A2"].alignment = Alignment(vertical="center", wrap_text=True)
             ws["A2"].font = Font(name="Arial", size=11)
 
             # Employee classification
-            ws["D2"] = "Klasifikasi Karyawan\n(人员分类):"
-            ws["D2"].alignment = Alignment(vertical="center", horizontal="right", wrap_text=True)
-            ws["E2"] = "☐ Band0(1-2職等)\n☑ Band1(3-5職等)"
+            ws["D2"] = "Klasifikasi Karyawan\n(人員分類):"
+            ws["D2"].alignment = Alignment(
+                vertical="center", horizontal="right", wrap_text=True
+            )
+            ws["E2"] = "☐ Level0(11-12職等)\n☑ Level1(13-23職等)"
             ws["E2"].alignment = Alignment(vertical="center", wrap_text=True)
 
             # Period information
             period_str = f"{period_start.strftime('%Y-%m-%d')} ~ {period_end.strftime('%Y-%m-%d')}"
             ws.merge_cells("F2:H2")
             ws["F2"] = f"Periode Lembur (加班期间):\n{period_str}"
-            ws["F2"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            ws["F2"].alignment = Alignment(
+                horizontal="center", vertical="center", wrap_text=True
+            )
 
             # Empty right section
             ws.merge_cells("I2:P2")
@@ -992,25 +1170,35 @@ class ExcelGenerator:
 
             # Column headers (original format)
             headers = [
-                ("A3", "No"),
+                ("A3", "No\n(序號)"),
                 ("B3", "Tanggal Lembur\n(加班日期)"),
-                ("C3", "No Karyawan\n(工号)"),
+                ("C3", "No Karyawan\n(工號)"),
                 ("D3", "Nama\n(姓名)"),
-                ("E3", "Alasan Lembur\n(申请加班事由)"),
-                ("F3", "Jenis Lembur\n(加班类别)"),
-                ("G3", "Jam Lembur (Waktu)\n(预计加班\n起止时间)"),
-                ("H3", "Durasi Lembur\n(预计加班时数)"),
-                ("I3", "Jam istirahat saat lembur (jika perlu, gunakan V)\n(预计休息或用餐打V)"),
-                ("J3", "Tanda Tangan Karyawan\n(员工签名)"),
-                ("K3", "Tanda Tangan Supervisor\n(课级主管签名)"),
-                ("M3", "Konfirmasi Jam Lembur (Waktu)\n(实际加班\n起止时间)"),
-                ("N3", "Konfirmasi Durasi Lembur\n(实际加班时数)"),
-                ("O3", "Jam Istirahat (Jika ada, gunakan V)\n(实际休息或用餐打V)"),
-                ("P3", "Tanda Tangan Karyawan\n(员工签名)"),
+                ("E3", "Alasan Lembur\n(申請加班事由)"),
+                ("F3", "Jenis Lembur\n(加班類别)"),
+                ("G3", "Jam Lembur (Waktu)\n(預計加班\n起止時間)"),
+                ("H3", "Durasi Lembur\n(預計加班時數)"),
+                (
+                    "I3",
+                    "Jam istirahat saat lembur (jika perlu, gunakan V)\n(預計休息或用餐打V)",
+                ),
+                ("J3", "Tanda Tangan Karyawan\n(員工簽名)"),
+                ("K3", "Tanda Tangan Supervisor\n(課級主管簽名)"),
+                ("M3", "Konfirmasi Jam Lembur (Waktu)\n(實際加班\n起止時間)"),
+                ("N3", "Konfirmasi Durasi Lembur\n(實際加班時數)"),
+                ("O3", "Jam Istirahat (Jika ada, gunakan V)\n(實際休息或用餐打V)"),
+                ("P3", "Tanda Tangan Karyawan\n(員工簽名)"),
             ]
 
-            thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
-            header_style = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            thin_border = Border(
+                left=Side(style="thin"),
+                right=Side(style="thin"),
+                top=Side(style="thin"),
+                bottom=Side(style="thin"),
+            )
+            header_style = Alignment(
+                horizontal="center", vertical="center", wrap_text=True
+            )
             header_font = Font(name="Arial", size=11)
 
             for cell, text in headers:
@@ -1032,7 +1220,9 @@ class ExcelGenerator:
                     ws[cell].border = thin_border
                     ws[cell].font = Font(name="Arial", size=11)
                     if col in "ABCD":
-                        ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                        ws[cell].alignment = Alignment(
+                            horizontal="center", vertical="center"
+                        )
                     else:
                         ws[cell].alignment = Alignment(vertical="center")
                 ws[f"A{row}"] = row - 3
@@ -1041,16 +1231,22 @@ class ExcelGenerator:
             current_row = 4
             for item in data or []:
                 ws[f"B{current_row}"] = item.get("request_date")
-                ws[f"B{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"B{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 ws[f"C{current_row}"] = item.get("employee_id")
-                ws[f"C{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"C{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 ws[f"D{current_row}"] = item.get("employee_name")
                 ws[f"D{current_row}"].alignment = Alignment(vertical="center")
 
                 ws[f"E{current_row}"] = item.get("reason")
-                ws[f"E{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"E{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Overtime type based on weekend/holiday status
                 if item.get("is_holiday", False):
@@ -1061,28 +1257,46 @@ class ExcelGenerator:
                     overtime_type = "Weekday"
 
                 ws[f"F{current_row}"] = overtime_type
-                ws[f"F{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"F{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
-                ws[f"G{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-                ws[f"G{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"G{current_row}"] = (
+                    f"{item.get('time_start')} - {item.get('time_end')}"
+                )
+                ws[f"G{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 ws[f"H{current_row}"] = f"{item.get('total_hours')} hour(s)"
-                ws[f"H{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"H{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Show 'V' if employee takes break time (original format)
                 ws[f"I{current_row}"] = "V" if item.get("has_break") else "-"
-                ws[f"I{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"I{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Actual time, duration and break status
-                ws[f"M{current_row}"] = f"{item.get('time_start')} - {item.get('time_end')}"
-                ws[f"M{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"M{current_row}"] = (
+                    f"{item.get('time_start')} - {item.get('time_end')}"
+                )
+                ws[f"M{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 ws[f"N{current_row}"] = f"{item.get('total_hours')} hour(s)"
-                ws[f"N{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"N{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 # Show 'V' if employee takes break time (original format)
                 ws[f"O{current_row}"] = "V" if item.get("has_break") else "-"
-                ws[f"O{current_row}"].alignment = Alignment(horizontal="center", vertical="center")
+                ws[f"O{current_row}"].alignment = Alignment(
+                    horizontal="center", vertical="center"
+                )
 
                 current_row += 1
 
@@ -1096,9 +1310,18 @@ class ExcelGenerator:
             ws[f"A{footer_row}"].font = Font(name="Arial", size=12)
 
             notes = [
-                (f"A{notes_start_row}:P{notes_start_row}", "1、Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan\n(以上资料请据实申报，违者按奖惩管理办法处理)。"),
-                (f"A{notes_start_row + 1}:P{notes_start_row + 1}", "2、Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (实际加班时数，以员工签名确认为准)。"),
-                (f"A{notes_start_row + 2}:P{notes_start_row + 2}", "3、Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (无加班申请单不计发加班费)。"),
+                (
+                    f"A{notes_start_row}:P{notes_start_row}",
+                    "1. Informasi diatas harus dilaporkan dengan benar, pelanggaran akan dikenakan sesuai dengan hukuman yang ada dari managemen perusahaan (以上資料請據實申報，違者按獎懲管理辦法處理)。",
+                ),
+                (
+                    f"A{notes_start_row + 1}:P{notes_start_row + 1}",
+                    "2. Karyawan harus menandatangani aplikasi lembur. Jika tidak ada tanda tangan maka akan di anggap tidak sah (實際加班時數，以員工簽名確認為準)。",
+                ),
+                (
+                    f"A{notes_start_row + 2}:P{notes_start_row + 2}",
+                    "3. Tidak ada aplikasi lembur tidak akan di hitung untuk upah lembur (無加班申請單不計發加班費)。",
+                ),
             ]
 
             for cells, text in notes:
@@ -1108,13 +1331,15 @@ class ExcelGenerator:
                 ws[anchor].font = Font(name="Arial", size=12)
                 ws[anchor].alignment = Alignment(vertical="center", wrap_text=True)
 
-            ws[f"O{form_number_row}"] = "Form No.:PTB-TB004-001 Rev.01"
+            ws[f"O{form_number_row}"] = "Form No.:PH2-TB004-001 Rev.02(CI)"
             ws[f"O{form_number_row}"].font = Font(name="Arial", size=10)
 
         return wb
 
     @classmethod
-    def create_monthly_ot_summary_multi_sheet(cls, data_by_department, period_start, period_end):
+    def create_monthly_ot_summary_multi_sheet(
+        cls, data_by_department, period_start, period_end
+    ):
         """Create monthly OT summary workbook with one sheet per department.
 
         Expects grouped data from export_monthly_data_by_department.
@@ -1127,7 +1352,18 @@ class ExcelGenerator:
             ws = wb.create_sheet(title=dept_code[:31])
             data = dept_info["data"]
 
-            columns = {"A": 11.5, "B": 12.0, "C": 15.0, "D": 9.75, "E": 9.75, "F": 9.75, "G": 6.0, "H": 25.0, "I": 25.0}
+            # Column widths for ~{YYYY_MM_DD-YYYY_MM_DD}OTSummary.xlsx monthly summary format (A-I) - adjust as needed for actual summary content
+            columns = {
+                "A": 11.75,     # Work ID
+                "B": 13.0,      # Overtime Type
+                "C": 15.0,      # Overtime Start Date
+                "D": 9.75,      # Start Time
+                "E": 9.75,      # End Time
+                "F": 9.75,      # Meal/Rest
+                "G": 6.0,       # Hours
+                "H": 25.0,      # Reason
+                "I": 25.0,      # Detail
+            }
             for col, width in columns.items():
                 ws.column_dimensions[col].width = width
 
@@ -1174,24 +1410,53 @@ class ExcelGenerator:
                     ws[cell].font = Font(name="Arial", size=11)
                     ws[cell].alignment = Alignment(vertical="center")
                     if col in "ABCDEFG":
-                        ws[cell].alignment = Alignment(horizontal="center", vertical="center")
+                        ws[cell].alignment = Alignment(
+                            horizontal="center", vertical="center"
+                        )
 
                 current_row += 1
 
         return wb
 
     @classmethod
-    def generate_excel_files(cls, data, date_obj, upload: bool = True, dept_code=None, dept_name=None):
-        local_paths = cls.generate_all_excel_files(data, None, date_obj, upload=upload, dept_code=dept_code, dept_name=dept_name)
+    def generate_excel_files(
+        cls, data, date_obj, upload: bool = True, dept_code=None, dept_name=None
+    ):
+        local_paths = cls.generate_all_excel_files(
+            data,
+            None,
+            date_obj,
+            upload=upload,
+            dept_code=dept_code,
+            dept_name=dept_name,
+        )
         return local_paths.get("daily_form"), local_paths.get("daily_summary")
 
     @classmethod
-    def generate_monthly_excel_files(cls, monthly_data, date_obj, upload: bool = True, dept_code=None, dept_name=None):
-        local_paths = cls.generate_all_excel_files(None, monthly_data, date_obj, upload=upload, dept_code=dept_code, dept_name=dept_name)
+    def generate_monthly_excel_files(
+        cls, monthly_data, date_obj, upload: bool = True, dept_code=None, dept_name=None
+    ):
+        local_paths = cls.generate_all_excel_files(
+            None,
+            monthly_data,
+            date_obj,
+            upload=upload,
+            dept_code=dept_code,
+            dept_name=dept_name,
+        )
         return local_paths.get("monthly_form"), local_paths.get("monthly_summary")
 
     @classmethod
-    def generate_all_excel_files(cls, daily_data, monthly_data, date_obj, upload: bool = True, temp_only: bool = False, dept_code=None, dept_name=None):
+    def generate_all_excel_files(
+        cls,
+        daily_data,
+        monthly_data,
+        date_obj,
+        upload: bool = True,
+        temp_only: bool = False,
+        dept_code=None,
+        dept_name=None,
+    ):
         """Generate Excel files with multi-department sheet support and auto-detection.
 
         Accepts grouped inputs (preferred) or single-department data; ungrouped payloads are wrapped
@@ -1221,21 +1486,37 @@ class ExcelGenerator:
 
         if daily_data:
             # Check if this is already grouped by department
-            if daily_data and isinstance(daily_data, dict) and "data" not in daily_data and dept_code is None:
+            if (
+                daily_data
+                and isinstance(daily_data, dict)
+                and "data" not in daily_data
+                and dept_code is None
+            ):
                 # It's grouped by department
                 data_by_dept = daily_data
             else:
                 # Single department or ungrouped - wrap it
                 data_by_dept = {
-                    dept_code or cls.DEFAULT_DEPT_CODE: {
+                    dept_code
+                    or cls.DEFAULT_DEPT_CODE: {
                         "dept_code": dept_code or cls.DEFAULT_DEPT_CODE,
                         "dept_name": dept_name or cls.DEFAULT_DEPT_NAME,
-                        "data": daily_data if isinstance(daily_data, list) else (daily_data.get("data") if isinstance(daily_data, dict) else []),
+                        "data": (
+                            daily_data
+                            if isinstance(daily_data, list)
+                            else (
+                                daily_data.get("data")
+                                if isinstance(daily_data, dict)
+                                else []
+                            )
+                        ),
                     }
                 }
 
             daily_form_path = os.path.join(local_period_path, f"{date_str}OT.xlsx")
-            daily_summary_path = os.path.join(local_period_path, f"{date_str}OTSummary.xlsx")
+            daily_summary_path = os.path.join(
+                local_period_path, f"{date_str}OTSummary.xlsx"
+            )
 
             wb_form = cls.create_ot_form_multi_sheet(data_by_dept, date_obj)
             wb_summary = cls.create_ot_summary_multi_sheet(data_by_dept, date_obj)
@@ -1247,37 +1528,68 @@ class ExcelGenerator:
             local_paths["daily_summary"] = daily_summary_path
 
             if remote_period_path:
-                files_to_upload.append((daily_form_path, f"{remote_period_path}/{date_str}OT.xlsx"))
-                files_to_upload.append((daily_summary_path, f"{remote_period_path}/{date_str}OTSummary.xlsx"))
+                files_to_upload.append(
+                    (daily_form_path, f"{remote_period_path}/{date_str}OT.xlsx")
+                )
+                files_to_upload.append(
+                    (
+                        daily_summary_path,
+                        f"{remote_period_path}/{date_str}OTSummary.xlsx",
+                    )
+                )
 
         if monthly_data:
             # Check if this is already grouped by department
-            if monthly_data and isinstance(monthly_data, dict) and "data" not in monthly_data and dept_code is None:
+            if (
+                monthly_data
+                and isinstance(monthly_data, dict)
+                and "data" not in monthly_data
+                and dept_code is None
+            ):
                 # It's grouped by department
                 data_by_dept = monthly_data
             else:
                 # Single department or ungrouped - wrap it
                 data_by_dept = {
-                    dept_code or cls.DEFAULT_DEPT_CODE: {
+                    dept_code
+                    or cls.DEFAULT_DEPT_CODE: {
                         "dept_code": dept_code or cls.DEFAULT_DEPT_CODE,
                         "dept_name": dept_name or cls.DEFAULT_DEPT_NAME,
-                        "data": monthly_data if isinstance(monthly_data, list) else (monthly_data.get("data") if isinstance(monthly_data, dict) else []),
+                        "data": (
+                            monthly_data
+                            if isinstance(monthly_data, list)
+                            else (
+                                monthly_data.get("data")
+                                if isinstance(monthly_data, dict)
+                                else []
+                            )
+                        ),
                     }
                 }
 
             current_period_start = date_obj.replace(day=26)
             if date_obj.day < 26:
-                current_period_start = (date_obj.replace(day=1) - timedelta(days=1)).replace(day=26)
-            next_period_end = (current_period_start + timedelta(days=32)).replace(day=25)
+                current_period_start = (
+                    date_obj.replace(day=1) - timedelta(days=1)
+                ).replace(day=26)
+            next_period_end = (current_period_start + timedelta(days=32)).replace(
+                day=25
+            )
 
             monthly_filename = f"~{current_period_start.strftime('%Y_%m_%d')}-{next_period_end.strftime('%Y_%m_%d')}OT.xlsx"
             monthly_summary_filename = f"~{current_period_start.strftime('%Y_%m_%d')}-{next_period_end.strftime('%Y_%m_%d')}OTSummary.xlsx"
 
             monthly_form_path = os.path.join(local_period_path, monthly_filename)
-            monthly_summary_path = os.path.join(local_period_path, monthly_summary_filename)
+            monthly_summary_path = os.path.join(
+                local_period_path, monthly_summary_filename
+            )
 
-            wb_monthly_form = cls.create_monthly_ot_form_multi_sheet(data_by_dept, current_period_start, next_period_end)
-            wb_monthly_summary = cls.create_monthly_ot_summary_multi_sheet(data_by_dept, current_period_start, next_period_end)
+            wb_monthly_form = cls.create_monthly_ot_form_multi_sheet(
+                data_by_dept, current_period_start, next_period_end
+            )
+            wb_monthly_summary = cls.create_monthly_ot_summary_multi_sheet(
+                data_by_dept, current_period_start, next_period_end
+            )
 
             wb_monthly_form.save(monthly_form_path)
             wb_monthly_summary.save(monthly_summary_path)
@@ -1286,8 +1598,15 @@ class ExcelGenerator:
             local_paths["monthly_summary"] = monthly_summary_path
 
             if remote_period_path:
-                files_to_upload.append((monthly_form_path, f"{remote_period_path}/{monthly_filename}"))
-                files_to_upload.append((monthly_summary_path, f"{remote_period_path}/{monthly_summary_filename}"))
+                files_to_upload.append(
+                    (monthly_form_path, f"{remote_period_path}/{monthly_filename}")
+                )
+                files_to_upload.append(
+                    (
+                        monthly_summary_path,
+                        f"{remote_period_path}/{monthly_summary_filename}",
+                    )
+                )
 
         if upload and files_to_upload and cls._smb_configured():
             conn = cls.get_smb_connection()
@@ -1296,7 +1615,9 @@ class ExcelGenerator:
                     cls.ensure_folder_exists(remote_period_path, conn)
                     for local_path, remote_path in files_to_upload:
                         with open(local_path, "rb") as file_obj:
-                            conn.storeFile(cls.SMB_CONFIG["share_name"], remote_path, file_obj)
+                            conn.storeFile(
+                                cls.SMB_CONFIG["share_name"], remote_path, file_obj
+                            )
                 finally:
                     conn.close()
 
@@ -1337,7 +1658,9 @@ class ExcelGenerator:
                 except Exception as exc:
                     print(f"Error deleting local file {path}: {exc}")
 
-        remote_candidates = [path for path in files_to_delete if path and not os.path.exists(path)]
+        remote_candidates = [
+            path for path in files_to_delete if path and not os.path.exists(path)
+        ]
         if not remote_candidates or not cls._smb_configured():
             return
 

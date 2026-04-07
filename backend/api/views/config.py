@@ -254,12 +254,14 @@ class UserActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         # Filter by user if specified
         user_id = self.request.query_params.get("user_id")
         if user_id:
-            queryset = queryset.filter(user_id=user_id)
+            parts = [v.strip() for v in user_id.split(",") if v.strip()]
+            queryset = queryset.filter(user_id__in=parts)
 
         # Filter by action if specified
         action = self.request.query_params.get("action")
         if action:
-            queryset = queryset.filter(action=action)
+            parts = [v.strip() for v in action.split(",") if v.strip()]
+            queryset = queryset.filter(action__in=parts)
 
         # Filter by resource if specified
         resource = self.request.query_params.get("resource")
@@ -509,15 +511,18 @@ class UserReportViewSet(viewsets.ModelViewSet):
             # Super admin sees all
             report_type = self.request.query_params.get("report_type")
             if report_type:
-                qs = qs.filter(report_type=report_type)
+                parts = [v.strip() for v in report_type.split(",") if v.strip()]
+                qs = qs.filter(report_type__in=parts)
 
             report_status = self.request.query_params.get("status")
             if report_status:
-                qs = qs.filter(status=report_status)
+                parts = [v.strip() for v in report_status.split(",") if v.strip()]
+                qs = qs.filter(status__in=parts)
 
             priority = self.request.query_params.get("priority")
             if priority:
-                qs = qs.filter(priority=priority)
+                parts = [v.strip() for v in priority.split(",") if v.strip()]
+                qs = qs.filter(priority__in=parts)
         else:
             # Regular users see only their own reports
             qs = qs.filter(reporter=user)

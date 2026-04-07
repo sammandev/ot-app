@@ -61,111 +61,11 @@
             <input v-model="draftSearch" type="text" :placeholder="t('documents.searchPlaceholder')"
               class="h-11 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-cyan-300 focus:outline-hidden focus:ring-3 focus:ring-cyan-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
 
-            <details class="group relative">
-              <summary
-                class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-cyan-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
-                <span class="truncate">{{ categoryFilterLabel }}</span>
-                <ChevronDownIcon class="h-4 w-4 text-gray-400 transition group-open:rotate-180" />
-              </summary>
-              <div class="absolute left-0 top-full z-30 mt-2 w-full min-w-[18rem] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                    <FunnelIcon class="h-3.5 w-3.5" />
-                    {{ t('documents.categoryLabel') }}
-                  </div>
-                  <button type="button" class="text-xs font-medium text-cyan-700 transition hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
-                    @click.prevent="clearCategorySelection">
-                    {{ t('documents.clearFilter') }}
-                  </button>
-                </div>
-                <div v-if="availableCategories.length === 0" class="rounded-xl bg-gray-50 px-3 py-4 text-sm text-gray-500 dark:bg-gray-950 dark:text-gray-400">
-                  {{ t('documents.noCategoryOptions') }}
-                </div>
-                <div v-else class="max-h-64 space-y-1 overflow-auto pr-1">
-                  <label v-for="category in availableCategories" :key="category"
-                    class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
-                    <input type="checkbox" :checked="selectedCategories.includes(category)"
-                      class="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                      @change="toggleCategorySelection(category)" />
-                    <span class="min-w-0 flex-1 truncate">{{ category }}</span>
-                    <CheckIcon v-if="selectedCategories.includes(category)" class="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-                  </label>
-                </div>
-              </div>
-            </details>
+            <FilterDropdown v-model="selectedCategories" :options="categoryOptions" :placeholder="t('documents.allCategories')" />
 
-            <details class="group relative">
-              <summary
-                class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-cyan-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
-                <span class="truncate">{{ tagFilterLabel }}</span>
-                <ChevronDownIcon class="h-4 w-4 text-gray-400 transition group-open:rotate-180" />
-              </summary>
-              <div class="absolute left-0 top-full z-30 mt-2 w-full min-w-[18rem] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                    <FunnelIcon class="h-3.5 w-3.5" />
-                    {{ t('documents.tagsLabel') }}
-                  </div>
-                  <button type="button" class="text-xs font-medium text-cyan-700 transition hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
-                    @click.prevent="clearTagSelection">
-                    {{ t('documents.clearFilter') }}
-                  </button>
-                </div>
-                <div v-if="availableTags.length === 0" class="rounded-xl bg-gray-50 px-3 py-4 text-sm text-gray-500 dark:bg-gray-950 dark:text-gray-400">
-                  {{ t('documents.noTagOptions') }}
-                </div>
-                <div v-else class="max-h-64 space-y-1 overflow-auto pr-1">
-                  <label v-for="tag in availableTags" :key="tag"
-                    class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
-                    <input type="checkbox" :checked="selectedTags.includes(tag)"
-                      class="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500"
-                      @change="toggleTagSelection(tag)" />
-                    <span class="min-w-0 flex-1 truncate">{{ tag }}</span>
-                    <CheckIcon v-if="selectedTags.includes(tag)" class="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-                  </label>
-                </div>
-              </div>
-            </details>
+            <FilterDropdown v-model="selectedTags" :options="tagOptions" :placeholder="t('documents.allTags')" />
 
-            <details class="group relative">
-              <summary
-                class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-800 shadow-theme-xs transition hover:bg-gray-50 focus:outline-hidden focus:ring-3 focus:ring-cyan-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:hover:bg-white/5">
-                <span class="truncate">{{ sourceFilterLabel }}</span>
-                <ChevronDownIcon class="h-4 w-4 text-gray-400 transition group-open:rotate-180" />
-              </summary>
-              <div class="absolute left-0 top-full z-30 mt-2 w-full min-w-[18rem] rounded-2xl border border-gray-200 bg-white p-3 shadow-2xl dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
-                    <FunnelIcon class="h-3.5 w-3.5" />
-                    {{ t('documents.sourceType') }}
-                  </div>
-                  <button type="button" class="text-xs font-medium text-cyan-700 transition hover:text-cyan-800 dark:text-cyan-300 dark:hover:text-cyan-200"
-                    @click.prevent="sourceTypeFilter = ''">
-                    {{ t('documents.clearFilter') }}
-                  </button>
-                </div>
-                <div class="space-y-1">
-                  <button type="button"
-                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
-                    @click="sourceTypeFilter = ''">
-                    <span class="min-w-0 flex-1 truncate">{{ t('documents.sourceAll') }}</span>
-                    <CheckIcon v-if="sourceTypeFilter === ''" class="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-                  </button>
-                  <button type="button"
-                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
-                    @click="sourceTypeFilter = 'file'">
-                    <span class="min-w-0 flex-1 truncate">{{ t('documents.sourceFiles') }}</span>
-                    <CheckIcon v-if="sourceTypeFilter === 'file'" class="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-                  </button>
-                  <button type="button"
-                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5"
-                    @click="sourceTypeFilter = 'link'">
-                    <span class="min-w-0 flex-1 truncate">{{ t('documents.sourceLinks') }}</span>
-                    <CheckIcon v-if="sourceTypeFilter === 'link'" class="h-4 w-4 text-cyan-600 dark:text-cyan-300" />
-                  </button>
-                </div>
-              </div>
-            </details>
+            <FilterDropdown v-model="sourceTypeFilter" :options="sourceTypeOptions" :placeholder="t('documents.sourceAll')" :searchable="false" />
             <label for="documents-pinned-only-filter" class="inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700 shadow-theme-xs dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
               <input id="documents-pinned-only-filter" v-model="pinnedOnly" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-cyan-600 focus:ring-cyan-500" />
               {{ t('documents.pinnedOnly') }}
@@ -782,6 +682,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { useToast } from '@/composables/useToast'
 import { usePagePermission } from '@/composables/usePagePermission'
 import {
@@ -870,7 +771,7 @@ const selectedTags = ref<string[]>([])
 const searchQuery = ref('')
 const categoryFilter = ref<string[]>([])
 const tagFilter = ref<string[]>([])
-const sourceTypeFilter = ref<DocumentSourceType | ''>('')
+const sourceTypeFilter = ref<string[]>([])
 const pinnedOnly = ref(false)
 const sortField = ref<'title' | 'source_type'>('title')
 const sortDirection = ref<'asc' | 'desc'>('asc')
@@ -899,13 +800,16 @@ const fileCount = computed(() => documents.value.filter((item) => item.source_ty
 const linkCount = computed(() => documents.value.filter((item) => item.source_type === 'link').length)
 const rangeStart = computed(() => (totalCount.value === 0 ? 0 : (currentPage.value - 1) * pageSize.value + 1))
 const rangeEnd = computed(() => Math.min(currentPage.value * pageSize.value, totalCount.value))
-const categoryFilterLabel = computed(() => buildFilterLabel(selectedCategories.value, t('documents.allCategories')))
-const tagFilterLabel = computed(() => buildFilterLabel(selectedTags.value, t('documents.allTags')))
-const sourceFilterLabel = computed(() => {
-  if (sourceTypeFilter.value === 'file') return t('documents.sourceFiles')
-  if (sourceTypeFilter.value === 'link') return t('documents.sourceLinks')
-  return t('documents.sourceAll')
-})
+const categoryOptions = computed(() =>
+  availableCategories.value.map((cat: string) => ({ value: cat, label: cat })),
+)
+const tagOptions = computed(() =>
+  availableTags.value.map((tag: string) => ({ value: tag, label: tag })),
+)
+const sourceTypeOptions = computed(() => [
+  { value: 'file', label: t('documents.sourceFiles') },
+  { value: 'link', label: t('documents.sourceLinks') },
+])
 const isAllCurrentPageSelected = computed(() =>
   documents.value.length > 0 && documents.value.every((item) => selectedIds.value.includes(item.id)),
 )
@@ -1220,7 +1124,7 @@ async function loadDocuments() {
       search: searchQuery.value || undefined,
       categories: categoryFilter.value.length ? categoryFilter.value : undefined,
       tags: tagFilter.value.length ? tagFilter.value : undefined,
-      source_type: sourceTypeFilter.value || undefined,
+      source_type: sourceTypeFilter.value.length ? sourceTypeFilter.value.join(',') : undefined,
       pinned: pinnedOnly.value ? true : undefined,
       ordering: buildOrderingValue(),
     })
@@ -1580,7 +1484,7 @@ function resetFilters() {
   searchQuery.value = ''
   categoryFilter.value = []
   tagFilter.value = []
-  sourceTypeFilter.value = ''
+  sourceTypeFilter.value = []
   pinnedOnly.value = false
   currentPage.value = 1
   void loadDocuments()

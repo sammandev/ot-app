@@ -7,7 +7,7 @@ def get_period_boundaries(date: _dt.date) -> tuple[_dt.date, _dt.date]:
     """Return the (start, end) of the 26th-to-25th OT period containing *date*.
 
     The OT pay period runs from the 26th of one month to the 25th of the next.
-    For example, a date of 2025-01-10 falls into the period 2024-12-26 → 2025-01-25.
+    For example, a date of 2025-01-10 falls into the period 2024-12-26 -> 2025-01-25.
     """
     if date.day >= 26:
         period_start = date.replace(day=26)

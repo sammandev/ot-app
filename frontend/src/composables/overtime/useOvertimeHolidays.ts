@@ -8,7 +8,7 @@ export function useOvertimeHolidays(flatpickrInstances: Ref<FlatpickrInstance[]>
 	/** O(1) lookup set for holiday dates (YYYY-MM-DD strings) */
 	const holidayDateSet = computed(() => new Set(holidays.value.map((h) => h.date)))
 
-	/** Map of holiday date → title for tooltip */
+	/** Map of holiday date -> title for tooltip */
 	const holidayTitleMap = computed(() => {
 		const map = new Map<string, string>()
 		for (const h of holidays.value) {

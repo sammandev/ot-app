@@ -4,7 +4,7 @@
         'rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50 shadow-sm dark:border-blue-900/50 dark:from-blue-900/20 dark:to-blue-800/10 transition-shadow duration-300',
         isCollapsed ? 'p-3' : 'p-5'
     ]">
-        <div class="flex items-start justify-between gap-4">
+        <div class="flex items-start justify-between gap-4 cursor-pointer" @click="toggleCollapse">
             <div class="flex-1">
                 <div :class="['flex flex-wrap items-center gap-3', isCollapsed ? 'mb-0' : 'mb-4']">
                     <div class="flex items-center gap-2">
@@ -17,7 +17,7 @@
                         <strong class="text-base font-semibold text-blue-900 dark:text-blue-100">{{ t('otForm.regulations.title') }}</strong>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button @click="openModal"
+                        <button @click.stop="openModal"
                             class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 hover:shadow dark:bg-blue-600 dark:hover:bg-blue-500">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -53,7 +53,7 @@
                 </div>
             </div>
             <div class="flex flex-shrink-0 gap-1">
-                <button @click="toggleCollapse"
+                <button @click.stop="toggleCollapse"
                     class="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-200/50 dark:text-blue-400 dark:hover:bg-blue-800/30"
                     :title="isCollapsed ? t('otForm.regulations.expand') : t('otForm.regulations.collapse')">
                     <svg class="h-5 w-5 transition-transform duration-300" :class="{ 'rotate-180': isCollapsed }"
@@ -61,7 +61,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
-                <button @click="hideInfoCard"
+                <button @click.stop="hideInfoCard"
                     class="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-200/50 dark:text-blue-400 dark:hover:bg-blue-800/30"
                     :title="t('otForm.regulations.dismiss')">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -444,7 +444,8 @@ class AssetViewSet(viewsets.ModelViewSet):
         # Filter by department
         department_id = self.request.query_params.get("department")
         if department_id:
-            queryset = queryset.filter(department_id=department_id)
+            ids = [v.strip() for v in department_id.split(",") if v.strip()]
+            queryset = queryset.filter(department_id__in=ids)
 
         # Filter by cost center
         cost_center = self.request.query_params.get("cost_center")
@@ -454,7 +455,8 @@ class AssetViewSet(viewsets.ModelViewSet):
         # Filter by status
         status_filter = self.request.query_params.get("status")
         if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            parts = [v.strip() for v in status_filter.split(",") if v.strip()]
+            queryset = queryset.filter(status__in=parts)
 
         return queryset
 

@@ -33,32 +33,11 @@
                 </div>
             </div>
 
-            <!-- Filters -->
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <select v-model="reportFilters.report_type" @change="loadReports"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                        <option value="">All Types</option>
-                        <option value="bug">Bug Reports</option>
-                        <option value="feature">Feature Requests</option>
-                    </select>
-                    <select v-model="reportFilters.status" @change="loadReports"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                        <option value="">All Statuses</option>
-                        <option value="open">Open</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="resolved">Resolved</option>
-                        <option value="closed">Closed</option>
-                        <option value="wont_fix">Won't Fix</option>
-                    </select>
-                    <select v-model="reportFilters.priority" @change="loadReports"
-                        class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                        <option value="">All Priorities</option>
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
-                    </select>
+                    <FilterDropdown v-model="reportFilters.report_type" :options="reportTypeOptions" placeholder="All Types" :searchable="false" />
+                    <FilterDropdown v-model="reportFilters.status" :options="statusOptions" placeholder="All Statuses" :searchable="false" />
+                    <FilterDropdown v-model="reportFilters.priority" :options="priorityOptions" placeholder="All Priorities" :searchable="false" />
                 </div>
             </div>
 
@@ -162,8 +141,9 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import FilterDropdown from '@/components/ui/FilterDropdown.vue'
 import { type UserReportData, userReportAPI } from '@/services/api/user-report'
 
 const route = useRoute()
@@ -177,18 +157,38 @@ const reportStats = ref<{
 	by_type: Record<string, number>
 } | null>(null)
 const reportFilters = reactive({
-	report_type: '',
-	status: '',
-	priority: '',
+	report_type: [] as string[],
+	status: [] as string[],
+	priority: [] as string[],
 })
+
+const reportTypeOptions = computed(() => [
+	{ value: 'bug', label: 'Bug Reports' },
+	{ value: 'feature', label: 'Feature Requests' },
+])
+
+const statusOptions = computed(() => [
+	{ value: 'open', label: 'Open' },
+	{ value: 'in_progress', label: 'In Progress' },
+	{ value: 'resolved', label: 'Resolved' },
+	{ value: 'closed', label: 'Closed' },
+	{ value: 'wont_fix', label: "Won't Fix" },
+])
+
+const priorityOptions = computed(() => [
+	{ value: 'low', label: 'Low' },
+	{ value: 'medium', label: 'Medium' },
+	{ value: 'high', label: 'High' },
+	{ value: 'critical', label: 'Critical' },
+])
 
 const loadReports = async () => {
 	reportsLoading.value = true
 	try {
 		const params: Record<string, string> = {}
-		if (reportFilters.report_type) params.report_type = reportFilters.report_type
-		if (reportFilters.status) params.status = reportFilters.status
-		if (reportFilters.priority) params.priority = reportFilters.priority
+		if (reportFilters.report_type.length > 0) params.report_type = reportFilters.report_type.join(',')
+		if (reportFilters.status.length > 0) params.status = reportFilters.status.join(',')
+		if (reportFilters.priority.length > 0) params.priority = reportFilters.priority.join(',')
 		const data = await userReportAPI.list(params)
 		reports.value = data.results || (data as unknown as UserReportData[])
 		await nextTick()
@@ -212,6 +212,11 @@ const focusTargetReport = () => {
 	const element = document.getElementById(`report-${reportId}`)
 	element?.scrollIntoView({ block: 'center', behavior: 'smooth' })
 }
+
+watch(
+	[() => reportFilters.report_type, () => reportFilters.status, () => reportFilters.priority],
+	() => loadReports(),
+)
 
 const loadReportStats = async () => {
 	try {

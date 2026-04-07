@@ -978,6 +978,8 @@ export default {
 		topEmployees: 'Karyawan Teratas',
 		overtimeHoursByEmployee: 'Jam lembur per karyawan',
 		totalEmployees: 'Total Karyawan',
+		allEmployees: 'Semua Karyawan',
+		allProjects: 'Semua Proyek',
 	},
 
 	// ─── Task Board / Kanban ──────────────────────────────
@@ -1266,9 +1268,9 @@ export default {
 		importPurchaseRequests: 'Impor Permintaan Pembelian',
 		importDescription:
 			'Unggah file CSV atau Excel. Untuk file Excel dengan beberapa lembar, sistem mengenali:',
-		importSheetPending: 'List of Purchase → Status Menunggu',
-		importSheetDone: 'Done → Status Selesai',
-		importSheetCancel: 'Cancel Purchase → Status Dibatalkan',
+		importSheetPending: 'List of Purchase -> Status Menunggu',
+		importSheetDone: 'Done -> Status Selesai',
+		importSheetCancel: 'Cancel Purchase -> Status Dibatalkan',
 		clickToSelectFile: 'Klik untuk memilih file',
 		supportsFormats: 'Mendukung CSV, XLSX, XLS',
 		selectedFile: 'Dipilih:',

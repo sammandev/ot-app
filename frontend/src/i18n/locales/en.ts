@@ -976,6 +976,8 @@ export default {
 		topEmployees: 'Top Employees',
 		overtimeHoursByEmployee: 'Overtime hours by employee',
 		totalEmployees: 'Total Employees',
+		allEmployees: 'All Employees',
+		allProjects: 'All Projects',
 	},
 
 	// ─── Task Board / Kanban ──────────────────────────────
@@ -1289,9 +1291,9 @@ export default {
 		importPurchaseRequests: 'Import Purchase Requests',
 		importDescription:
 			'Upload a CSV or Excel file. For Excel files with multiple sheets, the system recognizes:',
-		importSheetPending: 'List of Purchase → Pending status',
-		importSheetDone: 'Done → Done status',
-		importSheetCancel: 'Cancel Purchase → Canceled status',
+		importSheetPending: 'List of Purchase -> Pending status',
+		importSheetDone: 'Done -> Done status',
+		importSheetCancel: 'Cancel Purchase -> Canceled status',
 		clickToSelectFile: 'Click to select file',
 		supportsFormats: 'Supports CSV, XLSX, XLS',
 		selectedFile: 'Selected:',

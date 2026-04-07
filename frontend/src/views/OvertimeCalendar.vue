@@ -9,12 +9,9 @@
 					<p class="text-sm text-gray-500 dark:text-gray-400">{{ t('pages.calendar.subtitle') }}</p>
 				</div>
 				<div class="flex flex-wrap items-center gap-2 sm:justify-end">
-					<select v-model="selectedTheme"
-						class="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-theme-xs hover:bg-gray-50 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-						<option v-for="theme in themeOptions" :key="theme.value" :value="theme.value">
-							{{ theme.label }}
-						</option>
-					</select>
+					<div class="w-40">
+						<SelectDropdown v-model="selectedTheme" :options="themeOptions" placeholder="Theme" :searchable="false" />
+					</div>
 					<button v-if="canCreate" type="button"
 						class="h-10 rounded-lg border border-brand-300 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 focus:outline-hidden focus:ring-3 focus:ring-brand-500/20 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-200"
 						@click="openCreateEvent">
@@ -87,6 +84,7 @@ const loadThemeCSS = (theme: string) => {
 
 import CalendarEventForm from '@/components/calendar/CalendarEventForm.vue'
 import AdminLayout from '@/components/layout/AdminLayout.vue'
+import SelectDropdown from '@/components/ui/SelectDropdown.vue'
 import { useCalendarHandlers } from '@/composables/calendar/useCalendarHandlers'
 import { useCalendarOptions } from '@/composables/calendar/useCalendarOptions'
 import { useToast } from '@/composables/useToast'
@@ -131,7 +129,7 @@ const loadThemeFromStorage = (): 'breezy' | 'forma' | 'pulse' => {
 	return 'breezy'
 }
 
-const selectedTheme = ref<'breezy' | 'forma' | 'pulse'>(loadThemeFromStorage())
+const selectedTheme = ref<string>(loadThemeFromStorage())
 
 const themeMap = {
 	breezy: breezyTheme,
@@ -314,7 +312,7 @@ const baseOptions = useCalendarOptions(allCalendarEvents, handleViewChange)
 // Add theme plugin to options
 const optionsWithTheme = computed(() => ({
 	...baseOptions.value,
-	plugins: [...(baseOptions.value.plugins || []), themeMap[selectedTheme.value]],
+	plugins: [...(baseOptions.value.plugins || []), themeMap[selectedTheme.value as keyof typeof themeMap]],
 }))
 
 const calendarOptions = computed(

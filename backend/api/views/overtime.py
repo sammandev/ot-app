@@ -149,12 +149,14 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(request_date__range=[start_date, end_date])
         if employee:
             try:
-                queryset = queryset.filter(employee=int(employee))
+                ids = [int(v.strip()) for v in employee.split(",") if v.strip()]
+                queryset = queryset.filter(employee__id__in=ids)
             except (ValueError, TypeError):
                 return queryset.none()
         if project:
             try:
-                queryset = queryset.filter(project=int(project))
+                ids = [int(v.strip()) for v in project.split(",") if v.strip()]
+                queryset = queryset.filter(project__id__in=ids)
             except (ValueError, TypeError):
                 return queryset.none()
         if date:
@@ -165,9 +167,11 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
         department_code = self.request.query_params.get("department_code")
 
         if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            parts = [v.strip() for v in status_filter.split(",") if v.strip()]
+            queryset = queryset.filter(status__in=parts)
         if department_code:
-            queryset = queryset.filter(department_code=department_code)
+            parts = [v.strip() for v in department_code.split(",") if v.strip()]
+            queryset = queryset.filter(department_code__in=parts)
 
         return queryset
 
@@ -589,7 +593,7 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
                 # Use 'sum_total_hours' to avoid shadowing the 'total_hours' model field.
                 # Case/When expressions reference the DB column "total_hours" by name;
                 # if an aggregate annotation has the same name, Django resolves to the
-                # aggregate → FieldError: "'total_hours' is an aggregate".
+                # aggregate -> FieldError: "'total_hours' is an aggregate".
                 data = qs.aggregate(
                     sum_total_hours=Sum("total_hours"),
                     total_requests=Count("id"),
@@ -626,6 +630,21 @@ class OvertimeRequestViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.error("summary_stats error: %s", e, exc_info=True)
             return Response({"detail": "Failed to compute summary stats. Please try again."}, status=500)
+
+    @action(detail=False, methods=["get"])
+    def available_years(self, request):
+        """Return sorted list of distinct years that have overtime request data."""
+        try:
+            queryset = self._get_permission_queryset()
+            years = sorted(
+                queryset.values_list("request_date__year", flat=True)
+                .distinct()
+                .order_by("request_date__year")
+            )
+            return Response(years)
+        except Exception as e:
+            logger.error("available_years error: %s", e, exc_info=True)
+            return Response([], status=200)
 
 
 class OvertimeRegulationViewSet(viewsets.ModelViewSet):

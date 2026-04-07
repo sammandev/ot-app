@@ -110,8 +110,8 @@ export const overtimeAPI = {
 		params?: {
 			page?: number
 			page_size?: number
-			employee?: number
-			project?: number
+			employee?: number | string
+			project?: number | string
 			status?: string
 			start_date?: string
 			end_date?: string
@@ -169,8 +169,8 @@ export const overtimeAPI = {
 	},
 
 	async export(params?: {
-		employee?: number
-		project?: number
+		employee?: number | string
+		project?: number | string
 		start_date?: string
 		end_date?: string
 		format?: 'csv' | 'excel'
@@ -183,8 +183,8 @@ export const overtimeAPI = {
 	},
 
 	async summary(params?: {
-		employee?: number
-		project?: number
+		employee?: number | string
+		project?: number | string
 		start_date?: string
 		end_date?: string
 		group_by?: 'employee' | 'project' | 'date'
@@ -208,7 +208,7 @@ export const overtimeAPI = {
 		start_date?: string
 		end_date?: string
 		status?: string
-		employee?: number
+		employee?: number | string
 	}) {
 		const response = await apiClient.get<
 			Array<{
@@ -230,7 +230,7 @@ export const overtimeAPI = {
 		start_date?: string
 		end_date?: string
 		status?: string
-		project?: number
+		project?: number | string
 	}) {
 		const response = await apiClient.get<
 			Array<{
@@ -274,6 +274,11 @@ export const overtimeAPI = {
 				rejected_hours: string | number | null
 			}
 		}>('/v1/overtime-requests/summary_stats/', { params })
+		return response.data
+	},
+
+	async availableYears(): Promise<number[]> {
+		const response = await apiClient.get<number[]>('/v1/overtime-requests/available_years/')
 		return response.data
 	},
 }

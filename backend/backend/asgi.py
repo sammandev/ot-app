@@ -26,7 +26,7 @@ application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
         # Token-based auth handles WebSocket security; AllowedHostsOriginValidator
-        # removed because cross-origin connections (frontend:3333 → backend:8008)
+        # removed because cross-origin connections (frontend:3333 -> backend:8008)
         # are rejected even when the hostname matches ALLOWED_HOSTS.
         "websocket": TokenAuthMiddlewareStack(AuthMiddlewareStack(URLRouter(websocket_urlpatterns))),
     }
